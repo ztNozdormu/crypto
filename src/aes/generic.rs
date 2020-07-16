@@ -20,6 +20,10 @@
 // AES-192         6                       4                           12 
 // AES-256         8                       4                           14 
 // 
+// 
+// The Rijndael Animation
+// http://www.formaestudio.com/rijndaelinspector/
+// 
 
 #[cfg(test)]
 use hex;

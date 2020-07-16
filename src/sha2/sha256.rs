@@ -8,6 +8,10 @@ use byteorder::{BE, ByteOrder};
 
 use std::convert::TryFrom;
 
+// #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::sha2::shani::sha256_transform_shani;
+
 
 pub const BLOCK_LEN: usize  = 64;
 pub const DIGEST_LEN: usize = 32;
@@ -60,8 +64,9 @@ macro_rules! SIG1 {
     )
 }
 
+
 #[inline]
-pub fn transform(state: &mut [u32; 8], block: &[u8]) {
+pub fn sha256_transform_generic(state: &mut [u32; 8], block: &[u8]) {
     debug_assert_eq!(state.len(), 8);
     debug_assert_eq!(block.len(), BLOCK_LEN);
     
@@ -114,6 +119,19 @@ pub fn transform(state: &mut [u32; 8], block: &[u8]) {
     state[7] = state[7].wrapping_add(h);
 }
 
+#[inline]
+pub fn sha256_transform(state: &mut [u32; 8], block: &[u8]) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    if is_x86_feature_detected!("sha") {
+        sha256_transform_shani(state, block);
+    } else {
+        sha256_transform_generic(state, block);
+    }
+
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    sha256_transform_generic(state, block);
+}
+
 #[derive(Clone)]
 pub struct Sha256 {
     buffer: [u8; 64],
@@ -147,7 +165,7 @@ impl Sha256 {
             if self.len % BLOCK_LEN != 0 {
                 return ();
             } else {
-                transform(&mut self.state, &self.buffer);
+                sha256_transform(&mut self.state, &self.buffer);
 
                 let data = &data[i..];
                 if data.len() > 0 {
@@ -160,12 +178,12 @@ impl Sha256 {
             self.buffer[..data.len()].copy_from_slice(data);
             self.len += data.len();
         } else if data.len() == 64 {
-            transform(&mut self.state, data);
+            sha256_transform(&mut self.state, data);
             self.len += 64;
         } else if data.len() > 64 {
             let blocks = data.len() / 64;
             for i in 0..blocks {
-                transform(&mut self.state, &data[i*64..i*64+64]);
+                sha256_transform(&mut self.state, &data[i*64..i*64+64]);
                 self.len += 64;
             }
             let data = &data[blocks*64..];
@@ -185,7 +203,7 @@ impl Sha256 {
             let mut block = [0u8; 64];
             block[0] = 0x80;
             block[56..].copy_from_slice(&len_bits.to_be_bytes());
-            transform(&mut self.state, &block);
+            sha256_transform(&mut self.state, &block);
         } else {
             self.buffer[n] = 0x80;
             for i in n+1..64 {
@@ -193,12 +211,12 @@ impl Sha256 {
             }
             if 64 - n - 1 >= 8 {
                 self.buffer[56..].copy_from_slice(&len_bits.to_be_bytes());
-                transform(&mut self.state, &self.buffer);
+                sha256_transform(&mut self.state, &self.buffer);
             } else {
-                transform(&mut self.state, &self.buffer);
+                sha256_transform(&mut self.state, &self.buffer);
                 let mut block = [0u8; 64];
                 block[56..].copy_from_slice(&len_bits.to_be_bytes());
-                transform(&mut self.state, &block);
+                sha256_transform(&mut self.state, &block);
             }
         }
     }
@@ -267,7 +285,7 @@ fn test_sha256_transform_block() {
     let mut state = INITIAL_STATE;
     let data = [0u8; 64];
 
-    transform(&mut state, &data);
+    sha256_transform(&mut state, &data);
     assert_eq!(state, [3663108286, 398046313, 1647531929, 2006957770, 2363872401, 3235013187, 3137272298, 406301144]);
 }
 
@@ -281,6 +299,6 @@ fn bench_sha256_sd_64_bytes(b: &mut test::Bencher) {
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut state = INITIAL_STATE;
-        transform(&mut state, &data[..]);
+        sha256_transform(&mut state, &data[..]);
     });
 }
