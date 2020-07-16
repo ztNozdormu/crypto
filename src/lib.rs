@@ -16,6 +16,9 @@ extern crate byteorder;
 // extern crate ed25519_dalek;
 // extern crate num_bigint;
 
+#[cfg(test)]
+extern crate hex;
+
 
 pub mod hash;
 pub mod md5;
