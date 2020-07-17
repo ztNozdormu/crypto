@@ -301,6 +301,7 @@ fn bench_sha256_transform_generic(b: &mut test::Bencher) {
     b.iter(|| {
         let mut state = INITIAL_STATE;
         sha256_transform_generic(&mut state, &data[..]);
+        state
     });
 }
 
@@ -313,5 +314,6 @@ fn bench_sha256_transform_shani(b: &mut test::Bencher) {
     b.iter(|| {
         let mut state = INITIAL_STATE;
         sha256_transform_shani(&mut state, &data[..]);
+        state
     });
 }
