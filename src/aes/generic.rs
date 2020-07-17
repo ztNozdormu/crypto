@@ -619,6 +619,26 @@ fn bench_aes128_enc(b: &mut test::Bencher) {
     b.iter(|| {
         let mut state: [u8; 16] = [1u8; 16];
         encrypt(&mut state, &expanded_key, AES128_NR);
+        state
+    })
+}
+#[cfg(test)]
+#[bench]
+fn bench_aes128_dec(b: &mut test::Bencher) {
+    let input = hex::decode("00112233445566778899aabbccddeeff").unwrap();
+    let key   = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+
+    let mut expanded_key = [0u8; (AES128_NR + 1) * AES_BLOCK_LEN ];
+    key_expansion(&key, &mut expanded_key);
+    
+    let mut state: [u8; 16] = [1u8; 16];
+    encrypt(&mut state, &expanded_key, AES128_NR);
+    
+    b.bytes = AES_BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut state = state.clone();
+        decrypt(&mut state, &expanded_key, AES128_NR);
+        state
     })
 }
 
