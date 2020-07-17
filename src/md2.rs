@@ -88,6 +88,20 @@ pub fn md2<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
     output
 }
 
+
+#[cfg(test)]
+#[bench]
+fn bench_md2_transform(b: &mut test::Bencher) {
+    let data = [0u8; 16];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let mut state    = [0u8; 48];
+        let mut checksum = [0u8; 16];
+        transform(&mut state, &mut checksum, &data);
+        state
+    });
+}
+
 #[test]
 fn test_md2() {
     // A.5 Test suite

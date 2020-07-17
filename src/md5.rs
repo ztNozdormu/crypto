@@ -462,11 +462,12 @@ fn test_md5_long_message() {
 
 #[cfg(test)]
 #[bench]
-fn bench_md5_sd_64_bytes(b: &mut test::Bencher) {
+fn bench_md5_transform(b: &mut test::Bencher) {
     let data = [0u8; 64];
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut state = INITIAL_STATE;
         transform(&mut state, &data[..]);
+        state
     });
 }

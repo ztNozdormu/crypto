@@ -219,6 +219,7 @@ pub fn sha1<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
     Sha1::oneshot(data)
 }
 
+
 #[test]
 fn test_sha1_one_block_message() {
     let msg = b"abc";
