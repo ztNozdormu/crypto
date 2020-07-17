@@ -220,6 +220,18 @@ pub fn sha1<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
 }
 
 
+#[cfg(test)]
+#[bench]
+fn bench_sha1_transform(b: &mut test::Bencher) {
+    let data = [0u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let mut state = INITIAL_STATE;
+        transform(&mut state, &data[..]);
+        state
+    });
+}
+
 #[test]
 fn test_sha1_one_block_message() {
     let msg = b"abc";
@@ -238,15 +250,4 @@ fn test_sha1_long_message() {
     let msg = vec![b'a'; 1000_000];
     let digest = [52, 170, 151, 60, 212, 196, 218, 164, 246, 30, 235, 43, 219, 173, 39, 49, 101, 52, 1, 111];
     assert_eq!(sha1(&msg), digest);
-}
-
-#[cfg(test)]
-#[bench]
-fn bench_sha1_sd_64_bytes(b: &mut test::Bencher) {
-    let data = [0u8; 64];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = INITIAL_STATE;
-        transform(&mut state, &data[..]);
-    });
 }

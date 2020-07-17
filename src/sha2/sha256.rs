@@ -252,6 +252,35 @@ pub fn sha256<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
 }
 
 
+
+#[cfg(test)]
+#[bench]
+fn bench_sha256_transform_generic(b: &mut test::Bencher) {
+    // test pure::bench_sha256_sd_64_bytes ... bench:         315 ns/iter (+/- 42) = 203 MB/s
+    // test sha2::bench_sha256_sd_64_bytes ... bench:         398 ns/iter (+/- 58) = 160 MB/s
+    // test sha2::bench_sha256_sd_64_bytes ... bench:         363 ns/iter (+/- 53) = 176 MB/s
+    let data = [0u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let mut state = INITIAL_STATE;
+        sha256_transform_generic(&mut state, &data[..]);
+        state
+    });
+}
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
+#[cfg(test)]
+#[bench]
+fn bench_sha256_transform_shani(b: &mut test::Bencher) {
+    let data = [0u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let mut state = INITIAL_STATE;
+        sha256_transform_shani(&mut state, &data[..]);
+        state
+    });
+}
+
 #[test]
 fn test_sha256_one_block_message() {
     let msg = b"abc";
@@ -287,33 +316,4 @@ fn test_sha256_transform_block() {
 
     sha256_transform(&mut state, &data);
     assert_eq!(state, [3663108286, 398046313, 1647531929, 2006957770, 2363872401, 3235013187, 3137272298, 406301144]);
-}
-
-
-#[cfg(test)]
-#[bench]
-fn bench_sha256_transform_generic(b: &mut test::Bencher) {
-    // test pure::bench_sha256_sd_64_bytes     ... bench:         315 ns/iter (+/- 42) = 203 MB/s
-    // test sha2::bench_sha256_sd_64_bytes ... bench:         398 ns/iter (+/- 58) = 160 MB/s
-    // test sha2::bench_sha256_sd_64_bytes ... bench:         363 ns/iter (+/- 53) = 176 MB/s
-    let data = [0u8; 64];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = INITIAL_STATE;
-        sha256_transform_generic(&mut state, &data[..]);
-        state
-    });
-}
-
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
-#[cfg(test)]
-#[bench]
-fn bench_sha256_transform_shani(b: &mut test::Bencher) {
-    let data = [0u8; 64];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = INITIAL_STATE;
-        sha256_transform_shani(&mut state, &data[..]);
-        state
-    });
 }

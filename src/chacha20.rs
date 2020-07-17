@@ -238,6 +238,37 @@ impl Chacha20 {
 }
 
 
+#[cfg(test)]
+#[bench]
+fn bench_chacha20(b: &mut test::Bencher) {
+    let key = [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+    ];
+    let nonce = [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4a, 
+        0x00, 0x00, 0x00, 0x00
+    ];
+    let block_count = 1u32;
+    let plaintext = [1u8; BLOCK_LEN];
+
+    let chacha20 = Chacha20::new(&key, &nonce, block_count);
+
+    b.bytes = BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut chacha20 = chacha20.clone();
+        let mut ciphertext = [0u8; BLOCK_LEN];
+
+        chacha20.update_state();
+        let stream = chacha20.key_stream();
+        for j in 0..BLOCK_LEN {
+            ciphertext[j] = plaintext[j] ^ stream[j];
+        }
+        ciphertext
+    })
+}
 
 #[test]
 fn test_chacha20_qround() {

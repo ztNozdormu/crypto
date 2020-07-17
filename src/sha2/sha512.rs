@@ -343,6 +343,18 @@ pub fn sha384<T: AsRef<[u8]>>(data: T) -> [u8; SHA384_DIGEST_LEN] {
 }
 
 
+#[cfg(test)]
+#[bench]
+fn bench_sha512_transform(b: &mut test::Bencher) {
+    let data = [0u8; 128];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let mut state = SHA512_INITIAL_STATE;
+        transform(&mut state, &data[..]);
+        state
+    });
+}
+
 #[test]
 fn test_sha512_one_block_message() {
     let msg = b"abc";
@@ -409,15 +421,4 @@ fn test_sha384_long_message() {
         179, 220, 56, 236, 196, 235, 174, 151, 221, 216, 127, 61, 137, 133
     ];
     assert_eq!(&(sha384(&msg[..]))[..], &digest[..]);
-}
-
-#[cfg(test)]
-#[bench]
-fn bench_sha512_sd_64_bytes(b: &mut test::Bencher) {
-    let data = [0u8; 128];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = SHA512_INITIAL_STATE;
-        transform(&mut state, &data[..]);
-    });
 }
