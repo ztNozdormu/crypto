@@ -1,17 +1,17 @@
-#[allow(unused_imports)]
-#[macro_use]
-extern crate log;
-extern crate env_logger;
+// #[allow(unused_imports)]
+// #[macro_use]
+// extern crate log;
+// extern crate env_logger;
 extern crate crypto;
 
 use crypto::aes::generic::ExpandedKey128;
 
 
 fn main() {
-    if let Err(_) = std::env::var("RUST_LOG") {
-        std::env::set_var("RUST_LOG", "debug");
-    }
-    env_logger::init();
+    // if let Err(_) = std::env::var("RUST_LOG") {
+    //     std::env::set_var("RUST_LOG", "debug");
+    // }
+    // env_logger::init();
     
     let input = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 

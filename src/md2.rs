@@ -25,29 +25,31 @@ pub const S: [u8; 256] = [
 ];
 
 #[inline]
-pub fn transform(state: &mut [u8; 48], checksum: &mut [u8; 16], block: &[u8]) {
-    debug_assert_eq!(state.len(), 48);
-    debug_assert_eq!(checksum.len(), 16);
+pub fn transform(state_and_checksum: &mut [u8; 64], block: &[u8]) {
+    debug_assert_eq!(state_and_checksum.len(), 64);
     debug_assert_eq!(block.len(), BLOCK_LEN);
-
+    
+    // let state = &mut state_and_checksum[..48];
+    // let checksum = &mut state_and_checksum[48..];
+    
     for j in 0..16 {
-        state[16 + j] = block[j];
-        state[32 + j] = state[16 + j] ^ state[j];
+        state_and_checksum[16 + j] = block[j];
+        state_and_checksum[32 + j] = state_and_checksum[16 + j] ^ state_and_checksum[j];
     }
 
     let mut t = 0u8;
     for j in 0u8..18 {
         for k in 0..48 {
-            state[k] ^= S[t as usize];
-            t = state[k];
+            state_and_checksum[k] ^= S[t as usize];
+            t = state_and_checksum[k];
         }
         t = t.wrapping_add(j);
     }
 
-    t = checksum[15];
+    t = state_and_checksum[48 + 15];
     for j in 0..16 {
-        checksum[j] ^= S[(block[j] ^ t) as usize];
-        t = checksum[j];
+        state_and_checksum[48 + j] ^= S[(block[j] ^ t) as usize];
+        t = state_and_checksum[48 + j];
     }
 }
 
@@ -70,17 +72,18 @@ pub fn md2<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
     let data = data.as_ref();
     let blocks = data.len() / BLOCK_LEN;
 
-    let mut state    = [0u8; 48];
-    let mut checksum = [0u8; 16];
+    let mut state = [0u8; 64];
     for i in 0..blocks {
-        transform(&mut state, &mut checksum, &data[i * BLOCK_LEN..i * BLOCK_LEN + BLOCK_LEN]);
+        transform(&mut state, &data[i * BLOCK_LEN..i * BLOCK_LEN + BLOCK_LEN]);
     }
 
     let data = &data[blocks * BLOCK_LEN..];
     let block = last_block(data);
-    transform(&mut state, &mut checksum, &block);
-    let block = checksum.clone();
-    transform(&mut state, &mut checksum, &block);
+    transform(&mut state, &block);
+
+    let mut block = [0u8; 16];
+    block.copy_from_slice(&state[48..]);
+    transform(&mut state, &block);
 
     let mut output = [0u8; BLOCK_LEN];
     output.copy_from_slice(&state[..BLOCK_LEN]);
@@ -95,9 +98,8 @@ fn bench_md2_transform(b: &mut test::Bencher) {
     let data = [0u8; 16];
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let mut state    = [0u8; 48];
-        let mut checksum = [0u8; 16];
-        transform(&mut state, &mut checksum, &data);
+        let mut state = [0u8; 64];
+        transform(&mut state, &data);
         state
     });
 }
@@ -106,15 +108,6 @@ fn bench_md2_transform(b: &mut test::Bencher) {
 fn test_md2() {
     // A.5 Test suite
     // https://tools.ietf.org/html/rfc1319#appendix-A.5
-    // 
-    // MD2 test suite:
-    // MD2 ("") = 8350e5a3e24c153df2275c9f80692773
-    // MD2 ("a") = 32ec01ec4a6dac72c0ab96fb34c0b5d1
-    // MD2 ("abc") = da853b0d3f88d99b30283a69e6ded6bb
-    // MD2 ("message digest") = ab4f496bfb2a530b219ff33031fe06b0
-    // MD2 ("abcdefghijklmnopqrstuvwxyz") = 4e8ddff3650292ab5a4108c3aa47940b
-    // MD2 ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789") = da33def2a42df13975352846c30338cd
-    // MD2 ("12345678901234567890123456789012345678901234567890123456789012345678901234567890") = d5976f79d83d3a0dc9806c3c66f3efd8
     assert_eq!(&md2(""),
         &hex::decode("8350e5a3e24c153df2275c9f80692773").unwrap()[..]);
     assert_eq!(&md2("a"),

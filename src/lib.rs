@@ -5,9 +5,9 @@
 #[cfg(test)]
 extern crate test;
 
-#[allow(unused_imports)]
-#[macro_use]
-extern crate log;
+// #[allow(unused_imports)]
+// #[macro_use]
+// extern crate log;
 // extern crate rand;
 extern crate subtle;
 extern crate byteorder;
