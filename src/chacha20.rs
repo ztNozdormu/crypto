@@ -8,10 +8,10 @@ pub const KEY_LEN: usize   = 32; // key length in bytes
 pub const BLOCK_LEN: usize = 64; // block length in bytes
 
 // maximum size of the plaintext is 274877906880 bytes, nearly 256 GB.
-pub const P_MAX: usize = u32::MAX as usize * BLOCK_LEN;
+pub const P_MAX: usize = std::u32::MAX as usize * BLOCK_LEN;
 // maximum size of the associated data is set to 2^64-1 octets by the length field for associated data.
 // 18446744073709551615 octets
-pub const A_MAX: u64 = u64::MAX;
+pub const A_MAX: u64   = std::u64::MAX;
 pub const C_MAX: usize = P_MAX + POLY1305_TAG_LEN; // 274877906896 bytes
 
 

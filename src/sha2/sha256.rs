@@ -122,12 +122,13 @@ pub fn sha256_transform_generic(state: &mut [u32; 8], block: &[u8]) {
 #[inline]
 pub fn sha256_transform(state: &mut [u32; 8], block: &[u8]) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("sha") {
-        sha256_transform_shani(state, block);
-    } else {
-        sha256_transform_generic(state, block);
+    {
+        if is_x86_feature_detected!("sha") {
+            sha256_transform_shani(state, block);
+        } else {
+            sha256_transform_generic(state, block);
+        }
     }
-
     #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
     sha256_transform_generic(state, block);
 }

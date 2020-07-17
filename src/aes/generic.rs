@@ -259,14 +259,14 @@ pub const fn sub_byte(x: u8) -> u8 {
 }
 
 #[inline]
-pub const fn rot_word(x: u32) -> u32 {
+pub fn rot_word(x: u32) -> u32 {
     // RotWord([b0, b1, b2, b3]) = [b1, b2, b3, b0]
     let [a, b, c, d] = x.to_le_bytes();
     u32::from_le_bytes([b, c, d, a])
 }
 
 #[inline]
-pub const fn sub_word(x: u32) -> u32 {
+pub fn sub_word(x: u32) -> u32 {
     // SubWord([b0, b1, b2, b3]) = [ SubByte(b0), SubByte(b1), SubByte(b2), SubByte(b3) ]
     let mut bytes = x.to_le_bytes();
     bytes[0] = FORWARD_S_BOX[bytes[0] as usize];
