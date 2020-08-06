@@ -8,16 +8,17 @@ use byteorder::{BE, ByteOrder};
 
 use std::convert::TryFrom;
 
-// #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
 use crate::sha2::shani::sha256_transform_shani;
+#[cfg(all(target_arch = "aarch64", target_feature = "neon", target_feature = "crypto"))]
+use crate::sha2::shani::sha256_transform_neon;
 
 
 pub const BLOCK_LEN: usize  = 64;
 pub const DIGEST_LEN: usize = 32;
 
 // Round constants
-const K32: [u32; 64] = [
+pub const K32: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 
@@ -119,19 +120,22 @@ pub fn sha256_transform_generic(state: &mut [u32; 8], block: &[u8]) {
     state[7] = state[7].wrapping_add(h);
 }
 
+
 #[inline]
 pub fn sha256_transform(state: &mut [u32; 8], block: &[u8]) {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
     {
-        if is_x86_feature_detected!("sha") {
-            sha256_transform_shani(state, block);
-        } else {
-            sha256_transform_generic(state, block);
-        }
+        return sha256_transform_shani(state, block);
     }
-    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-    sha256_transform_generic(state, block);
+
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon", target_feature = "crypto"))]
+    {
+        return sha256_transform_neon(state, block);
+    }
+
+    return sha256_transform_generic(state, block);
 }
+
 
 #[derive(Clone)]
 pub struct Sha256 {
@@ -278,6 +282,19 @@ fn bench_sha256_transform_shani(b: &mut test::Bencher) {
     b.iter(|| {
         let mut state = INITIAL_STATE;
         sha256_transform_shani(&mut state, &data[..]);
+        state
+    });
+}
+
+#[cfg(all(target_arch = "aarch64", target_feature = "neon", target_feature = "crypto"))]
+#[cfg(test)]
+#[bench]
+fn bench_sha256_transform_neon(b: &mut test::Bencher) {
+    let data = [0u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let mut state = INITIAL_STATE;
+        sha256_transform_neon(&mut state, &data[..]);
         state
     });
 }
