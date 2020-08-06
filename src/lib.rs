@@ -1,5 +1,6 @@
 // #![feature(const_generics, const_fn, const_generic_impls_guard)]
 #![cfg_attr(test, feature(test))]
+#![feature(stdsimd)]
 #![allow(unused_macros, unused_variables, dead_code, unused_assignments, unused_imports)]
 
 #[cfg(test)]
@@ -31,12 +32,15 @@ pub mod sha2;
 pub mod hmac;
 pub mod hkdf;
 
+// pub mod blockmode;
 pub mod aes;
+
+pub mod rc4;
 pub mod chacha20;
 pub mod poly1305;
 pub mod chacha20_poly1305;
 
-pub mod rc4;
+
 
 // RSA
 // 
