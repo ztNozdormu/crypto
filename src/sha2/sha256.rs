@@ -267,7 +267,7 @@ fn bench_sha256_transform_generic(b: &mut test::Bencher) {
     let data = [0u8; 64];
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let mut state = INITIAL_STATE;
+        let mut state = test::black_box(INITIAL_STATE);
         sha256_transform_generic(&mut state, &data[..]);
         state
     });
@@ -280,7 +280,7 @@ fn bench_sha256_transform_shani(b: &mut test::Bencher) {
     let data = [0u8; 64];
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let mut state = INITIAL_STATE;
+        let mut state = test::black_box(INITIAL_STATE);
         sha256_transform_shani(&mut state, &data[..]);
         state
     });
@@ -293,7 +293,7 @@ fn bench_sha256_transform_neon(b: &mut test::Bencher) {
     let data = [0u8; 64];
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let mut state = black_box(INITIAL_STATE);
+        let mut state = test::black_box(INITIAL_STATE);
         sha256_transform_neon(&mut state, &data[..]);
         state
     });
