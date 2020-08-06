@@ -120,7 +120,7 @@ pub fn sha256_transform_generic(state: &mut [u32; 8], block: &[u8]) {
     state[7] = state[7].wrapping_add(h);
 }
 
-
+#[allow(unreachable_code)]
 #[inline]
 pub fn sha256_transform(state: &mut [u32; 8], block: &[u8]) {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
