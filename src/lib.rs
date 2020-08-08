@@ -34,6 +34,7 @@ pub mod hkdf;
 
 // pub mod blockmode;
 pub mod aes;
+pub mod camellia;
 
 pub mod rc4;
 pub mod chacha20;

@@ -75,6 +75,9 @@ impl_hmac!{ crate::sha2::Sha384 }
 impl_hmac!{ crate::sha2::Sha512 }
 
 
+// TODO: hmac-drbg
+// https://github.com/sorpaas/rust-hmac-drbg/blob/master/src/lib.rs
+
 
 #[cfg(test)]
 fn hexdigest(digest: &[u8]) -> String {
