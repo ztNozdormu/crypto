@@ -389,13 +389,11 @@ fn camellia_setup128(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subl[5] ^= subl[1]; subr[5] ^= subr[1];
     subl[7] ^= subl[1]; subr[7] ^= subr[1];
     subl[1] ^= subr[1] & !subr[9];
-    // 逗号表达式 Check
     dw = subl[1] & subl[9]; subr[1] ^= camellia_rl1!(dw);
     subl[11] ^= subl[1]; subr[11] ^= subr[1];
     subl[13] ^= subl[1]; subr[13] ^= subr[1];
     subl[15] ^= subl[1]; subr[15] ^= subr[1];
     subl[1] ^= subr[1] & !subr[17];
-    // 逗号表达式 Check
     dw = subl[1] & subl[17]; subr[1] ^= camellia_rl1!(dw);
     subl[19] ^= subl[1]; subr[19] ^= subr[1];
     subl[21] ^= subl[1]; subr[21] ^= subr[1];
@@ -408,13 +406,11 @@ fn camellia_setup128(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subl[20] ^= kw4l; subr[20] ^= kw4r;
     subl[18] ^= kw4l; subr[18] ^= kw4r;
     kw4l ^= kw4r & !subr[16];
-    // 逗号表达式 Check
     dw = kw4l & subl[16]; kw4r ^= camellia_rl1!(dw);
     subl[14] ^= kw4l; subr[14] ^= kw4r;
     subl[12] ^= kw4l; subr[12] ^= kw4r;
     subl[10] ^= kw4l; subr[10] ^= kw4r;
     kw4l ^= kw4r & !subr[8];
-    // 逗号表达式 Check
     dw = kw4l & subl[8]; kw4r ^= camellia_rl1!(dw);
     subl[6] ^= kw4l; subr[6] ^= kw4r;
     subl[4] ^= kw4l; subr[4] ^= kw4r;
@@ -435,7 +431,6 @@ fn camellia_setup128(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[6 * 2] = subl[5] ^ subl[7];
     subkey[6 * 2 + 1] = subr[5] ^ subr[7];
     tl = subl[10] ^ (subr[10] & !subr[8]);
-    // 检查逗号表达式
     dw = tl & subl[8]; tr = subr[10] ^ camellia_rl1!(dw);
     subkey[7 * 2] = subl[6] ^ tl;
     subkey[7 * 2 + 1] = subr[6] ^ tr;
@@ -444,7 +439,6 @@ fn camellia_setup128(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[9 * 2] = subl[9];
     subkey[9 * 2 + 1] = subr[9];
     tl = subl[7] ^ (subr[7] & !subr[9]);
-    // 检查逗号表达式
     dw = tl & subl[9]; tr = subr[7] ^ camellia_rl1!(dw);
     subkey[10 * 2] = tl ^ subl[11];
     subkey[10 * 2 + 1] = tr ^ subr[11];
@@ -457,7 +451,6 @@ fn camellia_setup128(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[14 * 2] = subl[13] ^ subl[15];
     subkey[14 * 2 + 1] = subr[13] ^ subr[15];
     tl = subl[18] ^ (subr[18] & !subr[16]);
-    // 检查逗号表达式
     dw = tl & subl[16]; tr = subr[18] ^ camellia_rl1!(dw);
     subkey[15 * 2] = subl[14] ^ tl;
     subkey[15 * 2 + 1] = subr[14] ^ tr;
@@ -466,7 +459,6 @@ fn camellia_setup128(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[17 * 2] = subl[17];
     subkey[17 * 2 + 1] = subr[17];
     tl = subl[15] ^ (subr[15] & !subr[17]);
-    // 检查逗号表达式
     dw = tl & subl[17]; tr = subr[15] ^ camellia_rl1!(dw);
     subkey[18 * 2] = tl ^ subl[19];
     subkey[18 * 2 + 1] = tr ^ subr[19];
@@ -660,19 +652,16 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subl[5] ^= subl[1]; subr[5] ^= subr[1];
     subl[7] ^= subl[1]; subr[7] ^= subr[1];
     subl[1] ^= subr[1] & !subr[9];
-    // 检查逗号表达式
     dw = subl[1] & subl[9]; subr[1] ^= camellia_rl1!(dw);
     subl[11] ^= subl[1]; subr[11] ^= subr[1];
     subl[13] ^= subl[1]; subr[13] ^= subr[1];
     subl[15] ^= subl[1]; subr[15] ^= subr[1];
     subl[1] ^= subr[1] & !subr[17];
-    // 检查逗号表达式
     dw = subl[1] & subl[17]; subr[1] ^= camellia_rl1!(dw);
     subl[19] ^= subl[1]; subr[19] ^= subr[1];
     subl[21] ^= subl[1]; subr[21] ^= subr[1];
     subl[23] ^= subl[1]; subr[23] ^= subr[1];
     subl[1] ^= subr[1] & !subr[25];
-    // 检查逗号表达式
     dw = subl[1] & subl[25]; subr[1] ^= camellia_rl1!(dw);
     subl[27] ^= subl[1]; subr[27] ^= subr[1];
     subl[29] ^= subl[1]; subr[29] ^= subr[1];
@@ -685,19 +674,16 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subl[28] ^= kw4l; subr[28] ^= kw4r;
     subl[26] ^= kw4l; subr[26] ^= kw4r;
     kw4l ^= kw4r & !subr[24];
-    // 检查逗号表达式
     dw = kw4l & subl[24]; kw4r ^= camellia_rl1!(dw);
     subl[22] ^= kw4l; subr[22] ^= kw4r;
     subl[20] ^= kw4l; subr[20] ^= kw4r;
     subl[18] ^= kw4l; subr[18] ^= kw4r;
     kw4l ^= kw4r & !subr[16];
-    // 检查逗号表达式
     dw = kw4l & subl[16]; kw4r ^= camellia_rl1!(dw);
     subl[14] ^= kw4l; subr[14] ^= kw4r;
     subl[12] ^= kw4l; subr[12] ^= kw4r;
     subl[10] ^= kw4l; subr[10] ^= kw4r;
     kw4l ^= kw4r & !subr[8];
-    // 检查逗号表达式
     dw = kw4l & subl[8]; kw4r ^= camellia_rl1!(dw);
     subl[6] ^= kw4l; subr[6] ^= kw4r;
     subl[4] ^= kw4l; subr[4] ^= kw4r;
@@ -718,7 +704,6 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[6 * 2] = subl[5] ^ subl[7];
     subkey[6 * 2 + 1] = subr[5] ^ subr[7];
     tl = subl[10] ^ (subr[10] & !subr[8]);
-    // 检查逗号表达式
     dw = tl & subl[8]; tr = subr[10] ^ camellia_rl1!(dw);
     subkey[7 * 2] = subl[6] ^ tl;
     subkey[7 * 2 + 1] = subr[6] ^ tr;
@@ -727,7 +712,6 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[9 * 2] = subl[9];
     subkey[9 * 2 + 1] = subr[9];
     tl = subl[7] ^ (subr[7] & !subr[9]);
-    // 检查逗号表达式
     dw = tl & subl[9]; tr = subr[7] ^ camellia_rl1!(dw);
     subkey[10 * 2] = tl ^ subl[11];
     subkey[10 * 2 + 1] = tr ^ subr[11];
@@ -740,7 +724,6 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[14 * 2] = subl[13] ^ subl[15];
     subkey[14 * 2 + 1] = subr[13] ^ subr[15];
     tl = subl[18] ^ (subr[18] & !subr[16]);
-    // 检查逗号表达式
     dw = tl & subl[16]; tr = subr[18] ^ camellia_rl1!(dw);
     subkey[15 * 2] = subl[14] ^ tl;
     subkey[15 * 2 + 1] = subr[14] ^ tr;
@@ -749,7 +732,6 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[17 * 2] = subl[17];
     subkey[17 * 2 + 1] = subr[17];
     tl = subl[15] ^ (subr[15] & !subr[17]);
-    // 检查逗号表达式
     dw = tl & subl[17]; tr = subr[15] ^ camellia_rl1!(dw);
     subkey[18 * 2] = tl ^ subl[19];
     subkey[18 * 2 + 1] = tr ^ subr[19];
@@ -762,7 +744,6 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[22 * 2] = subl[21] ^ subl[23];
     subkey[22 * 2 + 1] = subr[21] ^ subr[23];
     tl = subl[26] ^ (subr[26] & !subr[24]);
-    // 检查逗号表达式
     dw = tl & subl[24]; tr = subr[26] ^ camellia_rl1!(dw);
     subkey[23 * 2] = subl[22] ^ tl;
     subkey[23 * 2 + 1] = subr[22] ^ tr;
@@ -771,7 +752,6 @@ fn camellia_setup256(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
     subkey[25 * 2] = subl[25];
     subkey[25 * 2 + 1] = subr[25];
     tl = subl[23] ^ (subr[23] &  !subr[25]);
-    // 检查逗号表达式
     dw = tl & subl[25]; tr = subr[23] ^ camellia_rl1!(dw);
     subkey[26 * 2] = tl ^ subl[27];
     subkey[26 * 2 + 1] = tr ^ subr[27];
