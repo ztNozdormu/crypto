@@ -20,19 +20,21 @@ extern crate byteorder;
 #[cfg(test)]
 extern crate hex;
 
-
 pub mod hash;
 pub mod md2;
 pub mod md4;
 pub mod md5;
 pub mod sha1;
 pub mod sha2;
-// pub mod sha3;
+// TODO:
+pub mod sha3;
 
 pub mod hmac;
 pub mod hkdf;
+// TODO:
+pub mod scrypt;
 
-// pub mod blockmode;
+pub mod blockmode;
 pub mod aes;
 pub mod camellia;
 
@@ -42,23 +44,11 @@ pub mod poly1305;
 pub mod chacha20_poly1305;
 
 
-
 // RSA
 // 
 // https://docs.rs/rsa
-
-
+// 
 // ED25519 and X25519
 // 
 // http://docs.rs/x25519-dalek
 // http://docs.rs/ed25519-dalek
-// 
-
-
-
-
-
-
-
-
-
