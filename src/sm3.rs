@@ -3,7 +3,7 @@
 // https://github.com/citahub/libsm/blob/master/src/sm3/hash.rs
 
 pub const BLOCK_LEN: usize  = 64;
-pub const DIGEST_LEN: usize = 16;
+pub const DIGEST_LEN: usize = 32;
 
 pub const INITIAL_STATE: [u32; 8] = [
     0x7380_166f, 0x4914_b2b9, 0x1724_42d7, 0xda8a_0600, 
@@ -41,14 +41,6 @@ fn p1(x: u32) -> u32 {
     x ^ x.rotate_left(15) ^ x.rotate_left(23)
 }
 
-#[inline(always)]
-fn get_u32_be(b: &[u8; 64], i: usize) -> u32 {
-    u32::from(b[i]) << 24
-        | u32::from(b[i + 1]) << 16
-        | u32::from(b[i + 2]) << 8
-        | u32::from(b[i + 3])
-}
-
 
 #[derive(Debug, Clone)]
 pub struct Sm3 {
@@ -70,9 +62,10 @@ impl Sm3 {
         hash
     }
 
-    pub fn get_hash(&mut self) -> [u8; 32] {
-        let mut output: [u8; 32] = [0; 32];
+    pub fn get_hash(&mut self) -> [u8; DIGEST_LEN] {
         self.pad();
+
+        let mut output: [u8; DIGEST_LEN] = [0u8; DIGEST_LEN];
         let len = self.unhandle_msg.len();
         let mut count: usize = 0;
         let mut buffer: [u8; 64] = [0; 64];
@@ -84,15 +77,13 @@ impl Sm3 {
             self.update(&buffer);
             count += 1;
         }
-        let mut i = 0;
-        while i < 8 {
-            output[i * 4] = (self.digest[i] >> 24) as u8;
-            output[i * 4 + 1] = (self.digest[i] >> 16) as u8;
-            output[i * 4 + 2] = (self.digest[i] >> 8) as u8;
-            output[i * 4 + 3] = self.digest[i] as u8;
-
-            i += 1;
+        
+        for i in 0..8 {
+            let start = i * 4;
+            let end = start + 4;
+            output[start..end].copy_from_slice(&self.digest[i].to_be_bytes());
         }
+        
         output
     }
 
@@ -119,30 +110,25 @@ impl Sm3 {
 
     fn update(&mut self, buffer: &[u8; 64]) {
         //get expend
-        let mut w: [u32; 68] = [0; 68];
+        let mut w: [u32; 68]  = [0; 68];
         let mut w1: [u32; 64] = [0; 64];
 
-        let mut i = 0;
-        while i < 16 {
-            w[i] = get_u32_be(&buffer, i * 4);
-
-            i += 1;
+        for i in 0..16 {
+            let a = buffer[i * 4 + 0];
+            let b = buffer[i * 4 + 1];
+            let c = buffer[i * 4 + 2];
+            let d = buffer[i * 4 + 3];
+            w[i] = u32::from_be_bytes([a, b, c, d]);
         }
 
-        i = 16;
-        while i < 68 {
+        for i in 16..68 {
             w[i] = p1(w[i - 16] ^ w[i - 9] ^ w[i - 3].rotate_left(15))
                 ^ w[i - 13].rotate_left(7)
                 ^ w[i - 6];
-
-            i += 1;
         }
 
-        i = 0;
-        while i < 64 {
+        for i in 0..BLOCK_LEN {
             w1[i] = w[i] ^ w[i + 4];
-
-            i += 1;
         }
 
         let mut ra = self.digest[0];
@@ -158,8 +144,7 @@ impl Sm3 {
         let mut tt1: u32;
         let mut tt2: u32;
 
-        i = 0;
-        while i < 16 {
+        for i in 0..16 {
             ss1 = ra
                 .rotate_left(12)
                 .wrapping_add(re)
@@ -182,12 +167,9 @@ impl Sm3 {
             rg = rf.rotate_left(19);
             rf = re;
             re = p0(tt2);
-
-            i += 1;
         }
 
-        i = 16;
-        while i < 64 {
+        for i in 16..64 {
             ss1 = ra
                 .rotate_left(12)
                 .wrapping_add(re)
@@ -210,8 +192,6 @@ impl Sm3 {
             rg = rf.rotate_left(19);
             rf = re;
             re = p0(tt2);
-
-            i += 1;
         }
 
         self.digest[0] ^= ra;
