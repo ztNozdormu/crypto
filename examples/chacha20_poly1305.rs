@@ -1,9 +1,8 @@
 extern crate crypto;
 
-use crypto::chacha20::Chacha20;
-use crypto::chacha20_poly1305::Chacha20Poly1305Ietf;
 use crypto::poly1305::POLY1305_TAG_LEN;
 use crypto::poly1305::POLY1305_BLOCK_LEN;
+use crypto::chacha20_poly1305::Chacha20Poly1305Ietf;
 
 
 fn main() {
