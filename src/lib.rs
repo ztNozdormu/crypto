@@ -37,9 +37,11 @@ pub mod hkdf;
 pub mod scrypt;
 
 pub mod blockmode;
+pub mod rc2;
 pub mod aes;
-pub mod camellia;
 pub mod sm4;
+pub mod camellia;
+
 
 pub mod rc4;
 pub mod chacha20;
