@@ -107,6 +107,25 @@ impl AesCfb128 {
 
 
 #[test]
+fn test_cfb8_aes128() {
+    let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
+    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let plaintext = hex::decode("\
+6bc1bee22e409f96e93d7e117393172a\
+ae2d8a").unwrap();
+
+    let mut cipher = AesCfb128::new(&key, &nonce, AesCfb128::CFB8);
+    let mut ciphertext = plaintext.clone();
+    cipher.encrypt(&mut ciphertext);
+
+    let mut cipher = AesCfb128::new(&key, &nonce, AesCfb128::CFB8);
+    let mut cleartext = ciphertext.clone();
+    cipher.decrypt(&mut cleartext);
+
+    assert_eq!(&cleartext[..], &plaintext[..]);
+}
+
+#[test]
 fn test_cfb8_aes128_enc() {
     // F.3.7  CFB8-AES128.Encrypt, (Page-46)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf

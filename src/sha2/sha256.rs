@@ -261,9 +261,6 @@ pub fn sha256<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
 #[cfg(test)]
 #[bench]
 fn bench_sha256_transform_generic(b: &mut test::Bencher) {
-    // test pure::bench_sha256_sd_64_bytes ... bench:         315 ns/iter (+/- 42) = 203 MB/s
-    // test sha2::bench_sha256_sd_64_bytes ... bench:         398 ns/iter (+/- 58) = 160 MB/s
-    // test sha2::bench_sha256_sd_64_bytes ... bench:         363 ns/iter (+/- 53) = 176 MB/s
     let data = [0u8; 64];
     b.bytes = data.len() as u64;
     b.iter(|| {

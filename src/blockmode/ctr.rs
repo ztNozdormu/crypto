@@ -101,6 +101,25 @@ impl AesCtr128 {
 
 
 
+#[test]
+fn test_aes128_ctr() {
+    let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
+    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let plaintext = hex::decode("\
+6bc1bee22e409f96e93d7e117393172a\
+ae2d8a").unwrap();
+
+    let mut cipher = AesCtr128::new(&key, &nonce);
+    let mut ciphertext = plaintext.clone();
+    cipher.encrypt(&mut ciphertext);
+
+    let mut cipher = AesCtr128::new(&key, &nonce);
+    let mut cleartext = ciphertext.clone();
+    cipher.decrypt(&mut cleartext);
+
+    assert_eq!(&cleartext[..], &plaintext[..]);
+}
+
 // F.5 CTR Example Vectors, (Page-62)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 #[test]

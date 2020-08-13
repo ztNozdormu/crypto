@@ -26,41 +26,27 @@ impl AesOfb128 {
         
         Self { cipher, iv }
     }
-
-    pub fn encrypt(&mut self, blocks: &mut [u8]) {
-        assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
-
+    
+    pub fn encrypt(&mut self, data: &mut [u8]) {
         let mut last_input_block = self.iv.clone();
-        let n = blocks.len() / Self::BLOCK_LEN;
-
-        for j in 0..n {
+        for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
             let output_block = self.cipher.encrypt(&last_input_block);
-            
-            for i in 0..Self::BLOCK_LEN {
-                blocks[j * Self::BLOCK_LEN + i] ^= output_block[i];
+
+            for i in 0..plaintext.len() {
+                plaintext[i] ^= output_block[i];
             }
 
             last_input_block = output_block;
         }
-        
-        // The number of bits in the last plaintext or ciphertext block.
-        // let u = Self::BLOCK_LEN * 8;
-        // // Last block
-        // let output_block = self.cipher.encrypt(&last_input_block);
     }
 
-    pub fn decrypt(&mut self, blocks: &mut [u8]) {
-        assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
-
+    pub fn decrypt(&mut self, data: &mut [u8]) {
         let mut last_input_block = self.iv.clone();
-
-        let n = blocks.len() / Self::BLOCK_LEN;
-
-        for j in 0..n {
+        for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
             let output_block = self.cipher.encrypt(&last_input_block);
 
-            for i in 0..Self::BLOCK_LEN {
-                blocks[j * Self::BLOCK_LEN + i] ^= output_block[i];
+            for i in 0..ciphertext.len() {
+                ciphertext[i] ^= output_block[i];
             }
 
             last_input_block = output_block;
@@ -68,6 +54,25 @@ impl AesOfb128 {
     }
 }
 
+
+#[test]
+fn test_aes128_ofb() {
+    let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
+    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let plaintext = hex::decode("\
+6bc1bee22e409f96e93d7e117393172a\
+ae2d8a").unwrap();
+
+    let mut cipher = AesOfb128::new(&key, &nonce);
+    let mut ciphertext = plaintext.clone();
+    cipher.encrypt(&mut ciphertext);
+
+    let mut cipher = AesOfb128::new(&key, &nonce);
+    let mut cleartext = ciphertext.clone();
+    cipher.decrypt(&mut cleartext);
+
+    assert_eq!(&cleartext[..], &plaintext[..]);
+}
 
 #[test]
 fn test_aes128_ofb_enc() {

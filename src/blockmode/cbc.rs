@@ -30,7 +30,7 @@ impl AesCbc128 {
 
         Self { cipher, iv }
     }
-
+    
     /// the plaintext must be a sequence of one or more complete data blocks.
     /// the total number of bits in the plaintext must be a positive multiple 
     /// of the block (or segment) size.
