@@ -20,40 +20,39 @@ extern crate byteorder;
 #[cfg(test)]
 extern crate hex;
 
+// cryptographic hash function (CHF)
 pub mod hash;
 pub mod md2;
 pub mod md4;
 pub mod md5;
 pub mod sha1;
 pub mod sha2;
-// TODO:
-pub mod sha3;
+pub mod sha3; // TODO
 pub mod sm3;
 
-
 pub mod hmac;
-pub mod hkdf;
-// TODO:
-pub mod scrypt;
 
+// Key derivation function
+pub mod hkdf;
+pub mod scrypt; // TODO
+
+// Block Cipher
 pub mod blockmode;
 pub mod rc2;
 pub mod aes;
 pub mod sm4;
 pub mod camellia;
 
-
+// Stream Cipher
 pub mod rc4;
 pub mod chacha20;
 pub mod poly1305;
 pub mod chacha20_poly1305;
 
-
-// RSA
-// 
-// https://docs.rs/rsa
-// 
-// ED25519 and X25519
-// 
+// Elliptic Curve Cryptography（ECC）
 // http://docs.rs/x25519-dalek
 // http://docs.rs/ed25519-dalek
+
+// RSA
+// https://docs.rs/rsa
+
