@@ -4,7 +4,7 @@ use crate::aes::generic::ExpandedKey128;
 // 6.5 The Counter Mode, (Page-22)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 #[derive(Debug, Clone)]
-pub struct Ctr {
+struct Ctr {
     counter: u64,
     counter_block: [u8; 16],
 }
