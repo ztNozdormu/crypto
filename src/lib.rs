@@ -6,16 +6,8 @@
 #[cfg(test)]
 extern crate test;
 
-// #[allow(unused_imports)]
-// #[macro_use]
-// extern crate log;
-// extern crate rand;
 extern crate subtle;
 extern crate byteorder;
-// extern crate packed_simd;
-// extern crate x25519_dalek;
-// extern crate ed25519_dalek;
-// extern crate num_bigint;
 
 #[cfg(test)]
 extern crate hex;
@@ -48,6 +40,10 @@ pub mod rc4;
 pub mod chacha20;
 pub mod poly1305;
 pub mod chacha20_poly1305;
+
+// AEAD Cipher
+// pub mod aead;
+
 
 // Elliptic Curve Cryptography（ECC）
 // http://docs.rs/x25519-dalek

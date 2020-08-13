@@ -10,5 +10,5 @@ pub mod ofb;
 pub mod ctr;
 
 // pub mod ccm;
-// pub mod gcm;
-
+pub mod gcm;
+// pub mod siv;
