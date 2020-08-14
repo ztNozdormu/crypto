@@ -182,6 +182,18 @@ pub trait BlockCipher: Sized {
         cipher.decrypt_block(ciphertext_in_and_plaintext_out);
     }
 
+    fn kind(&self) -> BlockCipherKind {
+        Self::KIND
+    }
+
+    fn key_len(&self) -> usize {
+        Self::KEY_LEN
+    }
+
+    fn block_len(&self) -> usize {
+        Self::BLOCK_LEN
+    }
+
     fn encrypt_block(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
     fn decrypt_block(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]);
 }
@@ -219,6 +231,22 @@ pub trait StreamCipher: Sized {
         cipher.decrypt_slice(ciphertext_in_and_plaintext_out);
     }
 
+    fn kind(&self) -> StreamCipherKind {
+        Self::KIND
+    }
+
+    fn key_len(&self) -> usize {
+        Self::KEY_LEN
+    }
+    
+    fn block_len(&self) -> usize {
+        Self::BLOCK_LEN
+    }
+
+    fn nonce_len(&self) -> usize {
+        Self::NONCE_LEN
+    }
+
     fn encrypt_slice(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
     fn decrypt_slice(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]);
 
@@ -239,7 +267,7 @@ pub trait AuthenticatedStreamCipherDecryptor {
     fn finalize(self, tag: &[u8]) -> Result<(), AuthenticationTagMismatch>;
 }
 pub trait AuthenticatedStreamCipher: StreamCipher {
-    const KIND: AuthenticatedStreamCipherKind;
+    const AE_KIND: AuthenticatedStreamCipherKind;
     const TAG_LEN: usize;
 
     type AeEncryptor: AuthenticatedStreamCipherEncrytor;
@@ -253,6 +281,14 @@ pub trait AuthenticatedStreamCipher: StreamCipher {
     fn ae_decrypt_slice_oneshot(key: &[u8], nonce: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch> {
         let mut cipher = Self::new(key, nonce);
         cipher.ae_decrypt_slice(ciphertext_in_and_plaintext_out)
+    }
+
+    fn ae_kind(&self) -> AuthenticatedStreamCipherKind {
+        Self::AE_KIND
+    }
+
+    fn ae_tag_len(&self) -> usize {
+        Self::TAG_LEN
     }
 
     fn ae_encrypt_slice(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
@@ -275,7 +311,7 @@ pub trait AeadStreamCipherDecryptor {
     fn finalize(self, tag: &[u8]) -> Result<(), AuthenticationTagMismatch>;
 }
 pub trait AeadStreamCipher: AuthenticatedStreamCipher {
-    const KIND: AeadStreamCipherKind;
+    const AEAD_KIND: AeadStreamCipherKind;
     const ID: u16;                 // IANA AEAD ID
     const NAME: &'static str;      // IANA AEAD Name
     const REFERENCE: &'static str; // IANA AEAD Reference
@@ -293,6 +329,10 @@ pub trait AeadStreamCipher: AuthenticatedStreamCipher {
         cipher.aead_decrypt_slice(aad, ciphertext_in_and_plaintext_out)
     }
 
+    fn ae_kind(&self) -> AeadStreamCipherKind {
+        Self::AEAD_KIND
+    }
+    
     fn aead_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]);
     fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch>;
 
