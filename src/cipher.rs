@@ -1,3 +1,5 @@
+use crate::error::AuthenticationTagMismatch;
+
 use std::io;
 
 
@@ -162,7 +164,7 @@ pub trait AuthenticatedStreamCipherEncrytor {
 pub trait AuthenticatedStreamCipherDecryptor {
     fn update(&mut self, ciphertext: &[u8], plaintext: &mut [u8]);
     // NOTE: 验证 TAG 数据是否吻合。
-    fn finalize(self, tag: &[u8]) -> Result<(), ()>;
+    fn finalize(self, tag: &[u8]) -> Result<(), AuthenticationTagMismatch>;
 }
 pub trait AuthenticatedStreamCipher: StreamCipher {
     const KIND: AuthenticatedStreamCipherKind;
@@ -198,7 +200,7 @@ pub trait AeadStreamCipherEncrytor {
 pub trait AeadStreamCipherDecryptor {
     fn update(&mut self, ciphertext: &[u8], plaintext: &mut [u8]);
     // NOTE: 验证 TAG 数据是否吻合。
-    fn finalize(self, tag: &[u8]) -> Result<(), ()>;
+    fn finalize(self, tag: &[u8]) -> Result<(), AuthenticationTagMismatch>;
 }
 pub trait AeadStreamCipher: AuthenticatedStreamCipher {
     const KIND: AeadStreamCipherKind;
