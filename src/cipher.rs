@@ -295,7 +295,7 @@ pub trait AeadStreamCipher: AuthenticatedStreamCipher {
 
     fn aead_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]);
     fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch>;
-    
+
     fn aead_encrypt_stream(&self) -> Self::AeadEncryptor;
     fn aead_decrypt_stream(&self) -> Self::AeadDecryptor;
 }
@@ -327,6 +327,20 @@ impl_block_cipher!(Aes128, AES128);
 impl_block_cipher!(Aes192, AES192);
 impl_block_cipher!(Aes256, AES256);
 
+
+pub fn encrypt_block<C: BlockCipher>(key: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
+    C::encrypt_block_oneshot(key, plaintext_in_and_ciphertext_out)
+}
+pub fn decrypt_block<C: BlockCipher>(key: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) {
+    C::decrypt_block_oneshot(key, ciphertext_in_and_plaintext_out)
+}
+
+pub fn encrypt_slice<C: StreamCipher>(key: &[u8], nonce: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
+    C::encrypt_slice_oneshot(key, nonce, plaintext_in_and_ciphertext_out)
+}
+pub fn decrypt_slice<C: StreamCipher>(key: &[u8], nonce: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) {
+    C::decrypt_slice_oneshot(key, nonce, ciphertext_in_and_plaintext_out)
+}
 
 // impl AeadStreamCipher for AeadAes128Gcm {
 //     const ID: u16                 = 1;
