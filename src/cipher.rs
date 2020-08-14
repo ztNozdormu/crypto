@@ -84,6 +84,16 @@ pub trait AuthenticatedStreamCipher: StreamCipher {
     type AeEncryptor: AuthenticatedStreamCipherEncrytor;
     type AeDecryptor: AuthenticatedStreamCipherDecryptor;
 
+    fn ae_encrypt_slice_oneshot(key: &[u8], nonce: &[u8], aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
+        let mut cipher = Self::new(key, nonce);
+        cipher.ae_encrypt_slice(aad, plaintext_in_and_ciphertext_out);
+    }
+
+    fn ae_decrypt_slice_oneshot(key: &[u8], nonce: &[u8], aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) {
+        let mut cipher = Self::new(key, nonce);
+        cipher.ae_decrypt_slice(aad, ciphertext_in_and_plaintext_out);
+    }
+
     fn ae_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]);
     fn ae_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]);
 
