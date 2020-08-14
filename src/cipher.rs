@@ -32,13 +32,33 @@ pub enum BlockCipherKind {
     AES192,
     AES256,
     AES128_ECB,
+    AES192_ECB,
+    AES256_ECB,
     AES128_CBC,
+    AES192_CBC,
+    AES256_CBC,
     AES128_CFB64,
+    AES192_CFB64,
+    AES256_CFB64,
     AES128_CFB128,
-    // Aria
+    AES192_CFB128,
+    AES256_CFB128,
     CAMELLIA128,
     CAMELLIA192,
     CAMELLIA256,
+    CAMELLIA128_ECB,
+    CAMELLIA192_ECB,
+    CAMELLIA256_ECB,
+    CAMELLIA128_CBC,
+    CAMELLIA192_CBC,
+    CAMELLIA256_CBC,
+    CAMELLIA128_CFB64,
+    CAMELLIA192_CFB64,
+    CAMELLIA256_CFB64,
+    CAMELLIA128_CFB128,
+    CAMELLIA192_CFB128,
+    CAMELLIA256_CFB128,
+    
     // TODO: 添加更多 ...
     RC2,
     SM4,
@@ -53,12 +73,27 @@ pub enum BlockCipherKind {
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum StreamCipherKind {
     AES128_CFB1,
+    AES192_CFB1,
+    AES256_CFB1,
     AES128_CFB8,
+    AES192_CFB8,
+    AES256_CFB8,
     AES128_OFB,
+    AES192_OFB,
+    AES256_OFB,
     AES128_CTR,
+    AES192_CTR,
+    AES256_CTR,
     
     AES128_GCM,
     AES128_CCM,
+
+    AES128_SIV_CMAC256,
+    AES128_SIV_CMAC384,
+    AES128_SIV_CMAC512,
+
+    AES128_GCM_SIV,
+
     // TODO: 添加更多 ...
 
     RC4,
@@ -84,13 +119,42 @@ pub enum AuthenticatedStreamCipherKind {
     },
 }
 
+// Authenticated Encryption with Associated Data (AEAD) Parameters
+// https://www.iana.org/assignments/aead-parameters/aead-parameters.xhtml
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AeadStreamCipherKind {
     AEAD_AES_128_GCM,
     AEAD_AES_256_GCM,
     AEAD_AES_128_CCM,
-    // TODO: 添加更多 ...
+    AEAD_AES_256_CCM,
+    AEAD_AES_128_GCM_8,
+    AEAD_AES_256_GCM_8,
+    AEAD_AES_128_GCM_12,
+    AEAD_AES_256_GCM_12,
+    AEAD_AES_128_CCM_SHORT,
+    AEAD_AES_256_CCM_SHORT,
+    AEAD_AES_128_CCM_SHORT_8,
+    AEAD_AES_256_CCM_SHORT_8,
+    AEAD_AES_128_CCM_SHORT_12,
+    AEAD_AES_256_CCM_SHORT_12,
+    AEAD_AES_SIV_CMAC_256,
+    AEAD_AES_SIV_CMAC_384,
+    AEAD_AES_SIV_CMAC_512,
+    AEAD_AES_128_CCM_8,
+    AEAD_AES_256_CCM_8,
+    AEAD_AES_128_OCB_TAGLEN128,
+    AEAD_AES_128_OCB_TAGLEN96,
+    AEAD_AES_128_OCB_TAGLEN64,
+    AEAD_AES_192_OCB_TAGLEN128,
+    AEAD_AES_192_OCB_TAGLEN96,
+    AEAD_AES_192_OCB_TAGLEN64,
+    AEAD_AES_256_OCB_TAGLEN128,
+    AEAD_AES_256_OCB_TAGLEN96,
+    AEAD_AES_256_OCB_TAGLEN64,
+    AEAD_CHACHA20_POLY1305,
+    AEAD_AES_128_GCM_SIV,
+    AEAD_AES_256_GCM_SIV,
 
     Private {
         id: u16,
