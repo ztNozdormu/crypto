@@ -1,44 +1,47 @@
 use std::io;
 
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum BlockCipherKind {
-    Aes128,
-    Aes192,
-    Aes256,
-    Aes128Ecb,
-    Aes128Cbc,
-    Aes128Cfb64,
-    Aes128Cfb128,
+    AES128,
+    AES192,
+    AES256,
+    AES128_ECB,
+    AES128_CBC,
+    AES128_CFB64,
+    AES128_CFB128,
     // Aria
-    Camellia128,
-    Camellia192,
-    Camellia256,
+    CAMELLIA128,
+    CAMELLIA192,
+    CAMELLIA256,
 
-    Rc2,
-    Sm4,
+    RC2,
+    SM4,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum StreamCipherKind {
-    Aes128Cfb1,
-    Aes128Cfb8,
-    Aes128ofb,
-    Aes128ctr,
+    AES128_CFB1,
+    AES128_CFB8,
+    AES128_OFB,
+    AES128_CTR,
     
-    Aes128Gcm,
-    Aes128Ccm,
+    AES128_GCM,
+    AES128_CCM,
     // TODO: 添加更多 ...
 
-    Rc4,
-    Chacha20,
-    Zuc,
+    RC4,
+    CHACHA20,
+    ZUC,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AuthenticatedStreamCipherKind {
-    Aes128Gcm,
-    Aes128Ccm,
+    AES128_GCM,
+    AES128_CCM,
     // TODO: 添加更多 ...
 }
 
