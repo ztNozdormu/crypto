@@ -1,5 +1,26 @@
 use crate::aes::generic::ExpandedKey128;
 
+// NOTE:
+// 
+// CFB 模式共有 4 子版本：
+// 
+//      1. CFB1,   the   1-bit CFB mode
+//      2. CFB8,   the   8-bit CFB mode
+//      3, CFB64,  the  64-bit CFB mode
+//      4. CFB128, the 128-bit CFB mode
+// 
+// 这些 CFB 模式处理的数据需要按照 CFB_BIT_MODE（1/8/64/128） 来进行对齐。
+// 考虑到，我们 API 接受的输入数据流为 Byte 序列，而 Byte 数据结构本身是一个
+// 针对 Bit 对齐的数据结构。
+// 所以在 CFB1 和 CFB8 这两种分组模式下，输入的数据流不需要处理对齐的情况。
+// 但是 CFB64 和 CFB128 则需要 Byte 序列的长度分别按照 8 和 16 来进行对齐。
+// 
+// 综上，CFB1 和 CFB8 可以处理不定长的 Byte 序列，无需做对齐工作，
+// 和 CTR/OFB 这些模式类似可以被设计为一个流密码算法。
+// 
+// CFB64 和 CFB128 这两个分组模式则跟 ECB 和 CBC 一样，还是只能在分组模式下工作，
+// 成为一个块密码算法。
+// 
 
 // 6.3 The Cipher Feedback Mode, (Page-18)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf

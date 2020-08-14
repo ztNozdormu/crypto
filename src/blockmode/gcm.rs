@@ -3,6 +3,11 @@
 // 
 // Galois/Counter Mode:
 // https://en.wikipedia.org/wiki/Galois/Counter_Mode
+// 
+// NOTE: 
+//      1. GCM 认证算法本身支持变长的 IV，但是目前普遍的实现都是限制 IV 长度至 12 Bytes。
+//      2. GCM 只可以和 块大小为 16 Bytes 的块密码算法协同工作。
+// 
 
 use crate::aes::generic::ExpandedKey128;
 
@@ -11,7 +16,7 @@ use subtle;
 
 const BLOCK_LEN: usize = 16;
 const TAG_LEN: usize   = 16; // 16-Bytes, 128-Bits
-const IV_LEN: usize    = 12; // 12-Bytes, 96-Bits
+const IV_LEN: usize    = 12; // 12-Bytes,  96-Bits
 // Reduction table
 // 
 // Shoup's method for multiplication use this table with
@@ -66,37 +71,31 @@ impl BlockCipher for ExpandedKey128 {
 }
 
 
+
 #[inline]
 fn gcm_setup_key(key: &[u8], h: &[u8; 16]) -> [[u64; 16]; 2] {
-    let key_len = key.len();
-    assert!(key_len == 16 || key_len == 24 || key_len == 32); // 128, 192, 256
-
-    // 使用 Cipher 加密一个 Block(16 Bytes)。
-    // let mut h = [0u8; 16];
+    // NOTE: 参数 h 为 BlockCipherEncrypt([0u8; BlockCipher::BLOCK_LEN])
+    assert!(key.len() == 16 || key.len() == 24 || key.len() == 32); // 128, 192, 256
     
     // pack h as two 64-bits ints, big-endian
-    let hi = u32::from_be_bytes([h[0], h[1], h[2], h[3]]);
-    let lo = u32::from_be_bytes([h[4], h[5], h[6], h[7]]);
-    let mut vh = (hi as u64) << 32 | (lo as u64);
-
-    let hi = u32::from_be_bytes([h[ 8], h[ 9], h[10], h[11]]);
-    let lo = u32::from_be_bytes([h[12], h[13], h[14], h[15]]);
-    let mut vl = (hi as u64) << 32 | (lo as u64);
+    let mut vh = u64::from_be_bytes([
+        h[0], h[1], h[2], h[3],
+        h[4], h[5], h[6], h[7],
+    ]);
+    let mut vl = u64::from_be_bytes([
+        h[ 8], h[ 9], h[10], h[11],
+        h[12], h[13], h[14], h[15],
+    ]);
 
     let mut hl = [0u64; 16];
     let mut hh = [0u64; 16];
-
+    
     // 8 = 1000 corresponds to 1 in GF(2^128)
     hl[8] = vl;
     hh[8] = vh;
-
+    
     // TODO: 如果使用 AESNI 里面的 CLMUL 指令的话，
     //       那么下面的代码不再需要。
-
-    // 0 corresponds to 0 in GF(2^128)
-    hh[0] = 0;
-    hl[0] = 0;
-
     let mut i = 4usize;
     while i > 0 {
         // 4, 2, 1
@@ -127,7 +126,7 @@ fn gcm_setup_key(key: &[u8], h: &[u8; 16]) -> [[u64; 16]; 2] {
 
 // Multiplication operation in GF(2^128)
 #[inline]
-pub fn gf_mul(gcm_key: &GcmKey, x: &mut [u8; 16]) {
+fn gf_mul(gcm_key: &GcmKey, x: &mut [u8; 16]) {
     let hh = &gcm_key.hh;
     let hl = &gcm_key.hl;
 
@@ -168,7 +167,7 @@ pub fn gf_mul(gcm_key: &GcmKey, x: &mut [u8; 16]) {
 }
 
 #[inline]
-pub fn gcm_hash_aad(gcm_key: &GcmKey, aad: &[u8], buf: &mut [u8; BLOCK_LEN]) {
+fn gcm_hash_aad(gcm_key: &GcmKey, aad: &[u8], buf: &mut [u8; BLOCK_LEN]) {
     for chunk in aad.chunks(BLOCK_LEN) {
         for i in 0..chunk.len() {
             buf[i] ^= chunk[i];
@@ -178,7 +177,7 @@ pub fn gcm_hash_aad(gcm_key: &GcmKey, aad: &[u8], buf: &mut [u8; BLOCK_LEN]) {
 }
 
 #[inline]
-pub fn gcm_block_num_inc(nonce: &mut [u8; BLOCK_LEN]) {
+fn gcm_block_num_inc(nonce: &mut [u8; BLOCK_LEN]) {
     // Counter inc
     for i in 1..5 {
         nonce[16 - i] = nonce[16 - i].wrapping_add(1);
