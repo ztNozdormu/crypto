@@ -1,6 +1,58 @@
 use std::io;
 
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum BlockCipherKind {
+    Aes128,
+    Aes192,
+    Aes256,
+    Aes128Ecb,
+    Aes128Cbc,
+    Aes128Cfb64,
+    Aes128Cfb128,
+    // Aria
+    Camellia128,
+    Camellia192,
+    Camellia256,
+
+    Rc2,
+    Sm4,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum StreamCipherKind {
+    Aes128Cfb1,
+    Aes128Cfb8,
+    Aes128ofb,
+    Aes128ctr,
+    
+    Aes128Gcm,
+    Aes128Ccm,
+    // TODO: 添加更多 ...
+
+    Rc4,
+    Chacha20,
+    Zuc,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum AuthenticatedStreamCipherKind {
+    Aes128Gcm,
+    Aes128Ccm,
+    // TODO: 添加更多 ...
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum AeadStreamCipherKind {
+    AEAD_AES_128_GCM,
+    AEAD_AES_256_GCM,
+    AEAD_AES_128_CCM,
+    // TODO: 添加更多 ...
+}
+
+
+
 // ==============================  分组密码  ===============================
 pub trait BlockCipher: Sized {
     const KEY_LEN: usize;
