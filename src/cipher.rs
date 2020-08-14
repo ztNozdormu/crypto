@@ -332,7 +332,7 @@ pub trait AeadStreamCipher: AuthenticatedStreamCipher {
     fn ae_kind(&self) -> AeadStreamCipherKind {
         Self::AEAD_KIND
     }
-    
+
     fn aead_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]);
     fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch>;
 
@@ -381,6 +381,33 @@ pub fn encrypt_slice<C: StreamCipher>(key: &[u8], nonce: &[u8], plaintext_in_and
 pub fn decrypt_slice<C: StreamCipher>(key: &[u8], nonce: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) {
     C::decrypt_slice_oneshot(key, nonce, ciphertext_in_and_plaintext_out)
 }
+
+pub fn ae_encrypt_slice<C: AuthenticatedStreamCipher>(key: &[u8], 
+                                                      nonce: &[u8], 
+                                                      plaintext_in_and_ciphertext_out: &mut [u8]) {
+    C::ae_encrypt_slice_oneshot(key, nonce, plaintext_in_and_ciphertext_out)
+}
+pub fn ae_decrypt_slice<C: AuthenticatedStreamCipher>(key: &[u8], 
+                                                      nonce: &[u8], 
+                                                      ciphertext_in_and_plaintext_out: &mut [u8]
+) -> Result<(), AuthenticationTagMismatch> {
+    C::ae_decrypt_slice_oneshot(key, nonce, ciphertext_in_and_plaintext_out)
+}
+
+pub fn aead_encrypt_slice<C: AeadStreamCipher>(key: &[u8], 
+                                               nonce: &[u8], 
+                                               aad: &[u8], 
+                                               plaintext_in_and_ciphertext_out: &mut [u8]) {
+    C::aead_encrypt_slice_oneshot(key, nonce, aad, plaintext_in_and_ciphertext_out)
+}
+pub fn aead_decrypt_slice<C: AeadStreamCipher>(key: &[u8],
+                                              nonce: &[u8], 
+                                              aad: &[u8], 
+                                              ciphertext_in_and_plaintext_out: &mut [u8]
+) -> Result<(), AuthenticationTagMismatch> {
+    C::aead_decrypt_slice_oneshot(key, nonce, aad, ciphertext_in_and_plaintext_out)
+}
+
 
 // impl AeadStreamCipher for AeadAes128Gcm {
 //     const ID: u16                 = 1;
