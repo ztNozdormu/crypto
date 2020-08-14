@@ -250,13 +250,13 @@ pub trait AuthenticatedStreamCipher: StreamCipher {
         cipher.ae_encrypt_slice(plaintext_in_and_ciphertext_out);
     }
 
-    fn ae_decrypt_slice_oneshot(key: &[u8], nonce: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) {
+    fn ae_decrypt_slice_oneshot(key: &[u8], nonce: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch> {
         let mut cipher = Self::new(key, nonce);
-        cipher.ae_decrypt_slice(ciphertext_in_and_plaintext_out);
+        cipher.ae_decrypt_slice(ciphertext_in_and_plaintext_out)
     }
 
     fn ae_encrypt_slice(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
-    fn ae_decrypt_slice(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]);
+    fn ae_decrypt_slice(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch>;
 
     fn ae_encrypt_stream(&self) -> Self::AeEncryptor;
     fn ae_decrypt_stream(&self) -> Self::AeDecryptor;
@@ -288,14 +288,14 @@ pub trait AeadStreamCipher: AuthenticatedStreamCipher {
         cipher.aead_encrypt_slice(aad, plaintext_in_and_ciphertext_out);
     }
 
-    fn aead_decrypt_slice_oneshot(key: &[u8], nonce: &[u8], aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) {
+    fn aead_decrypt_slice_oneshot(key: &[u8], nonce: &[u8], aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch> {
         let mut cipher = Self::new(key, nonce);
-        cipher.aead_decrypt_slice(aad, ciphertext_in_and_plaintext_out);
+        cipher.aead_decrypt_slice(aad, ciphertext_in_and_plaintext_out)
     }
 
     fn aead_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]);
-    fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]);
-
+    fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> Result<(), AuthenticationTagMismatch>;
+    
     fn aead_encrypt_stream(&self) -> Self::AeadEncryptor;
     fn aead_decrypt_stream(&self) -> Self::AeadDecryptor;
 }
