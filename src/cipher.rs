@@ -3,6 +3,20 @@ use std::io;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum CipherKind {
+    AES128,
+    AES192,
+    AES256,
+
+    Private {
+        id: u16,
+        name: &'static str,
+    },
+}
+
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum BlockCipherKind {
     AES128,
     AES192,
@@ -18,6 +32,11 @@ pub enum BlockCipherKind {
 
     RC2,
     SM4,
+
+    Private {
+        id: u16,
+        name: &'static str,
+    },
 }
 
 #[allow(non_camel_case_types)]
@@ -35,6 +54,11 @@ pub enum StreamCipherKind {
     RC4,
     CHACHA20,
     ZUC,
+
+    Private {
+        id: u16,
+        name: &'static str,
+    },
 }
 
 #[allow(non_camel_case_types)]
@@ -43,6 +67,11 @@ pub enum AuthenticatedStreamCipherKind {
     AES128_GCM,
     AES128_CCM,
     // TODO: 添加更多 ...
+
+    Private {
+        id: u16,
+        name: &'static str,
+    },
 }
 
 #[allow(non_camel_case_types)]
@@ -52,6 +81,11 @@ pub enum AeadStreamCipherKind {
     AEAD_AES_256_GCM,
     AEAD_AES_128_CCM,
     // TODO: 添加更多 ...
+
+    Private {
+        id: u16,
+        name: &'static str,
+    },
 }
 
 
