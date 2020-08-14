@@ -21,16 +21,52 @@
 // https://tools.ietf.org/html/rfc3713
 
 
-pub const BLOCK_LEN: usize = 16;
-pub const CAMELLIA_BLOCK_SIZE: usize = 16;
-pub const CAMELLIA_TABLE_BYTE_LEN: usize = 272;
-pub const CAMELLIA_TABLE_WORD_LEN: usize = CAMELLIA_TABLE_BYTE_LEN / 4; // 68
+const BLOCK_LEN: usize = 16;
+const CAMELLIA_BLOCK_SIZE: usize = 16;
+const CAMELLIA_TABLE_BYTE_LEN: usize = 272;
+const CAMELLIA_TABLE_WORD_LEN: usize = CAMELLIA_TABLE_BYTE_LEN / 4; // 68
 
-pub const KEY_TABLE_LEN: usize = CAMELLIA_TABLE_WORD_LEN;
-pub type KeyTable = [u32; KEY_TABLE_LEN];
+const KEY_TABLE_LEN: usize = CAMELLIA_TABLE_WORD_LEN;
+type KeyTable = [u32; KEY_TABLE_LEN];
 
 
-pub const CAMELLIA_SP1110: [u32; 256] = [
+macro_rules! impl_camellia {
+    ($name:tt, $key_len:tt, $key_set_up_fn:tt, $enc_fn:tt, $dec_fn:tt) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            subkey: [u32; KEY_TABLE_LEN],
+        }
+
+        impl $name {
+            pub const KEY_LEN: usize   = $key_len;
+            pub const BLOCK_LEN: usize = BLOCK_LEN;
+
+            pub fn new(key: &[u8]) -> Self {
+                assert_eq!(key.len(), Self::KEY_LEN);
+
+                let mut subkey = [0u32; KEY_TABLE_LEN];
+                $key_set_up_fn(key, &mut subkey);
+
+                Self { subkey }
+            }
+
+            pub fn encrypt(&self, block: &mut [u8]) {
+                $enc_fn(&self.subkey, block)
+            }
+
+            pub fn decrypt(&self, block: &mut [u8]) {
+                $dec_fn(&self.subkey, block)
+            }
+        }
+    }
+}
+
+impl_camellia!(Camellia128, 16, camellia_setup128, camellia_encrypt128, camellia_decrypt128);
+impl_camellia!(Camellia192, 24, camellia_setup192, camellia_encrypt256, camellia_decrypt256);
+impl_camellia!(Camellia256, 32, camellia_setup256, camellia_encrypt256, camellia_decrypt256);
+
+
+const CAMELLIA_SP1110: [u32; 256] = [
     0x70707000, 0x82828200, 0x2c2c2c00, 0xececec00, 0xb3b3b300, 0x27272700, 0xc0c0c000, 0xe5e5e500,
     0xe4e4e400, 0x85858500, 0x57575700, 0x35353500, 0xeaeaea00, 0x0c0c0c00, 0xaeaeae00, 0x41414100,
     0x23232300, 0xefefef00, 0x6b6b6b00, 0x93939300, 0x45454500, 0x19191900, 0xa5a5a500, 0x21212100,
@@ -65,7 +101,7 @@ pub const CAMELLIA_SP1110: [u32; 256] = [
     0x15151500, 0xe3e3e300, 0xadadad00, 0xf4f4f400, 0x77777700, 0xc7c7c700, 0x80808000, 0x9e9e9e00,
 ];
 
-pub const CAMELLIA_SP0222: [u32; 256] = [
+const CAMELLIA_SP0222: [u32; 256] = [
     0x00e0e0e0, 0x00050505, 0x00585858, 0x00d9d9d9, 0x00676767, 0x004e4e4e, 0x00818181, 0x00cbcbcb,
     0x00c9c9c9, 0x000b0b0b, 0x00aeaeae, 0x006a6a6a, 0x00d5d5d5, 0x00181818, 0x005d5d5d, 0x00828282,
     0x00464646, 0x00dfdfdf, 0x00d6d6d6, 0x00272727, 0x008a8a8a, 0x00323232, 0x004b4b4b, 0x00424242,
@@ -100,7 +136,7 @@ pub const CAMELLIA_SP0222: [u32; 256] = [
     0x002a2a2a, 0x00c7c7c7, 0x005b5b5b, 0x00e9e9e9, 0x00eeeeee, 0x008f8f8f, 0x00010101, 0x003d3d3d,
 ];
 
-pub const CAMELLIA_SP3033: [u32; 256] = [
+const CAMELLIA_SP3033: [u32; 256] = [
     0x38003838, 0x41004141, 0x16001616, 0x76007676, 0xd900d9d9, 0x93009393, 0x60006060, 0xf200f2f2,
     0x72007272, 0xc200c2c2, 0xab00abab, 0x9a009a9a, 0x75007575, 0x06000606, 0x57005757, 0xa000a0a0,
     0x91009191, 0xf700f7f7, 0xb500b5b5, 0xc900c9c9, 0xa200a2a2, 0x8c008c8c, 0xd200d2d2, 0x90009090,
@@ -135,7 +171,7 @@ pub const CAMELLIA_SP3033: [u32; 256] = [
     0x8a008a8a, 0xf100f1f1, 0xd600d6d6, 0x7a007a7a, 0xbb00bbbb, 0xe300e3e3, 0x40004040, 0x4f004f4f,
 ];
 
-pub const CAMELLIA_SP4404: [u32; 256] = [
+const CAMELLIA_SP4404: [u32; 256] = [
     0x70700070, 0x2c2c002c, 0xb3b300b3, 0xc0c000c0, 0xe4e400e4, 0x57570057, 0xeaea00ea, 0xaeae00ae,
     0x23230023, 0x6b6b006b, 0x45450045, 0xa5a500a5, 0xeded00ed, 0x4f4f004f, 0x1d1d001d, 0x92920092,
     0x86860086, 0xafaf00af, 0x7c7c007c, 0x1f1f001f, 0x3e3e003e, 0xdcdc00dc, 0x5e5e005e, 0x0b0b000b,
@@ -171,18 +207,18 @@ pub const CAMELLIA_SP4404: [u32; 256] = [
 ];
 
 // key constants
-pub const CAMELLIA_SIGMA1L: u32 = 0xA09E667F;
-pub const CAMELLIA_SIGMA1R: u32 = 0x3BCC908B;
-pub const CAMELLIA_SIGMA2L: u32 = 0xB67AE858;
-pub const CAMELLIA_SIGMA2R: u32 = 0x4CAA73B2;
-pub const CAMELLIA_SIGMA3L: u32 = 0xC6EF372F;
-pub const CAMELLIA_SIGMA3R: u32 = 0xE94F82BE;
-pub const CAMELLIA_SIGMA4L: u32 = 0x54FF53A5;
-pub const CAMELLIA_SIGMA4R: u32 = 0xF1D36F1C;
-pub const CAMELLIA_SIGMA5L: u32 = 0x10E527FA;
-pub const CAMELLIA_SIGMA5R: u32 = 0xDE682D1D;
-pub const CAMELLIA_SIGMA6L: u32 = 0xB05688C2;
-pub const CAMELLIA_SIGMA6R: u32 = 0xB3E6C1FD;
+const CAMELLIA_SIGMA1L: u32 = 0xA09E667F;
+const CAMELLIA_SIGMA1R: u32 = 0x3BCC908B;
+const CAMELLIA_SIGMA2L: u32 = 0xB67AE858;
+const CAMELLIA_SIGMA2R: u32 = 0x4CAA73B2;
+const CAMELLIA_SIGMA3L: u32 = 0xC6EF372F;
+const CAMELLIA_SIGMA3R: u32 = 0xE94F82BE;
+const CAMELLIA_SIGMA4L: u32 = 0x54FF53A5;
+const CAMELLIA_SIGMA4R: u32 = 0xF1D36F1C;
+const CAMELLIA_SIGMA5L: u32 = 0x10E527FA;
+const CAMELLIA_SIGMA5R: u32 = 0xDE682D1D;
+const CAMELLIA_SIGMA6L: u32 = 0xB05688C2;
+const CAMELLIA_SIGMA6R: u32 = 0xB3E6C1FD;
 
 
 // rotation right shift 1byte
@@ -844,7 +880,7 @@ fn camellia_setup192(key: &[u8], subkey: &mut [u32; KEY_TABLE_LEN]) {
 
 
 // Stuff related to camellia encryption/decryption
-pub fn camellia_encrypt128(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
+fn camellia_encrypt128(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
     debug_assert_eq!(block.len(), BLOCK_LEN); // 16 bytes
 
     let mut il = 0u32;
@@ -949,7 +985,7 @@ pub fn camellia_encrypt128(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
     block[12..16].copy_from_slice(&data[3].to_be_bytes());
 }
 
-pub fn camellia_decrypt128(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
+fn camellia_decrypt128(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
     debug_assert_eq!(block.len(), BLOCK_LEN); // 16 bytes
 
     // temporary valiables
@@ -1059,7 +1095,7 @@ pub fn camellia_decrypt128(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
 
 // stuff for 192 and 256bit encryption/decryption
 
-pub fn camellia_encrypt256(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
+fn camellia_encrypt256(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
     debug_assert_eq!(block.len(), BLOCK_LEN); // 16 bytes
 
     // temporary valiables
@@ -1189,7 +1225,7 @@ pub fn camellia_encrypt256(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
     block[12..16].copy_from_slice(&data[3].to_be_bytes());
 }
 
-pub fn camellia_decrypt256(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
+fn camellia_decrypt256(subkey: &[u32; KEY_TABLE_LEN], block: &mut [u8]) {
     debug_assert_eq!(block.len(), BLOCK_LEN); // 16 bytes
 
     // temporary valiables
