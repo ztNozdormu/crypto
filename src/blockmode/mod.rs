@@ -9,9 +9,9 @@ pub mod cfb;
 pub mod ofb;
 pub mod ctr;
 
-pub mod ccm;
+// pub mod ccm;
 pub mod gcm;
-pub mod siv;
+// pub mod siv;
 
-pub mod xts;
-pub mod ocb;
+// pub mod xts;
+// pub mod ocb;

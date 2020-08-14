@@ -1,4 +1,4 @@
-use crate::aes::generic::ExpandedKey128;
+use crate::aes::Aes128;
 
 // Appendix A:  Padding, (Page-24)
 // 
@@ -17,19 +17,19 @@ use crate::aes::generic::ExpandedKey128;
 #[derive(Debug, Clone)]
 pub struct AesCbc128 {
     iv: [u8; Self::BLOCK_LEN],
-    cipher: ExpandedKey128,
+    cipher: Aes128,
 }
 
 impl AesCbc128 {
-    pub const BLOCK_LEN: usize = ExpandedKey128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = ExpandedKey128::KEY_LEN;
-    pub const NONCE_LEN: usize = ExpandedKey128::BLOCK_LEN;
+    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
+    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
+    pub const NONCE_LEN: usize = Aes128::BLOCK_LEN;
 
     pub fn new(key: &[u8], nonce: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
         assert_eq!(nonce.len(), Self::NONCE_LEN);
 
-        let cipher = ExpandedKey128::new(key);
+        let cipher = Aes128::new(key);
         let mut iv = [0u8; Self::BLOCK_LEN];
         iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
 
@@ -50,13 +50,16 @@ impl AesCbc128 {
                 plaintext[i] ^= last_block[i];
             }
 
-            let output_block = self.cipher.encrypt(&plaintext);
+            // let mut output_block = [0u8; Self::BLOCK_LEN];
+            // output_block.copy_from_slice(&plaintext);
+            self.cipher.encrypt(plaintext);
             
-            for i in 0..Self::BLOCK_LEN {
-                plaintext[i] = output_block[i];
-            }
+            // for i in 0..Self::BLOCK_LEN {
+            //     plaintext[i] = output_block[i];
+            // }
 
-            last_block = output_block;
+            // last_block = output_block;
+            last_block.copy_from_slice(&plaintext);
         }
     }
 
@@ -70,14 +73,16 @@ impl AesCbc128 {
         for ciphertext in blocks.chunks_mut(Self::BLOCK_LEN) {
             debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
 
-            let mut output_block = self.cipher.decrypt(&ciphertext);
-
+            let mut output_block = [0u8; Self::BLOCK_LEN];
+            output_block.copy_from_slice(&ciphertext);
+            self.cipher.decrypt(&mut output_block);
+            
             for i in 0..Self::BLOCK_LEN {
                 output_block[i] ^= last_block[i];
             }
-
+            
             last_block[..Self::BLOCK_LEN].copy_from_slice(&ciphertext);
-
+            
             for i in 0..Self::BLOCK_LEN {
                 ciphertext[i] = output_block[i];
             }

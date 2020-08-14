@@ -9,7 +9,7 @@
 //      2. GCM 只可以和 块大小为 16 Bytes 的块密码算法协同工作。
 // 
 
-use crate::aes::generic::ExpandedKey128;
+use crate::aes::Aes128;
 
 use subtle;
 
@@ -41,32 +41,30 @@ pub trait BlockCipher {
     fn block_decrypt_in_place(&mut self, ciphertext_and_plaintext: &mut [u8]);
 }
 
-impl BlockCipher for ExpandedKey128 {
-    const KEY_LEN: usize   = ExpandedKey128::KEY_LEN;
-    const BLOCK_LEN: usize = ExpandedKey128::BLOCK_LEN;
+impl BlockCipher for Aes128 {
+    const KEY_LEN: usize   = Aes128::KEY_LEN;
+    const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
     
     fn new(key: &[u8]) -> Self {
         Self::new(key)
     }
 
     fn block_encrypt(&mut self, plaintext: &[u8], ciphertext: &mut [u8]) {
-        let output = self.encrypt(plaintext);
-        ciphertext[..Self::BLOCK_LEN].copy_from_slice(&output);
+        ciphertext[..Self::BLOCK_LEN].copy_from_slice(&plaintext[..Self::BLOCK_LEN]);
+        self.encrypt(ciphertext);
     }
 
     fn block_decrypt(&mut self, ciphertext: &[u8], plaintext: &mut [u8]) {
-        let output = self.decrypt(ciphertext);
-        plaintext[..Self::BLOCK_LEN].copy_from_slice(&output);
+        plaintext[..Self::BLOCK_LEN].copy_from_slice(&ciphertext[..Self::BLOCK_LEN]);
+        self.decrypt(plaintext);
     }
 
     fn block_encrypt_in_place(&mut self, plaintext_and_ciphertext: &mut [u8]) {
-        let output = self.encrypt(&plaintext_and_ciphertext);
-        plaintext_and_ciphertext[..Self::BLOCK_LEN].copy_from_slice(&output);
+        self.encrypt(plaintext_and_ciphertext);
     }
 
     fn block_decrypt_in_place(&mut self, ciphertext_and_plaintext: &mut [u8]) {
-        let output = self.decrypt(&ciphertext_and_plaintext);
-        ciphertext_and_plaintext[..Self::BLOCK_LEN].copy_from_slice(&output);
+        self.decrypt(ciphertext_and_plaintext);
     }
 }
 
@@ -248,8 +246,8 @@ impl<'c, 'k, C: BlockCipher> GcmEncryptor<'c, 'k, C> {
         // NOTE: GCM 只支持 块大小为 16 的密码算法。
         debug_assert_eq!(C::BLOCK_LEN, BLOCK_LEN);
 
-        let mut base_ectr = [0u8; BLOCK_LEN];
-        cipher.block_encrypt(&gcm_key.nonce, &mut base_ectr);
+        let mut base_ectr = gcm_key.nonce.clone();
+        cipher.block_encrypt_in_place(&mut base_ectr);
 
         let counter_block = gcm_key.nonce.clone();
 
@@ -273,8 +271,8 @@ impl<'c, 'k, C: BlockCipher> GcmEncryptor<'c, 'k, C> {
         for (block_index, plaintext) in plaintext_data.chunks(BLOCK_LEN).enumerate() {
             gcm_block_num_inc(&mut self.counter_block);
 
-            let mut ectr = [0u8; BLOCK_LEN];
-            self.cipher.block_encrypt(&self.counter_block, &mut ectr);
+            let mut ectr = self.counter_block.clone();
+            self.cipher.block_encrypt_in_place(&mut ectr);
 
             for i in 0..plaintext.len() {
                 ciphertext[block_index * BLOCK_LEN + i] = ectr[i] ^ plaintext[i];
@@ -312,7 +310,7 @@ impl<'c, 'k, C: BlockCipher> GcmEncryptor<'c, 'k, C> {
 
 #[derive(Debug, Clone)]
 pub struct AesGcm128 {
-    cipher: ExpandedKey128,
+    cipher: Aes128,
     gcm_key: GcmKey,
     aad: Vec<u8>,
     // base_ectr: [u8; 16],
@@ -322,7 +320,7 @@ pub struct AesGcm128 {
 // 6.  AES GCM Algorithms for Secure Shell
 // https://tools.ietf.org/html/rfc5647#section-6
 impl AesGcm128 {
-    pub const BLOCK_LEN: usize = ExpandedKey128::BLOCK_LEN;
+    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
     pub const TAG_LEN: usize   = TAG_LEN;
     pub const IV_LEN: usize    = IV_LEN;
     pub const NONCE_LEN: usize = IV_LEN + 4;
@@ -333,9 +331,9 @@ impl AesGcm128 {
         // NOTE: 实际上 GCM 允许的 aad 数据的长度 是 2**61 Bytes。
         assert!(aad.len() <= 1024);
         
-        let cipher = ExpandedKey128::new(key);
-        let zeros = [0u8; Self::BLOCK_LEN];
-        let h = cipher.encrypt(&zeros);
+        let cipher = Aes128::new(key);
+        let mut h = [0u8; Self::BLOCK_LEN];
+        cipher.encrypt(&mut h);
         let gcm_key = GcmKey::new(key, iv, &h);
 
         let aad = aad.to_vec();
@@ -358,7 +356,9 @@ impl AesGcm128 {
         debug_assert_eq!(&self.gcm_key.nonce[12..16], &[0, 0, 0, 1]);
 
         // Start
-        let base_ectr = self.cipher.encrypt(&self.gcm_key.nonce);
+        let mut base_ectr = self.gcm_key.nonce.clone();
+        self.cipher.encrypt(&mut base_ectr);
+
         let mut counter_block = self.gcm_key.nonce.clone();
         let mut buf = [0u8; 16];
         gcm_hash_aad(&self.gcm_key, &self.aad, &mut buf);
@@ -373,8 +373,9 @@ impl AesGcm128 {
         for (block_index, ciphertext) in ciphertext_data.chunks(BLOCK_LEN).enumerate() {
             gcm_block_num_inc(&mut counter_block);
 
-            let ectr = self.cipher.encrypt(&counter_block);
-
+            let mut ectr = counter_block.clone();
+            self.cipher.encrypt(&mut ectr);
+            
             for i in 0..ciphertext.len() {
                 buf[i] ^= ciphertext[i];
 
@@ -384,24 +385,24 @@ impl AesGcm128 {
             gf_mul(&self.gcm_key, &mut buf);
         }
 
-
         // finalize
         let data_len_bits: u64 = len * 8;
         let aad_len_bits: u64  = aad_len * 8;
         
         let mut octets = [0u8; 16];
-        let mut tag  = base_ectr;
-
+        let mut tag  = [0u8; Self::TAG_LEN];
+        tag.copy_from_slice(&base_ectr[..Self::TAG_LEN]);
+        
         octets[0.. 8].copy_from_slice(&data_len_bits.to_le_bytes());
         octets[8..16].copy_from_slice(&aad_len_bits.to_le_bytes());
 
-        for i in 0..BLOCK_LEN {
+        for i in 0..Self::BLOCK_LEN {
             buf[i] ^= octets[i];
         }
 
         gf_mul(&self.gcm_key, &mut buf);
 
-        for i in 0..TAG_LEN {
+        for i in 0..Self::TAG_LEN {
             tag[i] ^= buf[i];
         }
 

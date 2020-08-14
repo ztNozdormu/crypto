@@ -59,28 +59,26 @@ macro_rules! impl_aes {
             pub const BLOCK_LEN: usize = AES_BLOCK_LEN;
             
             pub fn new(key: &[u8]) -> Self {
-                assert_eq!(key.len(), $nk * WORD_SIZE);
+                assert_eq!(key.len(), Self::KEY_LEN);
+                let mut ek = [0u8; ($nr + 1) * AES_BLOCK_LEN];
+                key_expansion(key, &mut ek);
+                Self { ek }
+            }
+            
+            pub fn new_unchecked(key: &[u8]) -> Self {
                 let mut ek = [0u8; ($nr + 1) * AES_BLOCK_LEN];
                 key_expansion(key, &mut ek);
                 Self { ek }
             }
 
-            pub fn encrypt(&self, input: &[u8]) -> [u8; 16] {
-                let mut state = [0u8; 16];
-                state.copy_from_slice(input);
-
-                encrypt(&mut state, &self.ek, $nr);
-
-                state
+            #[inline]
+            pub fn encrypt(&self, plaintext_in_and_ciphertext_out: &mut [u8]) {
+                encrypt(plaintext_in_and_ciphertext_out, &self.ek, $nr);
             }
 
-            pub fn decrypt(&self, input: &[u8]) -> [u8; 16] {
-                let mut state = [0u8; 16];
-                state.copy_from_slice(input);
-                
-                decrypt(&mut state, &self.ek, $nr);
-                
-                state
+            #[inline]
+            pub fn decrypt(&self, ciphertext_in_and_plaintext_out: &mut [u8]) {    
+                decrypt(ciphertext_in_and_plaintext_out, &self.ek, $nr);
             }
         }
 
@@ -95,9 +93,9 @@ macro_rules! impl_aes {
     }
 }
 
-impl_aes!(ExpandedKey128, AES128_NR, AES128_NK, "ExpandedKey128");
-impl_aes!(ExpandedKey192, AES192_NR, AES192_NK, "ExpandedKey192");
-impl_aes!(ExpandedKey256, AES256_NR, AES256_NK, "ExpandedKey256");
+impl_aes!(Aes128, AES128_NR, AES128_NK, "Aes128");
+impl_aes!(Aes192, AES192_NR, AES192_NK, "Aes192");
+impl_aes!(Aes256, AES256_NR, AES256_NK, "Aes256");
 
 
 // The round constant word array. 
@@ -281,7 +279,9 @@ pub fn sub_word(x: u32) -> u32 {
 }
 
 #[inline]
-pub fn sub_bytes(state: &mut [u8; 16]) {
+pub fn sub_bytes(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
+
     state[0]  = FORWARD_S_BOX[state[0] as usize];
     state[1]  = FORWARD_S_BOX[state[1] as usize];
     state[2]  = FORWARD_S_BOX[state[2] as usize];
@@ -301,7 +301,8 @@ pub fn sub_bytes(state: &mut [u8; 16]) {
 }
 
 #[inline]
-pub fn shift_rows(state: &mut [u8; 16]) {
+pub fn shift_rows(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     // Example:
     // 00 11 22 33 
     // 44 55 66 77 
@@ -374,7 +375,9 @@ pub const fn gf_mul14(v: u8) -> u8 {
 
 
 #[inline]
-pub fn mix_columns(state: &mut [u8; 16]) {
+pub fn mix_columns(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
+
     let mut c = [0u8; 16];
     c[0] = gf_mul2(state[0]) ^ gf_mul3(state[1]) ^ state[2]          ^ state[3];
     c[1] = state[0]          ^ gf_mul2(state[1]) ^ gf_mul3(state[2]) ^ state[3];
@@ -401,7 +404,9 @@ pub fn mix_columns(state: &mut [u8; 16]) {
 
 
 #[inline]
-pub fn inv_sub_bytes(state: &mut [u8; 16]) {
+pub fn inv_sub_bytes(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
+
     // InvSubBytes
     state[0]  = REVERSE_S_BOX[state[0] as usize];
     state[1]  = REVERSE_S_BOX[state[1] as usize];
@@ -424,7 +429,9 @@ pub fn inv_sub_bytes(state: &mut [u8; 16]) {
 
 
 #[inline]
-pub fn inv_shift_rows(state: &mut [u8; 16]) {
+pub fn inv_shift_rows(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
+
     // Example:
     // 00 11 22 33 
     // 44 55 66 77 
@@ -471,7 +478,9 @@ pub fn inv_shift_rows(state: &mut [u8; 16]) {
 }
 
 #[inline]
-pub fn inv_mix_columns(state: &mut [u8; 16]) {
+pub fn inv_mix_columns(state: &mut [u8]) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
+
     let mut c = [0u8; 16];
     c[0] = gf_mul14(state[0]) ^ gf_mul11(state[1]) ^ gf_mul13(state[2]) ^ gf_mul9(state[3]);
     c[1] = gf_mul9(state[0])  ^ gf_mul14(state[1]) ^ gf_mul11(state[2]) ^ gf_mul13(state[3]);
@@ -563,7 +572,8 @@ pub fn key_expansion(key: &[u8], expanded_key: &mut [u8]) {
 }
 
 #[inline]
-pub fn add_round_key(state: &mut [u8; 16], rounds_key: &[u8], round: usize) {
+pub fn add_round_key(state: &mut [u8], rounds_key: &[u8], round: usize) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     debug_assert!(rounds_key.len() >= round * AES_BLOCK_LEN);
 
     for i in 0..AES_BLOCK_LEN {
@@ -572,7 +582,8 @@ pub fn add_round_key(state: &mut [u8; 16], rounds_key: &[u8], round: usize) {
 }
 
 #[inline]
-pub fn encrypt(state: &mut [u8; 16], expanded_key: &[u8], nr: usize) {
+pub fn encrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     debug_assert!(nr == AES128_NR || nr == AES192_NR || nr == AES256_NR);
 
     add_round_key(state, expanded_key, 0);
@@ -590,7 +601,8 @@ pub fn encrypt(state: &mut [u8; 16], expanded_key: &[u8], nr: usize) {
 }
 
 #[inline]
-pub fn decrypt(state: &mut [u8; 16], expanded_key: &[u8], nr: usize) {
+pub fn decrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
+    debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     debug_assert!(nr == AES128_NR || nr == AES192_NR || nr == AES256_NR);
 
     add_round_key(state, expanded_key, nr);

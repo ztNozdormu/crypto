@@ -1,4 +1,4 @@
-use crate::aes::generic::ExpandedKey128;
+use crate::aes::Aes128;
 
 
 // 6.5 The Counter Mode, (Page-22)
@@ -58,19 +58,19 @@ impl Ctr {
 #[derive(Debug, Clone)]
 pub struct AesCtr128 {
     ctr: Ctr,
-    cipher: ExpandedKey128,
+    cipher: Aes128,
 }
 
 impl AesCtr128 {
-    pub const BLOCK_LEN: usize = ExpandedKey128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = ExpandedKey128::KEY_LEN;
-    pub const NONCE_LEN: usize = ExpandedKey128::BLOCK_LEN;
+    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
+    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
+    pub const NONCE_LEN: usize = Aes128::BLOCK_LEN;
 
     pub fn new(key: &[u8], nonce: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
         assert_eq!(nonce.len(), Self::NONCE_LEN);
 
-        let cipher = ExpandedKey128::new(key);
+        let cipher = Aes128::new(key);
         let ctr = Ctr::new(nonce);
         
         Self { cipher, ctr }
@@ -78,8 +78,10 @@ impl AesCtr128 {
 
     pub fn encrypt(&mut self, data: &mut [u8]) {
         for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
-            let counter_block = self.ctr.counter_block();
-            let output_block = self.cipher.encrypt(&counter_block[..]);
+            
+            let mut output_block = self.ctr.counter_block().clone();
+            self.cipher.encrypt(&mut output_block);
+
             for i in 0..plaintext.len() {
                 plaintext[i] ^= output_block[i];
             }
@@ -89,8 +91,9 @@ impl AesCtr128 {
 
     pub fn decrypt(&mut self, data: &mut [u8]) {
         for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
-            let counter_block = self.ctr.counter_block();
-            let output_block = self.cipher.encrypt(&counter_block[..]);
+            let mut output_block = self.ctr.counter_block().clone();
+            self.cipher.encrypt(&mut output_block);
+
             for i in 0..ciphertext.len() {
                 ciphertext[i] ^= output_block[i];
             }

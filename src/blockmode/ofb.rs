@@ -1,5 +1,5 @@
 
-use crate::aes::generic::ExpandedKey128;
+use crate::aes::Aes128;
 
 
 // 6.4 The Output Feedback Mode, (Page-20)
@@ -7,20 +7,20 @@ use crate::aes::generic::ExpandedKey128;
 #[derive(Debug, Clone)]
 pub struct AesOfb128 {
     iv: [u8; Self::BLOCK_LEN],
-    cipher: ExpandedKey128,
+    cipher: Aes128,
 }
 
 impl AesOfb128 {
-    pub const BLOCK_LEN: usize = ExpandedKey128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = ExpandedKey128::KEY_LEN;
-    pub const NONCE_LEN: usize = ExpandedKey128::BLOCK_LEN;
+    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
+    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
+    pub const NONCE_LEN: usize = Aes128::BLOCK_LEN;
     pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
 
     pub fn new(key: &[u8], nonce: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
         assert_eq!(nonce.len(), Self::NONCE_LEN);
 
-        let cipher = ExpandedKey128::new(key);
+        let cipher = Aes128::new(key);
         let mut iv = [0u8; Self::BLOCK_LEN];
         iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
         
@@ -30,7 +30,9 @@ impl AesOfb128 {
     pub fn encrypt(&mut self, data: &mut [u8]) {
         let mut last_input_block = self.iv.clone();
         for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
-            let output_block = self.cipher.encrypt(&last_input_block);
+
+            let mut output_block = last_input_block.clone();
+            self.cipher.encrypt(&mut output_block);
 
             for i in 0..plaintext.len() {
                 plaintext[i] ^= output_block[i];
@@ -43,8 +45,10 @@ impl AesOfb128 {
     pub fn decrypt(&mut self, data: &mut [u8]) {
         let mut last_input_block = self.iv.clone();
         for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
-            let output_block = self.cipher.encrypt(&last_input_block);
 
+            let mut output_block = last_input_block.clone();
+            self.cipher.encrypt(&mut output_block);
+            
             for i in 0..ciphertext.len() {
                 ciphertext[i] ^= output_block[i];
             }

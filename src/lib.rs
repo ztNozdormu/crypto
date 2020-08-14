@@ -12,6 +12,8 @@ extern crate byteorder;
 #[cfg(test)]
 extern crate hex;
 
+pub mod error;
+
 // cryptographic hash function (CHF)
 pub mod hash;
 pub mod md2;
@@ -24,9 +26,11 @@ pub mod sm3;
 
 pub mod hmac;
 
-// Key derivation function
+// Key derivation function (KDF)
 pub mod hkdf;
 pub mod scrypt; // TODO
+
+pub mod cipher;
 
 // Block Cipher
 pub mod blockmode;
@@ -42,7 +46,7 @@ pub mod poly1305;
 pub mod chacha20_poly1305;
 
 // AEAD Cipher
-// pub mod aead;
+pub mod aead;
 
 
 // Elliptic Curve Cryptography（ECC）

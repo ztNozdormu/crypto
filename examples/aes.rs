@@ -1,6 +1,6 @@
 extern crate crypto;
 
-use crypto::aes::generic::ExpandedKey128;
+use crypto::aes::Aes128;
 
 
 fn main() {
@@ -13,11 +13,15 @@ fn main() {
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
     
-    let ek128  = ExpandedKey128::new(&key);
-    let ciphertext = ek128.encrypt(&plaintext);
-    let cleartext = ek128.decrypt(&ciphertext);
+    let aes128  = Aes128::new(&key);
+
+    let mut ciphertext = plaintext.clone();
+    aes128.encrypt(&mut ciphertext);
+
+    let mut cleartext = ciphertext.clone();
+    aes128.decrypt(&mut cleartext);
     
-    println!("AES-EK128: {:?}\n\n", ek128);
+    println!("AES-EK128: {:?}\n\n", aes128);
     println!("plaintext: {:?}", &plaintext[..]);
     println!("ciphertext: {:?}", &ciphertext[..]);
     println!("cleartext: {:?}", &cleartext[..]);

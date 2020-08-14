@@ -1,4 +1,8 @@
+
 use crate::error::AuthenticationTagMismatch;
+use crate::aes::Aes128;
+use crate::aes::Aes192;
+use crate::aes::Aes256;
 
 use std::io;
 
@@ -9,13 +13,17 @@ pub enum CipherKind {
     AES128,
     AES192,
     AES256,
-
+    AES128_ECB,
+    AES128_CBC,
+    AES128_CFB64,
+    AES128_CFB128,
+    CAMELLIA128,
+    // TODO: 添加更多 ...
     Private {
         id: u16,
         name: &'static str,
     },
 }
-
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -31,7 +39,7 @@ pub enum BlockCipherKind {
     CAMELLIA128,
     CAMELLIA192,
     CAMELLIA256,
-
+    // TODO: 添加更多 ...
     RC2,
     SM4,
 
@@ -118,12 +126,12 @@ pub trait BlockCipher: Sized {
 // =============================  流密码  =============================
 pub trait StreamCipherEncrytor {
     // 流密码 流式数据加密
-    fn update(&mut self, plaintext: &[u8], ciphertext: &mut [u8]);
+    fn update(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
     fn finalize(self);
 }
 pub trait StreamCipherDecryptor {
     // 流密码 流式数据解密
-    fn update(&mut self, ciphertext: &[u8], plaintext: &mut [u8]);
+    fn update(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]);
     fn finalize(self);
 }
 pub trait StreamCipher: Sized {
@@ -157,12 +165,12 @@ pub trait StreamCipher: Sized {
 
 // =================== 认证加密（Authenticated encryption, AE）=======================
 pub trait AuthenticatedStreamCipherEncrytor {
-    fn update(&mut self, plaintext: &[u8], ciphertext: &mut [u8]);
+    fn update(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
     // NOTE: 追加 TAG 数据至 output 的结尾。
     fn finalize(self, tag: &mut [u8]);
 }
 pub trait AuthenticatedStreamCipherDecryptor {
-    fn update(&mut self, ciphertext: &[u8], plaintext: &mut [u8]);
+    fn update(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]);
     // NOTE: 验证 TAG 数据是否吻合。
     fn finalize(self, tag: &[u8]) -> Result<(), AuthenticationTagMismatch>;
 }
@@ -193,12 +201,12 @@ pub trait AuthenticatedStreamCipher: StreamCipher {
 
 // =================== 带有关联数据的认证加密（authenticated encryption with associated data, AEAD）==============
 pub trait AeadStreamCipherEncrytor {
-    fn update(&mut self, plaintext: &[u8], ciphertext: &mut [u8]);
+    fn update(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
     // NOTE: 追加 TAG 数据至 output 的结尾。
     fn finalize(self, tag: &mut [u8]);
 }
 pub trait AeadStreamCipherDecryptor {
-    fn update(&mut self, ciphertext: &[u8], plaintext: &mut [u8]);
+    fn update(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]);
     // NOTE: 验证 TAG 数据是否吻合。
     fn finalize(self, tag: &[u8]) -> Result<(), AuthenticationTagMismatch>;
 }
@@ -228,3 +236,36 @@ pub trait AeadStreamCipher: AuthenticatedStreamCipher {
     fn aead_decrypt_stream(&self) -> Self::AeadDecryptor;
 }
 
+
+
+macro_rules! impl_block_cipher {
+    ($name:tt, $kind:tt) => {
+        impl BlockCipher for $name {
+            const KIND: BlockCipherKind = BlockCipherKind::$kind;
+            const KEY_LEN: usize   = $name::KEY_LEN;
+            const BLOCK_LEN: usize = $name::BLOCK_LEN;
+
+            fn new(key: &[u8]) -> Self {
+                Self::new(key)
+            }
+
+            fn encrypt_block(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]) {
+                self.encrypt(plaintext_in_and_ciphertext_out);
+            }
+
+            fn decrypt_block(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]) {
+                self.decrypt(ciphertext_in_and_plaintext_out);
+            }
+        }
+    }
+}
+impl_block_cipher!(Aes128, AES128);
+impl_block_cipher!(Aes192, AES192);
+impl_block_cipher!(Aes256, AES256);
+
+
+// impl AeadStreamCipher for AeadAes128Gcm {
+//     const ID: u16                 = 1;
+//     const NAME: &'static str      = "AEAD_AES_128_GCM";
+//     const REFERENCE: &'static str = "RFC5116";
+// }

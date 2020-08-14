@@ -1,4 +1,4 @@
-use crate::aes::generic::ExpandedKey128;
+use crate::aes::Aes128;
 
 // NOTE:
 // 
@@ -29,13 +29,13 @@ pub struct AesCfb128 {
     // The number of bits in a data segment.
     s: usize,
     iv: [u8; Self::BLOCK_LEN],
-    cipher: ExpandedKey128,
+    cipher: Aes128,
 }
 
 impl AesCfb128 {
-    pub const BLOCK_LEN: usize = ExpandedKey128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = ExpandedKey128::KEY_LEN;
-    pub const NONCE_LEN: usize = ExpandedKey128::BLOCK_LEN;
+    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
+    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
+    pub const NONCE_LEN: usize = Aes128::BLOCK_LEN;
     pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
 
     /// the 1-bit CFB mode
@@ -53,7 +53,7 @@ impl AesCfb128 {
         // TODO: 目前只支持这两种模式
         assert!(mode == Self::CFB8 || mode == Self::CFB128);
         
-        let cipher = ExpandedKey128::new(key);
+        let cipher = Aes128::new(key);
         let mut iv = [0u8; Self::BLOCK_LEN];
         iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
         
@@ -79,7 +79,8 @@ impl AesCfb128 {
 
         for j in 0..n {
             if j == 0 {
-                let output_block = self.cipher.encrypt(&last_input_block);
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
                 segments[j] ^= output_block[0];
                 last_segment = segments[j];
             } else {
@@ -88,7 +89,8 @@ impl AesCfb128 {
                 tmp[Self::BLOCK_LEN - 1] = last_segment;
                 last_input_block = tmp;
 
-                let output_block = self.cipher.encrypt(&last_input_block);
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
                 segments[j] ^= output_block[0];
                 last_segment = segments[j];
             }
@@ -109,8 +111,9 @@ impl AesCfb128 {
         for j in 0..n {
             if j == 0 {
                 last_segment = segments[j];
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
 
-                let output_block = self.cipher.encrypt(&last_input_block);
                 segments[j] ^= output_block[0];
             } else {
                 let mut tmp = [0u8; Self::BLOCK_LEN];
@@ -119,7 +122,8 @@ impl AesCfb128 {
                 last_input_block = tmp;
 
                 last_segment = segments[j];
-                let output_block = self.cipher.encrypt(&last_input_block);
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
                 segments[j] ^= output_block[0];
             }
         }

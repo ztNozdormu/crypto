@@ -1,4 +1,4 @@
-use crate::aes::generic::ExpandedKey128;
+use crate::aes::Aes128;
 
 
 // NOTE:
@@ -11,17 +11,17 @@ use crate::aes::generic::ExpandedKey128;
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 #[derive(Debug, Clone)]
 pub struct AesEcb128 {
-    cipher: ExpandedKey128,
+    cipher: Aes128,
 }
 
 impl AesEcb128 {
-    pub const BLOCK_LEN: usize = ExpandedKey128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = ExpandedKey128::KEY_LEN;
+    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
+    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
 
     pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
 
-        let cipher = ExpandedKey128::new(key);
+        let cipher = Aes128::new(key);
 
         Self { cipher }
     }
@@ -35,11 +35,7 @@ impl AesEcb128 {
         for plaintext in blocks.chunks_mut(Self::BLOCK_LEN) {
             debug_assert_eq!(plaintext.len(), Self::BLOCK_LEN);
 
-            let output_block = self.cipher.encrypt(&plaintext);
-            
-            for i in 0..Self::BLOCK_LEN {
-                plaintext[i] = output_block[i];
-            }
+            self.cipher.encrypt(plaintext);
         }
     }
 
@@ -52,11 +48,7 @@ impl AesEcb128 {
         for ciphertext in blocks.chunks_mut(Self::BLOCK_LEN) {
             debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
 
-            let output_block = self.cipher.decrypt(&ciphertext);
-
-            for i in 0..Self::BLOCK_LEN {
-                ciphertext[i] = output_block[i];
-            }
+            self.cipher.decrypt(ciphertext);
         }
     }
 }
