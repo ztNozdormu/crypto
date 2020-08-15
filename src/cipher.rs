@@ -2,7 +2,6 @@
 use crate::error::AuthenticationTagMismatch;
 use crate::aes::{Aes128, Aes192, Aes256};
 use crate::camellia::{Camellia128, Camellia192, Camellia256};
-use crate::rc2::Rc2;
 
 
 use std::io;
@@ -389,7 +388,6 @@ impl_block_cipher!(Aes256, AES256);
 impl_block_cipher!(Camellia128, CAMELLIA128);
 impl_block_cipher!(Camellia192, CAMELLIA192);
 impl_block_cipher!(Camellia256, CAMELLIA256);
-impl_block_cipher!(Rc2, RC2);
 
 
 pub fn encrypt_block<C: BlockCipher>(key: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
