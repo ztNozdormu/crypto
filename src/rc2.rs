@@ -48,23 +48,22 @@ const PI_TABLE: [u8; 256] = [
     0x0a, 0xa6, 0x20, 0x68, 0xfe, 0x7f, 0xc1, 0xad, 
 ];
 
-#[inline]
-fn key_expansion(key: &[u8]) -> [u16; 64] {
-    const MIN_KEY_LEN: usize =   1;
-    const MAX_KEY_LEN: usize = 128;
+const MIN_KEY_LEN: usize =   1; // In bytes
+const MAX_KEY_LEN: usize = 128; // In bytes
 
-    let key_len = key.len();
-    let t1 = key.len() * 8;      // KEY-LEN in bits
-    assert!(t1 >= MIN_KEY_LEN && t1 <= MAX_KEY_LEN); // 1 .. 128
+#[inline]
+fn key_expansion(key: &[u8], t1: usize) -> [u16; 64] {
+    let t = key.len();
+    assert!(t >= MIN_KEY_LEN && t <= MAX_KEY_LEN);
 
     let t8: usize = (t1 + 7) >> 3;
-    let tm: usize = (255 % ((2 as u32).pow((8 + t1 - 8 * t8) as u32))) as usize;
+    let tm: usize = (255 % (2u32.pow((8 + t1 - 8 * t8) as u32))) as usize;
 
     let mut buf: [u8; 128] = [0; 128];
-    buf[..key_len].copy_from_slice(&key[..key_len]);
+    buf[..t].copy_from_slice(&key[..t]);
 
-    for i in key_len..128 {
-        let pos: u32 = (u32::from(buf[i - 1]) + u32::from(buf[i - key_len])) & 0xff;
+    for i in t..128 {
+        let pos: u32 = (u32::from(buf[i - 1]) + u32::from(buf[i - t])) & 0xff;
         buf[i] = PI_TABLE[pos as usize];
     }
 
@@ -209,13 +208,19 @@ pub struct Rc2 {
 }
 
 impl Rc2 {
-    pub const BLOCK_LEN: usize   =  8; // In bytes
-    pub const MIN_KEY_LEN: usize =  1; // In bytes
-    pub const MAX_KEY_LEN: usize = 16; // In bytes
+    pub const BLOCK_LEN: usize   = 8;           // In bytes
+    pub const MIN_KEY_LEN: usize = MIN_KEY_LEN; // In bytes
+    pub const MAX_KEY_LEN: usize = MAX_KEY_LEN; // In bytes
 
-    // Key len: in bytes
     pub fn new(key: &[u8]) -> Self {
-        let ek = key_expansion(key);
+        Self::with_effective_key_len(key, key.len() * 8)
+    }
+
+    // effective key length: in bits
+    pub fn with_effective_key_len(key: &[u8], effective_key_len: usize) -> Self {
+        assert!(key.len() >= Self::MIN_KEY_LEN && key.len() <= Self::MAX_KEY_LEN);
+
+        let ek = key_expansion(key, effective_key_len);
         Self { ek }
     }
 
@@ -299,4 +304,90 @@ impl std::fmt::Debug for Rc2 {
             .field("ek", &ek)
             .finish()
     }
+}
+
+
+#[test]
+fn test_rc2() {
+    // 5. Test vectors
+    // https://tools.ietf.org/html/rfc2268#section-5
+    let key = hex::decode("0000000000000000").unwrap();
+    let effective_key_len = 63;
+    let plaintext = hex::decode("0000000000000000").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("ebb773f993278eff").unwrap()[..]);
+
+
+    let key = hex::decode("ffffffffffffffff").unwrap();
+    let effective_key_len = 64;
+    let plaintext = hex::decode("ffffffffffffffff").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("278b27e42e2f0d49").unwrap()[..]);
+
+
+    let key = hex::decode("3000000000000000").unwrap();
+    let effective_key_len = 64;
+    let plaintext = hex::decode("1000000000000001").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("30649edf9be7d2c2").unwrap()[..]);
+   
+
+    let key = hex::decode("88").unwrap();
+    let effective_key_len = 64;
+    let plaintext = hex::decode("0000000000000000").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("61a8a244adacccf0").unwrap()[..]);
+
+
+    let key = hex::decode("88bca90e90875a").unwrap();
+    let effective_key_len = 64;
+    let plaintext = hex::decode("0000000000000000").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("6ccf4308974c267f").unwrap()[..]);
+
+
+    let key = hex::decode("88bca90e90875a7f0f79c384627bafb2").unwrap();
+    let effective_key_len = 64;
+    let plaintext = hex::decode("0000000000000000").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("1a807d272bbe5db1").unwrap()[..]);
+
+
+    let key = hex::decode("88bca90e90875a7f0f79c384627bafb2").unwrap();
+    let effective_key_len = 128;
+    let plaintext = hex::decode("0000000000000000").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("2269552ab0f85ca6").unwrap()[..]);
+
+    
+    let key = hex::decode("88bca90e90875a7f0f79c384627bafb216f80a6f85920584\
+c42fceb0be255daf1e").unwrap();
+    let effective_key_len = 129;
+    let plaintext = hex::decode("0000000000000000").unwrap();
+
+    let c = Rc2::with_effective_key_len(&key, effective_key_len);
+    let mut ciphertext = plaintext.clone();
+    c.encrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &hex::decode("5b78d3a43dfff1f1").unwrap()[..]);
 }
