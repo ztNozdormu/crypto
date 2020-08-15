@@ -3,6 +3,7 @@ use crate::error::AuthenticationTagMismatch;
 use crate::aes::{Aes128, Aes192, Aes256};
 use crate::camellia::{Camellia128, Camellia192, Camellia256};
 use crate::rc2::Rc2FixedSize;
+use crate::sm4::Sm4;
 
 
 use std::io;
@@ -68,10 +69,10 @@ pub enum BlockCipherKind {
     // NOTE: 实现和 流行的 AES、CAMELLIA 类似的密钥长度。
     //       KEY-LEN=16 BLOCK-LEN=16
     RC2_FIXED_SIZE,
-    
+
     // NOTE: SM4 对称分组密码算法的密钥长度为 128-bits。
     SM4,
-    
+
     Private {
         id: u16,
         name: &'static str,
@@ -391,6 +392,7 @@ impl_block_cipher!(Camellia128, CAMELLIA128);
 impl_block_cipher!(Camellia192, CAMELLIA192);
 impl_block_cipher!(Camellia256, CAMELLIA256);
 impl_block_cipher!(Rc2FixedSize, RC2_FIXED_SIZE);
+impl_block_cipher!(Sm4, SM4);
 
 
 pub fn encrypt_block<C: BlockCipher>(key: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
