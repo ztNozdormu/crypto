@@ -1,5 +1,9 @@
 // 代码参考:
 // https://github.com/citahub/libsm/blob/master/src/sm4/cipher.rs
+// 
+// TODO:
+//      硬件加速代码参考:
+//          https://github.com/mjosaarinen/sm4ni
 
 const KEY_LEN: usize   = 16;
 const BLOCK_LEN: usize = 16;
