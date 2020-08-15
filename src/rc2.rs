@@ -13,20 +13,6 @@
 //     RC5 is a 32/64/128-bit block cipher developed in 1994.
 //     RC6, a 128-bit block cipher based heavily on RC5, was an AES finalist developed in 1997.
 // 
-
-
-// https://en.wikipedia.org/wiki/RC2
-// https://tools.ietf.org/html/rfc2268
-
-// https://zh.wikipedia.org/wiki/RC4
-// https://zh.wikipedia.org/wiki/RC5
-// https://en.wikipedia.org/wiki/RC6
-
-
-// A Description of the RC2(r) Encryption Algorithm (RC2 (also known as ARC2))
-// https://tools.ietf.org/html/rfc2268
-// https://en.wikipedia.org/wiki/RC2
-
 const PI_TABLE: [u8; 256] = [
     0xd9, 0x78, 0xf9, 0xc4, 0x19, 0xdd, 0xb5, 0xed, 
     0x28, 0xe9, 0xfd, 0x79, 0x4a, 0xa0, 0xd8, 0x9d, 
@@ -62,134 +48,180 @@ const PI_TABLE: [u8; 256] = [
     0x0a, 0xa6, 0x20, 0x68, 0xfe, 0x7f, 0xc1, 0xad, 
 ];
 
-const MIN_KEY_LEN: usize =   1;
-const MAX_KEY_LEN: usize = 128;
+#[inline]
+fn key_expansion(key: &[u8]) -> [u16; 64] {
+    const MIN_KEY_LEN: usize =   1;
+    const MAX_KEY_LEN: usize = 128;
 
-// RC2  16-bits
-// RC2  24-bits
-// RC2  32-bits
-// RC2  64-bits
-// RC2 128-bits
+    let key_len = key.len();
+    let t1 = key.len() * 8;      // KEY-LEN in bits
+    assert!(t1 >= MIN_KEY_LEN && t1 <= MAX_KEY_LEN); // 1 .. 128
 
-/// A structure that represents the block cipher initialized with a key
+    let t8: usize = (t1 + 7) >> 3;
+    let tm: usize = (255 % ((2 as u32).pow((8 + t1 - 8 * t8) as u32))) as usize;
+
+    let mut buf: [u8; 128] = [0; 128];
+    buf[..key_len].copy_from_slice(&key[..key_len]);
+
+    for i in key_len..128 {
+        let pos: u32 = (u32::from(buf[i - 1]) + u32::from(buf[i - key_len])) & 0xff;
+        buf[i] = PI_TABLE[pos as usize];
+    }
+
+    buf[128 - t8] = PI_TABLE[(buf[128 - t8] & tm as u8) as usize];
+
+    for i in (0..128 - t8).rev() {
+        let pos: usize = (buf[i + 1] ^ buf[i + t8]) as usize;
+        buf[i] = PI_TABLE[pos];
+    }
+
+    let mut ek: [u16; 64] = [0; 64];
+    
+    for i in 0..64 {
+        ek[i] = (u16::from(buf[2 * i + 1]) << 8) + u16::from(buf[2 * i])
+    }
+
+    ek
+}
+
+#[inline]
+fn mix(ek: &[u16; 64], r: &mut [u16; 4], j: &mut usize) {
+    r[0] = r[0]
+        .wrapping_add(ek[*j])
+        .wrapping_add(r[3] & r[2])
+        .wrapping_add(!r[3] & r[1]);
+    *j += 1;
+    r[0] = (r[0] << 1) | (r[0] >> 15);
+
+    r[1] = r[1]
+        .wrapping_add(ek[*j])
+        .wrapping_add(r[0] & r[3])
+        .wrapping_add(!r[0] & r[2]);
+    *j += 1;
+    r[1] = (r[1] << 2) | (r[1] >> 14);
+
+    r[2] = r[2]
+        .wrapping_add(ek[*j])
+        .wrapping_add(r[1] & r[0])
+        .wrapping_add(!r[1] & r[3]);
+    *j += 1;
+    r[2] = (r[2] << 3) | (r[2] >> 13);
+
+    r[3] = r[3]
+        .wrapping_add(ek[*j])
+        .wrapping_add(r[2] & r[1])
+        .wrapping_add(!r[2] & r[0]);
+    *j += 1;
+    r[3] = (r[3] << 5) | (r[3] >> 11);
+}
+
+#[inline]
+fn reverse_mix(ek: &[u16; 64], r: &mut [u16; 4], j: &mut usize) {
+    r[3] = (r[3] << 11) | (r[3] >> 5);
+    r[3] = r[3]
+        .wrapping_sub(ek[*j])
+        .wrapping_sub(r[2] & r[1])
+        .wrapping_sub(!r[2] & r[0]);
+    *j -= 1;
+
+    r[2] = (r[2] << 13) | (r[2] >> 3);
+    r[2] = r[2]
+        .wrapping_sub(ek[*j])
+        .wrapping_sub(r[1] & r[0])
+        .wrapping_sub(!r[1] & r[3]);
+    *j -= 1;
+
+    r[1] = (r[1] << 14) | (r[1] >> 2);
+    r[1] = r[1]
+        .wrapping_sub(ek[*j])
+        .wrapping_sub(r[0] & r[3])
+        .wrapping_sub(!r[0] & r[2]);
+    *j -= 1;
+
+    r[0] = (r[0] << 15) | (r[0] >> 1);
+    r[0] = r[0]
+        .wrapping_sub(ek[*j])
+        .wrapping_sub(r[3] & r[2])
+        .wrapping_sub(!r[3] & r[1]);
+    *j = j.wrapping_sub(1);
+}
+
+#[inline]
+fn mash(ek: &[u16; 64], r: &mut [u16; 4]) {
+    r[0] = r[0].wrapping_add(ek[(r[3] & 63) as usize]);
+    r[1] = r[1].wrapping_add(ek[(r[0] & 63) as usize]);
+    r[2] = r[2].wrapping_add(ek[(r[1] & 63) as usize]);
+    r[3] = r[3].wrapping_add(ek[(r[2] & 63) as usize]);
+}
+
+#[inline]
+fn reverse_mash(ek: &[u16; 64], r: &mut [u16; 4]) {
+    r[3] = r[3].wrapping_sub(ek[(r[2] & 63) as usize]);
+    r[2] = r[2].wrapping_sub(ek[(r[1] & 63) as usize]);
+    r[1] = r[1].wrapping_sub(ek[(r[0] & 63) as usize]);
+    r[0] = r[0].wrapping_sub(ek[(r[3] & 63) as usize]);
+}
+
+
+// RC2-KEYLEN128-BLOCKLEN128
+#[derive(Clone)]
+pub struct Rc2K128B128 {
+    inner: Rc2,
+}
+
+impl Rc2K128B128 {
+    pub const KEY_LEN: usize   = 16;
+    pub const BLOCK_LEN: usize = 16;
+
+    pub fn new(key: &[u8]) -> Self {
+        assert_eq!(key.len(), Self::KEY_LEN);
+        
+        let inner = Rc2::new(key);
+
+        Self { inner }
+    }
+
+    pub fn encrypt(&self, block: &mut [u8]) {
+        self.inner.encrypt_two_blocks(block);
+    }
+
+    pub fn decrypt(&self, block: &mut [u8]) {
+        self.inner.decrypt_two_blocks(block);
+    }
+}
+
+impl std::fmt::Debug for Rc2K128B128 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let ek = &self.inner.ek[..];
+        f.debug_struct("Rc2K128B128")
+            .field("ek", &ek)
+            .finish()
+    }
+}
+
+
+// A Description of the RC2(r) Encryption Algorithm (RC2 (also known as ARC2))
+// https://tools.ietf.org/html/rfc2268
+// https://en.wikipedia.org/wiki/RC2
+#[derive(Clone)]
 pub struct Rc2 {
-    exp_key: [u16; 64],
+    ek: [u16; 64],
 }
 
 impl Rc2 {
-    /// Create a cipher with the specified effective key length
-    // eff_key_len: len in bits
-    pub fn new_with_eff_key_len(key: &[u8], eff_key_len: usize) -> Self {
-        Self {
-            exp_key: Rc2::expand_key(key, eff_key_len),
-        }
+    pub const BLOCK_LEN: usize   =  8; // In bytes
+    pub const MIN_KEY_LEN: usize =  1; // In bytes
+    pub const MAX_KEY_LEN: usize = 16; // In bytes
+
+    // Key len: in bytes
+    pub fn new(key: &[u8]) -> Self {
+        let ek = key_expansion(key);
+        Self { ek }
     }
 
-    fn expand_key(key: &[u8], t1: usize) -> [u16; 64] {
-        let key_len = key.len() as usize;
+    pub fn encrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
 
-        let t8: usize = (t1 + 7) >> 3;
-
-        let tm: usize = (255 % ((2 as u32).pow((8 + t1 - 8 * t8) as u32))) as usize;
-
-        let mut key_buffer: [u8; 128] = [0; 128];
-        key_buffer[..key_len].copy_from_slice(&key[..key_len]);
-
-        for i in key_len..128 {
-            let pos: u32 =
-                (u32::from(key_buffer[i - 1]) + u32::from(key_buffer[i - key_len])) & 0xff;
-            key_buffer[i] = PI_TABLE[pos as usize];
-        }
-
-        key_buffer[128 - t8] = PI_TABLE[(key_buffer[128 - t8] & tm as u8) as usize];
-
-        for i in (0..128 - t8).rev() {
-            let pos: usize = (key_buffer[i + 1] ^ key_buffer[i + t8]) as usize;
-            key_buffer[i] = PI_TABLE[pos];
-        }
-
-        let mut result: [u16; 64] = [0; 64];
-        for i in 0..64 {
-            result[i] = (u16::from(key_buffer[2 * i + 1]) << 8) + u16::from(key_buffer[2 * i])
-        }
-        result
-    }
-
-    fn mix(&self, r: &mut [u16; 4], j: &mut usize) {
-        r[0] = r[0]
-            .wrapping_add(self.exp_key[*j])
-            .wrapping_add(r[3] & r[2])
-            .wrapping_add(!r[3] & r[1]);
-        *j += 1;
-        r[0] = (r[0] << 1) | (r[0] >> 15);
-
-        r[1] = r[1]
-            .wrapping_add(self.exp_key[*j])
-            .wrapping_add(r[0] & r[3])
-            .wrapping_add(!r[0] & r[2]);
-        *j += 1;
-        r[1] = (r[1] << 2) | (r[1] >> 14);
-
-        r[2] = r[2]
-            .wrapping_add(self.exp_key[*j])
-            .wrapping_add(r[1] & r[0])
-            .wrapping_add(!r[1] & r[3]);
-        *j += 1;
-        r[2] = (r[2] << 3) | (r[2] >> 13);
-
-        r[3] = r[3]
-            .wrapping_add(self.exp_key[*j])
-            .wrapping_add(r[2] & r[1])
-            .wrapping_add(!r[2] & r[0]);
-        *j += 1;
-        r[3] = (r[3] << 5) | (r[3] >> 11);
-    }
-
-    fn mash(&self, r: &mut [u16; 4]) {
-        r[0] = r[0].wrapping_add(self.exp_key[(r[3] & 63) as usize]);
-        r[1] = r[1].wrapping_add(self.exp_key[(r[0] & 63) as usize]);
-        r[2] = r[2].wrapping_add(self.exp_key[(r[1] & 63) as usize]);
-        r[3] = r[3].wrapping_add(self.exp_key[(r[2] & 63) as usize]);
-    }
-
-    fn reverse_mix(&self, r: &mut [u16; 4], j: &mut usize) {
-        r[3] = (r[3] << 11) | (r[3] >> 5);
-        r[3] = r[3]
-            .wrapping_sub(self.exp_key[*j])
-            .wrapping_sub(r[2] & r[1])
-            .wrapping_sub(!r[2] & r[0]);
-        *j -= 1;
-
-        r[2] = (r[2] << 13) | (r[2] >> 3);
-        r[2] = r[2]
-            .wrapping_sub(self.exp_key[*j])
-            .wrapping_sub(r[1] & r[0])
-            .wrapping_sub(!r[1] & r[3]);
-        *j -= 1;
-
-        r[1] = (r[1] << 14) | (r[1] >> 2);
-        r[1] = r[1]
-            .wrapping_sub(self.exp_key[*j])
-            .wrapping_sub(r[0] & r[3])
-            .wrapping_sub(!r[0] & r[2]);
-        *j -= 1;
-
-        r[0] = (r[0] << 15) | (r[0] >> 1);
-        r[0] = r[0]
-            .wrapping_sub(self.exp_key[*j])
-            .wrapping_sub(r[3] & r[2])
-            .wrapping_sub(!r[3] & r[1]);
-        *j = j.wrapping_sub(1);
-    }
-
-    fn reverse_mash(&self, r: &mut [u16; 4]) {
-        r[3] = r[3].wrapping_sub(self.exp_key[(r[2] & 63) as usize]);
-        r[2] = r[2].wrapping_sub(self.exp_key[(r[1] & 63) as usize]);
-        r[1] = r[1].wrapping_sub(self.exp_key[(r[0] & 63) as usize]);
-        r[0] = r[0].wrapping_sub(self.exp_key[(r[3] & 63) as usize]);
-    }
-
-    fn encrypt(&self, block: &mut [u8; 8]) {
         let mut r: [u16; 4] = [
             (u16::from(block[1]) << 8) + u16::from(block[0]),
             (u16::from(block[3]) << 8) + u16::from(block[2]),
@@ -198,11 +230,10 @@ impl Rc2 {
         ];
 
         let mut j = 0;
-
         for i in 0..16 {
-            self.mix(&mut r, &mut j);
+            mix(&self.ek, &mut r, &mut j);
             if i == 4 || i == 10 {
-                self.mash(&mut r);
+                mash(&self.ek, &mut r);
             }
         }
 
@@ -216,7 +247,9 @@ impl Rc2 {
         block[7] = (r[3] >> 8) as u8;
     }
 
-    fn decrypt(&self, block: &mut [u8; 8]) {
+    pub fn decrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+
         let mut r: [u16; 4] = [
             (u16::from(block[1]) << 8) + u16::from(block[0]),
             (u16::from(block[3]) << 8) + u16::from(block[2]),
@@ -225,11 +258,10 @@ impl Rc2 {
         ];
 
         let mut j = 63;
-
         for i in 0..16 {
-            self.reverse_mix(&mut r, &mut j);
+            reverse_mix(&self.ek, &mut r, &mut j);
             if i == 4 || i == 10 {
-                self.reverse_mash(&mut r);
+                reverse_mash(&self.ek, &mut r);
             }
         }
 
@@ -241,5 +273,30 @@ impl Rc2 {
         block[5] = (r[2] >> 8) as u8;
         block[6] = r[3] as u8;
         block[7] = (r[3] >> 8) as u8;
+    }
+
+    // NOTE: 
+    //       使块大小变成 16 bytes，跟主流的对称分组密码一样。
+    pub fn encrypt_two_blocks(&self, blocks: &mut [u8]) {
+        debug_assert_eq!(blocks.len(), Self::BLOCK_LEN * 2);
+
+        self.encrypt(&mut blocks[0.. 8]);
+        self.encrypt(&mut blocks[8..16]);
+    }
+
+    pub fn decrypt_two_blocks(&self, blocks: &mut [u8]) {
+        debug_assert_eq!(blocks.len(), Self::BLOCK_LEN * 2);
+
+        self.decrypt(&mut blocks[0.. 8]);
+        self.decrypt(&mut blocks[8..16]);
+    }
+}
+
+impl std::fmt::Debug for Rc2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let ek = &self.ek[..];
+        f.debug_struct("Rc2")
+            .field("ek", &ek)
+            .finish()
     }
 }
