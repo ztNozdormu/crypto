@@ -181,10 +181,14 @@ impl Rc2FixedSize {
     }
 
     pub fn encrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+
         self.inner.encrypt_two_blocks(block);
     }
 
     pub fn decrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+        
         self.inner.decrypt_two_blocks(block);
     }
 }
