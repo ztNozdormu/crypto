@@ -107,19 +107,34 @@ pub enum StreamCipherKind {
     CAMELLIA192_CTR,
     CAMELLIA256_CTR,
 
-    AES128_GCM,
-    AES128_CCM,
-
-    AES128_SIV_CMAC256,
-    AES128_SIV_CMAC384,
-    AES128_SIV_CMAC512,
-
-    AES128_GCM_SIV,
+    AES128_GCM,    // TAG-LEN=16
+    AES256_GCM,
+    AES128_GCM_8,  // TAG-LEN= 8
+    AES256_GCM_8,
+    AES128_GCM_12, // TAG-LEN=12
+    AES256_GCM_12,
+    AES128_CCM,           // NONCE-LEN=12 TAG-LEN=16 Q=3
+    AES256_CCM,
+    AES128_CCM_8,         // NONCE-LEN=12 TAG-LEN= 8 Q=3
+    AES256_CCM_8,
+    AES128_CCM_SHORT,     // NONCE-LEN=11 TAG-LEN=16 Q=3
+    AES256_CCM_SHORT,
+    AES128_CCM_SHORT_8,   // NONCE-LEN=11 TAG-LEN= 8 Q=3
+    AES256_CCM_SHORT_8,
+    AES128_CCM_SHORT_12,  // NONCE-LEN=11 TAG-LEN=12 Q=3
+    AES256_CCM_SHORT_12,
+    AES_SIV_CMAC_256,     // SIV-KEY-LEN=32 AES-KEY-LEN=16
+    AES_SIV_CMAC_384,     // SIV-KEY-LEN=48 AES-KEY-LEN=24
+    AES_SIV_CMAC_512,     // SIV-KEY-LEN=64 AES-KEY-LEN=32
+    AES_128_GCM_SIV,      // AES-KEY-LEN=16
+    AES_256_GCM_SIV,      // AES-KEY-LEN=32
 
     // TODO: 添加更多 ...
 
     RC4,
     CHACHA20,
+    CHACHA20_POLY1305,          // AEAD_CHACHA20_POLY1305, IETF AEAD 版本
+    CHACHA20_POLY1305_OPENSSH,
     ZUC,
 
     Private {
@@ -131,8 +146,31 @@ pub enum StreamCipherKind {
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AuthenticatedStreamCipherKind {
-    AES128_GCM,
-    AES128_CCM,
+    AES128_GCM,    // TAG-LEN=16
+    AES256_GCM,
+    AES128_GCM_8,  // TAG-LEN= 8
+    AES256_GCM_8,
+    AES128_GCM_12, // TAG-LEN=12
+    AES256_GCM_12,
+    AES128_CCM,           // NONCE-LEN=12 TAG-LEN=16 Q=3
+    AES256_CCM,
+    AES128_CCM_8,         // NONCE-LEN=12 TAG-LEN= 8 Q=3
+    AES256_CCM_8,
+    AES128_CCM_SHORT,     // NONCE-LEN=11 TAG-LEN=16 Q=3
+    AES256_CCM_SHORT,
+    AES128_CCM_SHORT_8,   // NONCE-LEN=11 TAG-LEN= 8 Q=3
+    AES256_CCM_SHORT_8,
+    AES128_CCM_SHORT_12,  // NONCE-LEN=11 TAG-LEN=12 Q=3
+    AES256_CCM_SHORT_12,
+    AES_SIV_CMAC_256,     // SIV-KEY-LEN=32 AES-KEY-LEN=16
+    AES_SIV_CMAC_384,     // SIV-KEY-LEN=48 AES-KEY-LEN=24
+    AES_SIV_CMAC_512,     // SIV-KEY-LEN=64 AES-KEY-LEN=32
+    AES_128_GCM_SIV,      // AES-KEY-LEN=16
+    AES_256_GCM_SIV,      // AES-KEY-LEN=32
+    
+    CHACHA20_POLY1305,    // AEAD_CHACHA20_POLY1305, IETF AEAD 版本
+    CHACHA20_POLY1305_OPENSSH,
+    
     // TODO: 添加更多 ...
 
     Private {
@@ -351,7 +389,7 @@ pub trait AeadStreamCipher: AuthenticatedStreamCipher {
         cipher.aead_decrypt_slice(aad, ciphertext_in_and_plaintext_out)
     }
 
-    fn ae_kind(&self) -> AeadStreamCipherKind {
+    fn aead_kind(&self) -> AeadStreamCipherKind {
         Self::AEAD_KIND
     }
 
