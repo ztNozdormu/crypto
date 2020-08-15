@@ -2,6 +2,7 @@
 use crate::error::AuthenticationTagMismatch;
 use crate::aes::{Aes128, Aes192, Aes256};
 use crate::camellia::{Camellia128, Camellia192, Camellia256};
+use crate::rc2::Rc2;
 
 
 use std::io;
@@ -60,7 +61,14 @@ pub enum BlockCipherKind {
     CAMELLIA256_CFB128,
     
     // TODO: 添加更多 ...
+
+    // NOTE:
+    //      RC2 对称分组密码的密钥长度为 1-bits 至 128-bits。
     RC2,
+    // NOTE: 实现和 流行的 AES、CAMELLIA 类似的密钥长度。
+    RC2_KEYLEN128,
+
+    // NOTE: SM4 对称分组密码算法的密钥长度为 128-bits。
     SM4,
 
     Private {
@@ -84,7 +92,19 @@ pub enum StreamCipherKind {
     AES128_CTR,
     AES192_CTR,
     AES256_CTR,
-    
+    CAMELLIA128_CFB1,
+    CAMELLIA192_CFB1,
+    CAMELLIA256_CFB1,
+    CAMELLIA128_CFB8,
+    CAMELLIA192_CFB8,
+    CAMELLIA256_CFB8,
+    CAMELLIA128_OFB,
+    CAMELLIA192_OFB,
+    CAMELLIA256_OFB,
+    CAMELLIA128_CTR,
+    CAMELLIA192_CTR,
+    CAMELLIA256_CTR,
+
     AES128_GCM,
     AES128_CCM,
 
@@ -164,7 +184,7 @@ pub enum AeadStreamCipherKind {
 
 
 
-// ==============================  分组密码  ===============================
+// ==============================  对称分组密码  ===============================
 pub trait BlockCipher: Sized {
     const KIND: BlockCipherKind;
     const KEY_LEN: usize;
@@ -199,7 +219,7 @@ pub trait BlockCipher: Sized {
 }
 
 
-// =============================  流密码  =============================
+// =============================  对称序列密码（流密码）  =============================
 pub trait StreamCipherEncrytor {
     // 流密码 流式数据加密
     fn update(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
@@ -255,7 +275,7 @@ pub trait StreamCipher: Sized {
 }
 
 
-// =================== 认证加密（Authenticated encryption, AE）=======================
+// =================== 携带认证码的对称序列密码（Authenticated encryption, AE）=======================
 pub trait AuthenticatedStreamCipherEncrytor {
     fn update(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
     // NOTE: 追加 TAG 数据至 output 的结尾。
@@ -299,7 +319,7 @@ pub trait AuthenticatedStreamCipher: StreamCipher {
 }
 
 
-// =================== 带有关联数据的认证加密（authenticated encryption with associated data, AEAD）==============
+// =================== 带有关联数据和认证码的序列密码（Authenticated encryption with associated data, AEAD）==============
 pub trait AeadStreamCipherEncrytor {
     fn update(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]);
     // NOTE: 追加 TAG 数据至 output 的结尾。
@@ -366,10 +386,10 @@ macro_rules! impl_block_cipher {
 impl_block_cipher!(Aes128, AES128);
 impl_block_cipher!(Aes192, AES192);
 impl_block_cipher!(Aes256, AES256);
-
 impl_block_cipher!(Camellia128, CAMELLIA128);
 impl_block_cipher!(Camellia192, CAMELLIA192);
 impl_block_cipher!(Camellia256, CAMELLIA256);
+impl_block_cipher!(Rc2, RC2);
 
 
 pub fn encrypt_block<C: BlockCipher>(key: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
