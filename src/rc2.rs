@@ -164,11 +164,11 @@ fn reverse_mash(ek: &[u16; 64], r: &mut [u16; 4]) {
 
 // RC2-KEYLEN128-BLOCKLEN128
 #[derive(Clone)]
-pub struct Rc2K128B128 {
+pub struct Rc2FixedSize {
     inner: Rc2,
 }
 
-impl Rc2K128B128 {
+impl Rc2FixedSize {
     pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
 
@@ -189,10 +189,10 @@ impl Rc2K128B128 {
     }
 }
 
-impl std::fmt::Debug for Rc2K128B128 {
+impl std::fmt::Debug for Rc2FixedSize {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let ek = &self.inner.ek[..];
-        f.debug_struct("Rc2K128B128")
+        f.debug_struct("Rc2FixedSize")
             .field("ek", &ek)
             .finish()
     }
@@ -380,7 +380,7 @@ fn test_rc2() {
     c.encrypt(&mut ciphertext);
     assert_eq!(&ciphertext[..], &hex::decode("2269552ab0f85ca6").unwrap()[..]);
 
-    
+
     let key = hex::decode("88bca90e90875a7f0f79c384627bafb216f80a6f85920584\
 c42fceb0be255daf1e").unwrap();
     let effective_key_len = 129;
