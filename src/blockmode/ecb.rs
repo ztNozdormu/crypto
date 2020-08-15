@@ -1,57 +1,77 @@
-use crate::aes::Aes128;
-
-
-// NOTE:
-// 
-// ECB 和 CBC 分组模式都无法处理不定长的输入数据，
-// 需要自己手动为不定长数据按照块密码算法的块大小做对齐工作。
+use crate::aes::{Aes128, Aes192, Aes256};
+use crate::camellia::{Camellia128, Camellia192, Camellia256};
+use crate::rc2::Rc2FixedSize;
+use crate::sm4::Sm4;
 
 
 // 6.1 The Electronic Codebook Mode, (Page-16)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
-#[derive(Debug, Clone)]
-pub struct AesEcb128 {
-    cipher: Aes128,
+// 
+// NOTE:
+//      ECB 和 CBC 分组模式都无法处理不定长的输入数据，
+//      需要自己手动为不定长数据按照块密码算法的块大小做对齐工作。
+// 
+
+macro_rules! impl_block_cipher_with_ecb_mode {
+    ($name:tt, $cipher:tt) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            cipher: $cipher,
+        }
+
+        impl $name {
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
+            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+
+            pub fn new(key: &[u8]) -> Self {
+                assert_eq!(key.len(), Self::KEY_LEN);
+
+                let cipher = $cipher::new(key);
+
+                Self { cipher }
+            }
+            
+            /// the plaintext must be a sequence of one or more complete data blocks.
+            /// the total number of bits in the plaintext must be a positive multiple 
+            /// of the block (or segment) size.
+            pub fn encrypt(&mut self, blocks: &mut [u8]) {
+                assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
+
+                for plaintext in blocks.chunks_mut(Self::BLOCK_LEN) {
+                    debug_assert_eq!(plaintext.len(), Self::BLOCK_LEN);
+
+                    self.cipher.encrypt(plaintext);
+                }
+            }
+
+            /// the plaintext must be a sequence of one or more complete data blocks.
+            /// the total number of bits in the plaintext must be a positive multiple 
+            /// of the block (or segment) size.
+            pub fn decrypt(&mut self, blocks: &mut [u8]) {
+                assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
+
+                for ciphertext in blocks.chunks_mut(Self::BLOCK_LEN) {
+                    debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
+
+                    self.cipher.decrypt(ciphertext);
+                }
+            }
+        }
+    };
 }
 
-impl AesEcb128 {
-    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
+impl_block_cipher_with_ecb_mode!(Aes128Ecb, Aes128);
+impl_block_cipher_with_ecb_mode!(Aes192Ecb, Aes192);
+impl_block_cipher_with_ecb_mode!(Aes256Ecb, Aes256);
 
-    pub fn new(key: &[u8]) -> Self {
-        assert_eq!(key.len(), Self::KEY_LEN);
+impl_block_cipher_with_ecb_mode!(Camellia128Ecb, Camellia128);
+impl_block_cipher_with_ecb_mode!(Camellia192Ecb, Camellia192);
+impl_block_cipher_with_ecb_mode!(Camellia256Ecb, Camellia256);
 
-        let cipher = Aes128::new(key);
+impl_block_cipher_with_ecb_mode!(Rc2FixedSizeEcb, Rc2FixedSize);
 
-        Self { cipher }
-    }
-    
-    /// the plaintext must be a sequence of one or more complete data blocks.
-    /// the total number of bits in the plaintext must be a positive multiple 
-    /// of the block (or segment) size.
-    pub fn encrypt(&mut self, blocks: &mut [u8]) {
-        assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
+impl_block_cipher_with_ecb_mode!(Sm4Ecb, Sm4);
 
-        for plaintext in blocks.chunks_mut(Self::BLOCK_LEN) {
-            debug_assert_eq!(plaintext.len(), Self::BLOCK_LEN);
-
-            self.cipher.encrypt(plaintext);
-        }
-    }
-
-    /// the plaintext must be a sequence of one or more complete data blocks.
-    /// the total number of bits in the plaintext must be a positive multiple 
-    /// of the block (or segment) size.
-    pub fn decrypt(&mut self, blocks: &mut [u8]) {
-        assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
-
-        for ciphertext in blocks.chunks_mut(Self::BLOCK_LEN) {
-            debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
-
-            self.cipher.decrypt(ciphertext);
-        }
-    }
-}
 
 #[test]
 fn test_aes128_ecb_enc() {
@@ -59,7 +79,7 @@ fn test_aes128_ecb_enc() {
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
 
-    let mut cipher = AesEcb128::new(&key);
+    let mut cipher = Aes128Ecb::new(&key);
 
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
@@ -83,7 +103,7 @@ fn test_aes128_ecb_dec() {
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
 
-    let mut cipher = AesEcb128::new(&key);
+    let mut cipher = Aes128Ecb::new(&key);
 
     let ciphertext = hex::decode("\
 3ad77bb40d7a3660a89ecaf32466ef97\

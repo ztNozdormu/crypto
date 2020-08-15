@@ -3,11 +3,18 @@
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 
 
-pub mod ecb;
-pub mod cbc;
-pub mod cfb;
-pub mod ofb;
-pub mod ctr;
+mod ecb;
+mod cbc;
+mod cfb;
+mod ofb;
+mod ctr;
+
+pub use self::ecb::*;
+pub use self::cbc::*;
+pub use self::cfb::*;
+pub use self::ofb::*;
+pub use self::ctr::*;
+
 
 // pub mod ccm;
 pub mod gcm;

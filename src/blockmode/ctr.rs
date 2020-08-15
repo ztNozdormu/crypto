@@ -1,4 +1,7 @@
-use crate::aes::Aes128;
+use crate::aes::{Aes128, Aes192, Aes256};
+use crate::camellia::{Camellia128, Camellia192, Camellia256};
+use crate::sm4::Sm4;
+
 
 
 // 6.5 The Counter Mode, (Page-22)
@@ -55,53 +58,64 @@ impl Ctr {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct AesCtr128 {
-    ctr: Ctr,
-    cipher: Aes128,
-}
+macro_rules! impl_block_cipher_with_ctr_mode {
+    ($name:tt, $cipher:tt) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            ctr: Ctr,
+            cipher: $cipher,
+        }
 
-impl AesCtr128 {
-    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
-    pub const NONCE_LEN: usize = Aes128::BLOCK_LEN;
+        impl $name {
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
+            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
 
-    pub fn new(key: &[u8], nonce: &[u8]) -> Self {
-        assert_eq!(key.len(), Self::KEY_LEN);
-        assert_eq!(nonce.len(), Self::NONCE_LEN);
+            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+                assert_eq!(key.len(), Self::KEY_LEN);
+                assert_eq!(nonce.len(), Self::NONCE_LEN);
 
-        let cipher = Aes128::new(key);
-        let ctr = Ctr::new(nonce);
-        
-        Self { cipher, ctr }
-    }
-
-    pub fn encrypt(&mut self, data: &mut [u8]) {
-        for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
-            
-            let mut output_block = self.ctr.counter_block().clone();
-            self.cipher.encrypt(&mut output_block);
-
-            for i in 0..plaintext.len() {
-                plaintext[i] ^= output_block[i];
+                let cipher = $cipher::new(key);
+                let ctr = Ctr::new(nonce);
+                
+                Self { cipher, ctr }
             }
-            self.ctr.incr();
+
+            pub fn encrypt(&mut self, data: &mut [u8]) {
+                for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
+                    
+                    let mut output_block = self.ctr.counter_block().clone();
+                    self.cipher.encrypt(&mut output_block);
+
+                    for i in 0..plaintext.len() {
+                        plaintext[i] ^= output_block[i];
+                    }
+                    self.ctr.incr();
+                }
+            }
+
+            pub fn decrypt(&mut self, data: &mut [u8]) {
+                for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
+                    let mut output_block = self.ctr.counter_block().clone();
+                    self.cipher.encrypt(&mut output_block);
+
+                    for i in 0..ciphertext.len() {
+                        ciphertext[i] ^= output_block[i];
+                    }
+                    self.ctr.incr();
+                }
+            }
         }
     }
-
-    pub fn decrypt(&mut self, data: &mut [u8]) {
-        for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
-            let mut output_block = self.ctr.counter_block().clone();
-            self.cipher.encrypt(&mut output_block);
-
-            for i in 0..ciphertext.len() {
-                ciphertext[i] ^= output_block[i];
-            }
-            self.ctr.incr();
-        }
-    }
 }
 
+impl_block_cipher_with_ctr_mode!(Aes128Ctr, Aes128);
+impl_block_cipher_with_ctr_mode!(Aes192Ctr, Aes192);
+impl_block_cipher_with_ctr_mode!(Aes256Ctr, Aes256);
+impl_block_cipher_with_ctr_mode!(Camellia128Ctr, Camellia128);
+impl_block_cipher_with_ctr_mode!(Camellia192Ctr, Camellia192);
+impl_block_cipher_with_ctr_mode!(Camellia256Ctr, Camellia256);
+impl_block_cipher_with_ctr_mode!(Sm4Ctr, Sm4);
 
 
 #[test]
@@ -112,11 +126,11 @@ fn test_aes128_ctr() {
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a").unwrap();
 
-    let mut cipher = AesCtr128::new(&key, &nonce);
+    let mut cipher = Aes128Ctr::new(&key, &nonce);
     let mut ciphertext = plaintext.clone();
     cipher.encrypt(&mut ciphertext);
 
-    let mut cipher = AesCtr128::new(&key, &nonce);
+    let mut cipher = Aes128Ctr::new(&key, &nonce);
     let mut cleartext = ciphertext.clone();
     cipher.decrypt(&mut cleartext);
 
@@ -132,7 +146,7 @@ fn test_aes128_ctr_enc() {
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
     let nonce = hex::decode("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
 
-    let mut cipher = AesCtr128::new(&key, &nonce);
+    let mut cipher = Aes128Ctr::new(&key, &nonce);
 
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
@@ -157,7 +171,7 @@ fn test_aes128_ctr_dec() {
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
     let nonce = hex::decode("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
 
-    let mut cipher = AesCtr128::new(&key, &nonce);
+    let mut cipher = Aes128Ctr::new(&key, &nonce);
 
     let ciphertext = hex::decode("\
 874d6191b620e3261bef6864990db6ce\

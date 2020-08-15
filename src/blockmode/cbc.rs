@@ -1,4 +1,8 @@
-use crate::aes::Aes128;
+use crate::aes::{Aes128, Aes192, Aes256};
+use crate::camellia::{Camellia128, Camellia192, Camellia256};
+use crate::rc2::Rc2FixedSize;
+use crate::sm4::Sm4;
+
 
 // Appendix A:  Padding, (Page-24)
 // 
@@ -6,89 +10,106 @@ use crate::aes::Aes128;
 // (or, for CFB mode, data segments). In other words, for these three modes, the total number of bits in 
 // the plaintext must be a positive multiple of the block (or segment) size. 
 
-// NOTE:
-// 
-// ECB 和 CBC 分组模式都无法处理不定长的输入数据，
-// 需要自己手动为不定长数据按照块密码算法的块大小做对齐工作。
-// 
 
 // 6.2 The Cipher Block Chaining Mode, (Page-17)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
-#[derive(Debug, Clone)]
-pub struct AesCbc128 {
-    iv: [u8; Self::BLOCK_LEN],
-    cipher: Aes128,
-}
+// 
+// NOTE:
+//      ECB 和 CBC 分组模式都无法处理不定长的输入数据，
+//      需要自己手动为不定长数据按照块密码算法的块大小做对齐工作。
+// 
 
-impl AesCbc128 {
-    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
-    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
-    pub const NONCE_LEN: usize = Aes128::BLOCK_LEN;
+macro_rules! impl_block_cipher_with_cbc_mode {
+    ($name:tt, $cipher:tt) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            iv: [u8; Self::BLOCK_LEN],
+            cipher: $cipher,
+        }
 
-    pub fn new(key: &[u8], nonce: &[u8]) -> Self {
-        assert_eq!(key.len(), Self::KEY_LEN);
-        assert_eq!(nonce.len(), Self::NONCE_LEN);
+        impl $name {
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
+            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
 
-        let cipher = Aes128::new(key);
-        let mut iv = [0u8; Self::BLOCK_LEN];
-        iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
+            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+                assert_eq!(key.len(), Self::KEY_LEN);
+                assert_eq!(nonce.len(), Self::NONCE_LEN);
 
-        Self { cipher, iv }
-    }
-    
-    /// the plaintext must be a sequence of one or more complete data blocks.
-    /// the total number of bits in the plaintext must be a positive multiple 
-    /// of the block (or segment) size.
-    pub fn encrypt(&mut self, blocks: &mut [u8]) {
-        assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
+                let cipher = $cipher::new(key);
+                let mut iv = [0u8; Self::BLOCK_LEN];
+                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
 
-        let mut last_block = self.iv.clone();
-        for plaintext in blocks.chunks_mut(Self::BLOCK_LEN) {
-            debug_assert_eq!(plaintext.len(), Self::BLOCK_LEN);
+                Self { cipher, iv }
+            }
+            
+            /// the plaintext must be a sequence of one or more complete data blocks.
+            /// the total number of bits in the plaintext must be a positive multiple 
+            /// of the block (or segment) size.
+            pub fn encrypt(&mut self, blocks: &mut [u8]) {
+                assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
 
-            for i in 0..Self::BLOCK_LEN {
-                plaintext[i] ^= last_block[i];
+                let mut last_block = self.iv.clone();
+                for plaintext in blocks.chunks_mut(Self::BLOCK_LEN) {
+                    debug_assert_eq!(plaintext.len(), Self::BLOCK_LEN);
+
+                    for i in 0..Self::BLOCK_LEN {
+                        plaintext[i] ^= last_block[i];
+                    }
+
+                    // let mut output_block = [0u8; Self::BLOCK_LEN];
+                    // output_block.copy_from_slice(&plaintext);
+                    self.cipher.encrypt(plaintext);
+                    
+                    // for i in 0..Self::BLOCK_LEN {
+                    //     plaintext[i] = output_block[i];
+                    // }
+
+                    // last_block = output_block;
+                    last_block.copy_from_slice(&plaintext);
+                }
             }
 
-            // let mut output_block = [0u8; Self::BLOCK_LEN];
-            // output_block.copy_from_slice(&plaintext);
-            self.cipher.encrypt(plaintext);
-            
-            // for i in 0..Self::BLOCK_LEN {
-            //     plaintext[i] = output_block[i];
-            // }
+            /// the plaintext must be a sequence of one or more complete data blocks.
+            /// the total number of bits in the plaintext must be a positive multiple 
+            /// of the block (or segment) size.
+            pub fn decrypt(&mut self, blocks: &mut [u8]) {
+                assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
 
-            // last_block = output_block;
-            last_block.copy_from_slice(&plaintext);
+                let mut last_block = self.iv.clone();
+                for ciphertext in blocks.chunks_mut(Self::BLOCK_LEN) {
+                    debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
+
+                    let mut output_block = [0u8; Self::BLOCK_LEN];
+                    output_block.copy_from_slice(&ciphertext);
+                    self.cipher.decrypt(&mut output_block);
+                    
+                    for i in 0..Self::BLOCK_LEN {
+                        output_block[i] ^= last_block[i];
+                    }
+                    
+                    last_block[..Self::BLOCK_LEN].copy_from_slice(&ciphertext);
+                    
+                    for i in 0..Self::BLOCK_LEN {
+                        ciphertext[i] = output_block[i];
+                    }
+                }
+            }
         }
     }
-
-    /// the plaintext must be a sequence of one or more complete data blocks.
-    /// the total number of bits in the plaintext must be a positive multiple 
-    /// of the block (or segment) size.
-    pub fn decrypt(&mut self, blocks: &mut [u8]) {
-        assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
-
-        let mut last_block = self.iv.clone();
-        for ciphertext in blocks.chunks_mut(Self::BLOCK_LEN) {
-            debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
-
-            let mut output_block = [0u8; Self::BLOCK_LEN];
-            output_block.copy_from_slice(&ciphertext);
-            self.cipher.decrypt(&mut output_block);
-            
-            for i in 0..Self::BLOCK_LEN {
-                output_block[i] ^= last_block[i];
-            }
-            
-            last_block[..Self::BLOCK_LEN].copy_from_slice(&ciphertext);
-            
-            for i in 0..Self::BLOCK_LEN {
-                ciphertext[i] = output_block[i];
-            }
-        }
-    }
 }
+
+impl_block_cipher_with_cbc_mode!(Aes128Cbc, Aes128);
+impl_block_cipher_with_cbc_mode!(Aes192Cbc, Aes192);
+impl_block_cipher_with_cbc_mode!(Aes256Cbc, Aes256);
+
+impl_block_cipher_with_cbc_mode!(Camellia128Cbc, Camellia128);
+impl_block_cipher_with_cbc_mode!(Camellia192Cbc, Camellia192);
+impl_block_cipher_with_cbc_mode!(Camellia256Cbc, Camellia256);
+
+impl_block_cipher_with_cbc_mode!(Rc2FixedSizeCbc, Rc2FixedSize);
+
+impl_block_cipher_with_cbc_mode!(Sm4Cbc, Sm4);
 
 
 #[test]
@@ -98,7 +119,7 @@ fn test_aes128_cbc_enc() {
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
     let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
 
-    let mut cipher = AesCbc128::new(&key, &nonce);
+    let mut cipher = Aes128Cbc::new(&key, &nonce);
 
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
@@ -123,7 +144,7 @@ fn test_aes128_cbc_dec() {
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
     let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
 
-    let mut cipher = AesCbc128::new(&key, &nonce);
+    let mut cipher = Aes128Cbc::new(&key, &nonce);
 
     let ciphertext = hex::decode("\
 7649abac8119b246cee98e9b12e9197d\
