@@ -69,12 +69,13 @@ fn decrypt_aarch64(expanded_key: &[u8], nr: usize, ciphertext: &mut [u8]) {
 
 #[derive(Debug, Clone)]
 pub struct Aes128 {
-    pub ek: [u8; (10 + 1) * Self::BLOCK_LEN],
+    pub ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
 }
 
 impl Aes128 {
     pub const BLOCK_LEN: usize = 16;
     pub const KEY_LEN: usize   = 16;
+    pub const NR: usize        = 10;
 
     pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
@@ -86,12 +87,73 @@ impl Aes128 {
     pub fn encrypt(&self, block: &mut [u8]) {
         debug_assert_eq!(block.len(), Self::BLOCK_LEN);
         
-        encrypt_aarch64(&self.ek, 10, block);
+        encrypt_aarch64(&self.ek, Self::NR, block);
     }
 
     pub fn decrypt(&self, block: &mut [u8]) {
         debug_assert_eq!(block.len(), Self::BLOCK_LEN);
 
-        decrypt_aarch64(&self.ek, 10, block);
+        decrypt_aarch64(&self.ek, Self::NR, block);
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Aes192 {
+    pub ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+}
+
+impl Aes192 {
+    pub const BLOCK_LEN: usize = 16;
+    pub const KEY_LEN: usize   = 16;
+    pub const NR: usize        = 12;
+
+    pub fn new(key: &[u8]) -> Self {
+        assert_eq!(key.len(), Self::KEY_LEN);
+        let ek = generic::Aes192::new(key).ek;
+
+        Self { ek }
+    }
+    
+    pub fn encrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+        
+        encrypt_aarch64(&self.ek, Self::NR, block);
+    }
+
+    pub fn decrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+
+        decrypt_aarch64(&self.ek, Self::NR, block);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Aes256 {
+    pub ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+}
+
+impl Aes256 {
+    pub const BLOCK_LEN: usize = 16;
+    pub const KEY_LEN: usize   = 16;
+    pub const NR: usize        = 14;
+
+    pub fn new(key: &[u8]) -> Self {
+        assert_eq!(key.len(), Self::KEY_LEN);
+        let ek = generic::Aes256::new(key).ek;
+
+        Self { ek }
+    }
+    
+    pub fn encrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+        
+        encrypt_aarch64(&self.ek, Self::NR, block);
+    }
+
+    pub fn decrypt(&self, block: &mut [u8]) {
+        debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+
+        decrypt_aarch64(&self.ek, Self::NR, block);
     }
 }
