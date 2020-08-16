@@ -485,7 +485,7 @@ fn bench_aes192_dec_aesni(b: &mut test::Bencher) {
 #[cfg(test)]
 #[bench]
 fn bench_aes256_enc_aesni(b: &mut test::Bencher) {
-    let key = hex::decode("000102030405060708090a0b0c0d0e0f1011121314151617").unwrap();
+    let key = hex::decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f").unwrap();
 
     let cipher = Aes256::new(&key);
 
@@ -502,7 +502,7 @@ fn bench_aes256_enc_aesni(b: &mut test::Bencher) {
 #[cfg(test)]
 #[bench]
 fn bench_aes256_dec_aesni(b: &mut test::Bencher) {
-    let key = hex::decode("000102030405060708090a0b0c0d0e0f1011121314151617").unwrap();
+    let key = hex::decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f").unwrap();
 
     let cipher = Aes256::new(&key);
     
