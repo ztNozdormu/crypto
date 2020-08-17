@@ -434,17 +434,13 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
             }
             
             pub fn encrypt(&mut self, segments: &mut [u8]) {
-                assert_eq!(segments.len() * 8 % Self::S, 0);
-
                 let mut last_input_block = self.iv.clone();
 
                 for segment in segments.chunks_mut(Self::BLOCK_LEN) {
-                    debug_assert_eq!(segment.len(), Self::BLOCK_LEN);
-
                     let mut output_block = last_input_block.clone();
                     self.cipher.encrypt(&mut output_block);
 
-                    for i in 0..Self::BLOCK_LEN {
+                    for i in 0..segment.len() {
                         segment[i] ^= output_block[i];
                         last_input_block[i] = segment[i];
                     }
@@ -452,21 +448,17 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
             }
 
             pub fn decrypt(&mut self, segments: &mut [u8]) {
-                assert_eq!(segments.len() * 8 % Self::S, 0);
-
                 let mut last_input_block = self.iv.clone();
-
+                
                 for segment in segments.chunks_mut(Self::BLOCK_LEN) {
-                    debug_assert_eq!(segment.len(), Self::BLOCK_LEN);
-
                     let mut output_block = last_input_block.clone();
-                    for i in 0..Self::BLOCK_LEN {
+                    for i in 0..segment.len() {
                         last_input_block[i] = segment[i];
                     }
-
+                    
                     self.cipher.encrypt(&mut output_block);
 
-                    for i in 0..Self::BLOCK_LEN {
+                    for i in 0..segment.len() {
                         segment[i] ^= output_block[i];
                     }
                 }
@@ -620,7 +612,7 @@ fn test_aes128_cfb128_enc() {
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a571e03ac9c9eb76fac45af8e51\
 30c81c46a35ce411e5fbc1191a0a52ef\
-f69f2445df4f9b17ad2b417be66c3710\
+f69f24\
 ").unwrap();
 
     let mut ciphertext = plaintext.clone();
@@ -629,7 +621,7 @@ f69f2445df4f9b17ad2b417be66c3710\
 3b3fd92eb72dad20333449f8e83cfb4a\
 c8a64537a0b3a93fcde3cdad9f1ce58b\
 26751f67a3cbb140b1808cf187a4f4df\
-c04b05357c5d1c0eeac4c66f9ff7f2e6\
+c04b05\
 ").unwrap()[..] );
 }
 
@@ -646,7 +638,7 @@ fn test_aes128_cfb128_dec() {
 3b3fd92eb72dad20333449f8e83cfb4a\
 c8a64537a0b3a93fcde3cdad9f1ce58b\
 26751f67a3cbb140b1808cf187a4f4df\
-c04b05357c5d1c0eeac4c66f9ff7f2e6\
+c04b05\
 ").unwrap();
 
     let mut plaintext = ciphertext.clone();
@@ -655,6 +647,6 @@ c04b05357c5d1c0eeac4c66f9ff7f2e6\
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a571e03ac9c9eb76fac45af8e51\
 30c81c46a35ce411e5fbc1191a0a52ef\
-f69f2445df4f9b17ad2b417be66c3710\
+f69f24\
 ").unwrap()[..] );
 }
