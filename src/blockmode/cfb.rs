@@ -22,8 +22,10 @@ use crate::camellia::{Camellia128, Camellia192, Camellia256};
 // 综上，CFB1 和 CFB8 可以处理不定长的 Byte 序列，无需做对齐工作，
 // 和 CTR/OFB 这些模式类似可以被设计为一个流密码算法。
 // 
-// CFB64 和 CFB128 这两个分组模式则跟 ECB 和 CBC 一样，还是只能在分组模式下工作，
-// 成为一个块密码算法。
+// CFB64 和 分组大小为 8 byte 的对称分组密码结合时（如 RC2），也可以被当作是一个流密码。
+// 
+// CFB128 和 分组大小为 16 byte 的对称分组密码结合时（如 AES/Camellia/Aria），也可以被当作是一个流密码。
+// 
 // 
 
 
@@ -449,13 +451,13 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
 
             pub fn decrypt(&mut self, segments: &mut [u8]) {
                 let mut last_input_block = self.iv.clone();
-                
+
                 for segment in segments.chunks_mut(Self::BLOCK_LEN) {
                     let mut output_block = last_input_block.clone();
                     for i in 0..segment.len() {
                         last_input_block[i] = segment[i];
                     }
-                    
+
                     self.cipher.encrypt(&mut output_block);
 
                     for i in 0..segment.len() {
