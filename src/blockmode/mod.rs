@@ -16,7 +16,7 @@ pub use self::ofb::*;
 pub use self::ctr::*;
 
 
-// pub mod ccm;
+pub mod ccm;
 pub mod gcm;
 // pub mod siv;
 
