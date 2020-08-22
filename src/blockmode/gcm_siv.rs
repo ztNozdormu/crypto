@@ -142,13 +142,11 @@ impl Polyval {
     }
 
     pub fn polyval(&mut self, data: &[u8]) {
-        // void POLYVAL(uint64_t* input, uint64_t* H, uint64_t len, uint64_t* result) {
         let mut block_idx: usize = 0usize;
         for chunk in data.chunks_exact(16) {
             for i in 0..16 {
                 self.h[i] ^= chunk[i];
             }
-            // gfmul_int(current_res, H, current_res);
             self.gf_mul();
 
             block_idx += 1;
@@ -165,7 +163,6 @@ impl Polyval {
             for i in 0..16 {
                 self.h[i] ^= block[i];
             }
-            // gfmul_int(current_res, H, current_res);
             self.gf_mul();
         }
     }
@@ -379,7 +376,7 @@ impl Aes128GcmSiv {
         // Expected TAG
         let mut tag = self.polyval.h.clone();
         self.cipher.encrypt(&mut tag);
-        
+
         // Verify
         if bool::from(subtle::ConstantTimeEq::ct_eq(&tag1[..], &tag)) {
             // ok
