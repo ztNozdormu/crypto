@@ -121,11 +121,13 @@ impl Aes128OcbTag128 {
     // 4.1.  Processing Associated Data: HASH
     // https://tools.ietf.org/html/rfc7253#section-4.1
     fn hash(&mut self, aad: &[u8]) -> [u8; Self::BLOCK_LEN] {
+        let alen = aad.len();
+
         // L_*
         let mut double_z1 = [0u8; Self::BLOCK_LEN];
         cipher.encrypt(&mut double_z1);
         // L_$
-        let double_z2 = dbl(u128::from_be_bytes(double_z1));
+        let double_z2 = dbl(u128::from_be_bytes(double_z1.clone()));
         // L_0
         let double = dbl(double_z2).to_be_bytes();
 
@@ -133,8 +135,58 @@ impl Aes128OcbTag128 {
         let mut offset = [0u8; Self::BLOCK_LEN];
         let mut block_idx = 0usize;
         for chunk in aad.chunks_exact(Self::BLOCK_LEN) {
-            // TODO: 跟处理 plaintext/ciphertext 的流程是一样的
+            let mut double = self.double.clone();
+            let ntz = block_idx.trailing_zeros();
+            if ntz > 0 {
+                // TODO: 这个 double 序列的计算后面可以考虑使用缓存表。
+                //       10万个 Blocks 当中，只需要 
+                //       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 64] 
+                //       个 17 个 u128 的存储空间。
+                for i in 1..ntz + 1 {
+                    double = dbl(u128::from_be_bytes(double.clone())).to_be_bytes();
+                }
+            }
+
+            // Offset_i = Offset_{i-1} xor L_{ntz(i)}
+            for i in 0..Self::BLOCK_LEN {
+                offset[i] ^= double[i];
+            }
+            
+            // Sum_i = Sum_{i-1} xor ENCIPHER(K, A_i xor Offset_i)
+            let mut block = offset.clone();
+            for i in 0..Self::BLOCK_LEN {
+                block[i] = chunk[i] ^ offset[i];
+            }
+            self.cipher.encrypt(&mut block);
+
+            for i in 0..Self::BLOCK_LEN {
+                sum[i] ^= block[i];
+            }
+
             block_idx += 1;
+        }
+
+        if (block_idx + 1) * Self::BLOCK_LEN < alen {
+            // Last Block
+            let remainder = &aad[(block_idx + 1) * Self::BLOCK_LEN..];
+
+            // Offset_* = Offset_m xor L_*
+            for i in 0..Self::BLOCK_LEN {
+                offset[i] ^= double_z1[i];
+            }
+
+            // CipherInput = (A_* || 1 || zeros(127-bitlen(A_*))) xor Offset_*
+            let mut block = [0u8; Self::BLOCK_LEN];
+            block[..remainder.len()].copy_from_slice(remainder);
+            block[remainder.len() + 1] = 0x80;
+            for i in 0..remainder.len() {
+                block[i] ^= offset[i];
+            }
+            // Sum = Sum_m xor ENCIPHER(K, CipherInput)
+            self.cipher.encrypt(&mut block);
+            for i in 0..remainder.len() {
+                sum[i] ^= block[i];
+            }
         }
 
         sum
@@ -223,18 +275,24 @@ impl Aes128OcbTag128 {
                 checksum[i] ^= 0x00;
             }
         }
-        
+
         let double_z2 = dbl(u128::from_be_bytes(double_z1)).to_be_bytes(); // L_$
-        
+
+        // Tag = ENCIPHER(K, Checksum_* xor Offset_* xor L_$) xor HASH(K,A)
         let mut tag_block = [0u8; Self::BLOCK_LEN];
         for i in 0..Self::BLOCK_LEN {
             tag_block[i] = checksum[i] ^ offset[i] ^ double_z2[i];
         }
         self.cipher.encrypt(&mut tag_block);
+
+        let aad_hash = self.hash(aad);
+        for i in 0..Self::BLOCK_LEN {
+            tag_block[i] ^= aad_hash[i];
+        }
         
-        // Tag = ENCIPHER(K, Checksum_* xor Offset_* xor L_$) xor HASH(K,A)
-        
-        // Tag = ENCIPHER(K, Checksum_m xor Offset_m xor L_$) xor HASH(K,A)
+        // save TAG
+        let mut tag = &mut plaintext_and_ciphertext[plen..plen + Self::TAG_LEN];
+        tag.copy_from_slice(&tag_block[..Self::TAG_LEN]);
     }
 
     pub fn aead_decrypt(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8]) {
