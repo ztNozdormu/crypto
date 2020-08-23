@@ -270,7 +270,17 @@ impl Aes128GcmSiv {
 
         Self { cipher, nonce, polyval }
     }
-
+    
+    #[inline]
+    pub fn ae_encrypt(&mut self, plaintext_and_ciphertext: &mut [u8]) {
+        self.aead_encrypt(&[], plaintext_and_ciphertext);
+    }
+    
+    #[inline]
+    pub fn ae_decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) {
+        self.aead_decrypt(&[], ciphertext_and_plaintext)
+    }
+    
     pub fn aead_encrypt(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8]) {
         // 4.  Encryption
         // https://tools.ietf.org/html/rfc8452#section-4

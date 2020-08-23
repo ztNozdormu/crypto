@@ -57,16 +57,11 @@ macro_rules! impl_block_cipher_with_cbc_mode {
                         plaintext[i] ^= last_block[i];
                     }
 
-                    // let mut output_block = [0u8; Self::BLOCK_LEN];
-                    // output_block.copy_from_slice(&plaintext);
                     self.cipher.encrypt(plaintext);
-                    
-                    // for i in 0..Self::BLOCK_LEN {
-                    //     plaintext[i] = output_block[i];
-                    // }
 
-                    // last_block = output_block;
-                    last_block.copy_from_slice(&plaintext);
+                    for i in 0..Self::BLOCK_LEN {
+                        last_block[i] = plaintext[i];
+                    }
                 }
             }
 
@@ -81,16 +76,15 @@ macro_rules! impl_block_cipher_with_cbc_mode {
                     debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
 
                     let mut output_block = [0u8; Self::BLOCK_LEN];
-                    output_block.copy_from_slice(&ciphertext);
+                    for i in 0..Self::BLOCK_LEN {
+                        output_block[i] = ciphertext[i];
+                    }
+
                     self.cipher.decrypt(&mut output_block);
                     
                     for i in 0..Self::BLOCK_LEN {
                         output_block[i] ^= last_block[i];
-                    }
-                    
-                    last_block[..Self::BLOCK_LEN].copy_from_slice(&ciphertext);
-                    
-                    for i in 0..Self::BLOCK_LEN {
+                        last_block[i] = ciphertext[i];
                         ciphertext[i] = output_block[i];
                     }
                 }
@@ -114,7 +108,7 @@ impl_block_cipher_with_cbc_mode!(Sm4Cbc, Sm4);
 
 #[cfg(test)]
 #[bench]
-fn bench_aes128_cbc(b: &mut test::Bencher) {
+fn bench_aes128_cbc_enc(b: &mut test::Bencher) {
     let key = hex::decode("00000000000000000000000000000000").unwrap();
     let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
     
@@ -124,6 +118,21 @@ fn bench_aes128_cbc(b: &mut test::Bencher) {
     b.iter(|| {
         let mut ciphertext = test::black_box([1u8; Aes128Cbc::BLOCK_LEN]);
         cipher.encrypt(&mut ciphertext);
+        ciphertext
+    })
+}
+#[cfg(test)]
+#[bench]
+fn bench_aes128_cbc_dec(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    
+    let mut cipher = Aes128Cbc::new(&key, &nonce);
+    
+    b.bytes = Aes128Cbc::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut ciphertext = test::black_box([1u8; Aes128Cbc::BLOCK_LEN]);
+        cipher.decrypt(&mut ciphertext);
         ciphertext
     })
 }

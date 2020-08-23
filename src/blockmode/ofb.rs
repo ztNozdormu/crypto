@@ -38,11 +38,11 @@ macro_rules! impl_block_cipher_with_ofb_mode {
 
                     let mut output_block = last_input_block.clone();
                     self.cipher.encrypt(&mut output_block);
-
+                    
                     for i in 0..plaintext.len() {
                         plaintext[i] ^= output_block[i];
                     }
-
+                    
                     last_input_block = output_block;
                 }
             }
