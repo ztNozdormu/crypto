@@ -412,6 +412,25 @@ impl AesGcm128 {
 }
 
 
+#[cfg(test)]
+#[bench]
+fn bench_aes128_gcm(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let iv = hex::decode("000000000000000000000000").unwrap();
+    let aad = [0u8; 0];
+
+    let mut cipher = AesGcm128::new(&key, &iv, &aad);
+
+    b.bytes = AesGcm128::BLOCK_LEN as u64;
+    b.iter(|| {
+        let plaintext = [1u8; AesGcm128::BLOCK_LEN];
+        let mut tag = [0u8; TAG_LEN];
+        let mut ciphertext = [0u8; AesGcm128::BLOCK_LEN];
+        cipher.encrypt(&plaintext, &mut ciphertext, &mut tag);
+        ciphertext
+    })
+}
+
 #[test]
 fn test_aes_128_gcm() {
     // B   AES Test Vectors, (Page-29)

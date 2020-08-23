@@ -75,6 +75,21 @@ impl_block_cipher_with_ofb_mode!(Rc2FixedSizeOfb, Rc2FixedSize);
 impl_block_cipher_with_ofb_mode!(Sm4Ofb, Sm4);
 
 
+#[cfg(test)]
+#[bench]
+fn bench_aes128_ofb(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    
+    let mut cipher = Aes128Ofb::new(&key, &nonce);
+    
+    b.bytes = Aes128Ofb::BLOCK_LEN as u64 * 2;
+    b.iter(|| {
+        let mut ciphertext = test::black_box([0u8; Aes128Ofb::BLOCK_LEN * 2]);
+        cipher.encrypt(&mut ciphertext);
+        ciphertext
+    })
+}
 
 #[test]
 fn test_aes128_ofb() {

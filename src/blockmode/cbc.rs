@@ -112,6 +112,22 @@ impl_block_cipher_with_cbc_mode!(Rc2FixedSizeCbc, Rc2FixedSize);
 impl_block_cipher_with_cbc_mode!(Sm4Cbc, Sm4);
 
 
+#[cfg(test)]
+#[bench]
+fn bench_aes128_cbc(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    
+    let mut cipher = Aes128Cbc::new(&key, &nonce);
+    
+    b.bytes = Aes128Cbc::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut ciphertext = test::black_box([1u8; Aes128Cbc::BLOCK_LEN]);
+        cipher.encrypt(&mut ciphertext);
+        ciphertext
+    })
+}
+
 #[test]
 fn test_aes128_cbc_enc() {
     // F.2.1  CBC-AES128.Encrypt, (Page-34)
