@@ -38,11 +38,11 @@ macro_rules! impl_block_cipher_with_ofb_mode {
 
                     let mut output_block = last_input_block.clone();
                     self.cipher.encrypt(&mut output_block);
-                    
+
                     for i in 0..plaintext.len() {
                         plaintext[i] ^= output_block[i];
                     }
-                    
+
                     last_input_block = output_block;
                 }
             }
@@ -83,11 +83,11 @@ fn bench_aes128_ofb(b: &mut test::Bencher) {
     
     let mut cipher = Aes128Ofb::new(&key, &nonce);
     
-    b.bytes = Aes128Ofb::BLOCK_LEN as u64 * 2;
+    b.bytes = Aes128Ofb::BLOCK_LEN as u64;
     b.iter(|| {
-        let mut ciphertext = test::black_box([0u8; Aes128Ofb::BLOCK_LEN * 2]);
+        let mut ciphertext = test::black_box([0u8; Aes128Ofb::BLOCK_LEN]);
         cipher.encrypt(&mut ciphertext);
-        ciphertext
+        test::black_box(ciphertext)
     })
 }
 
