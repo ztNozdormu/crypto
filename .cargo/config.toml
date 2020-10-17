@@ -9,7 +9,7 @@ rustflags = [
 rustflags = [
     # "--print", "native-static-libs",
     "-C", "target-cpu=native",
-    "-C", "target-feature=+aes,+sse,+sse4.1,+sse4.2,+avx,+avx2,+prefetchwt1,+pclmul,+fma4,+fma,+bmi2,+bmi,+adx",
+    "-C", "target-feature=+aes,+sse,+sse4.1,+sse4.2,+avx,+avx2,+pclmul,+fma,+bmi2,+bmi,+adx",
 ]
 
 [target.'cfg(target_arch = "arm")']
