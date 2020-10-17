@@ -6,26 +6,29 @@ use core::arch::x86_64::*;
 // 参考:
 // https://www.intel.cn/content/dam/www/public/us/en/documents/white-papers/carry-less-multiplication-instruction-in-gcm-mode-paper.pdf
 
+
 #[derive(Debug, Clone)]
 pub struct GHash {
     h: __m128i,
 }
 
 impl GHash {
-    pub fn new(hk: &[u8]) -> Self {
-        todo!()
+    pub const BLOCK_LEN: usize = 16;
+
+    pub fn new(h: &[u8; Self::BLOCK_LEN]) -> Self {
+        let mut h = h.clone();
+        h.reverse();
+        
+        Self { h: unsafe { _mm_loadu_si128(h.as_ptr() as *const __m128i) } }
     }
     
     // Performing Ghash Using Algorithms 1 and 5 (C)
-    fn gf_mul(&self, x: &mut [u8]) {
-        debug_assert_eq!(x.len(), 16);
-
+    #[inline]
+    fn gf_mul(&self, x: &mut [u8; Self::BLOCK_LEN]) {
         unsafe {
             let a = self.h;
             let b = _mm_loadu_si128(x.as_ptr() as *const __m128i);
-
-            let mut tmp0: __m128i = core::mem::zeroed();
-            let mut tmp1: __m128i = core::mem::zeroed();
+            
             let mut tmp2: __m128i = core::mem::zeroed();
             let mut tmp3: __m128i = core::mem::zeroed();
             let mut tmp4: __m128i = core::mem::zeroed();
@@ -75,7 +78,10 @@ impl GHash {
         }
     }
 
-    pub fn ghash(&self, data: &mut [u8]) {
+    pub fn ghash(&self, data: &mut [u8; Self::BLOCK_LEN]) {
+        data.reverse();
         self.gf_mul(data);
+        data.reverse();
     }
 }
+

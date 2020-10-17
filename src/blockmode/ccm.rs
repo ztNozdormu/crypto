@@ -77,9 +77,10 @@ impl Aes128Ccm {
 
         Self { cipher, nonce: nonce2 }
     }
-
+    
+    // CBC-Mac
     #[inline]
-    fn cmac(&self, aad: &[u8], data: &[u8]) -> [u8; Self::BLOCK_LEN] {
+    fn cbc_mac(&self, aad: &[u8], data: &[u8]) -> [u8; Self::BLOCK_LEN] {
         let nonce = &self.nonce[..];
 
         let flags = if aad.is_empty() { Self::NON_AAD_FLAGS } else { Self::AAD_FLAGS };
@@ -194,7 +195,7 @@ impl Aes128Ccm {
         let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
         let plaintext = &plaintext_and_ciphertext[..plen];
 
-        let mut mac = self.cmac(&[], &plaintext);
+        let mut mac = self.cbc_mac(&[], &plaintext);
         let mut counter_block = [0u8; Self::BLOCK_LEN];
 
         self.gen_enc_block(&mut counter_block, 0);
@@ -242,7 +243,7 @@ impl Aes128Ccm {
         }
 
         let plaintext = &ciphertext_and_plaintext[..clen];
-        let mut mac = self.cmac(&[], &plaintext);
+        let mut mac = self.cbc_mac(&[], &plaintext);
         for i in 0..Self::BLOCK_LEN {
             mac[i] ^= b0[i];
         }

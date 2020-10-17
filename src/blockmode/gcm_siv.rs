@@ -8,6 +8,12 @@ use crate::aes::Aes128;
 use subtle;
 
 
+// AES-GCM-SIV: Nonce Misuse-Resistant Authenticated Encryption
+// https://tools.ietf.org/html/rfc8452
+// 
+// AEAD_AES_128_GCM_SIV
+// AEAD_AES_256_GCM_SIV
+
 // Carry-less Multiplication
 #[inline]
 fn cl_mul(a: u64, b: u64, dst: &mut [u64; 2]) {
@@ -102,7 +108,7 @@ impl Polyval {
         tmp4[0] ^= tmp2[0];
         tmp4[1] ^= tmp2[1];
         
-        const XMMMASK: [u64; 2] = [0x1u64; 0xc200000000000000];
+        const XMMMASK: [u64; 2] = [0x1u64, 0xc200000000000000];
 
         cl_mul(XMMMASK[1], tmp1[0], &mut tmp2); // 0x01
 
@@ -196,7 +202,7 @@ fn incr(block: &mut [u8]) {
 #[derive(Debug, Clone)]
 pub struct Aes128GcmSiv {
     cipher: Aes128,
-    nonce: [0u8; Self::NONCE_LEN],
+    nonce: [u8; Self::NONCE_LEN],
     polyval: Polyval,
 }
 
@@ -260,7 +266,7 @@ impl Aes128GcmSiv {
             ek[24..32].copy_from_slice(&tmp[0..8]);
         }
 
-        let cipher = Aes128::new(ek);
+        let cipher = Aes128::new(&ek);
 
         let mut n = [0u8; Self::NONCE_LEN];
         n.copy_from_slice(&nonce[..Self::NONCE_LEN]);
@@ -277,7 +283,7 @@ impl Aes128GcmSiv {
     }
     
     #[inline]
-    pub fn ae_decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) {
+    pub fn ae_decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) -> bool {
         self.aead_decrypt(&[], ciphertext_and_plaintext)
     }
     
@@ -335,28 +341,26 @@ impl Aes128GcmSiv {
         &mut plaintext_and_ciphertext[plen..plen + Self::TAG_LEN].copy_from_slice(&tag);
     }
 
-    pub fn aead_decrypt(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8]) {
+    pub fn aead_decrypt(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8]) -> bool {
         debug_assert!(aad.len() < Self::A_MAX);
         debug_assert!(ciphertext_and_plaintext.len() < Self::C_MAX);
         debug_assert!(ciphertext_and_plaintext.len() >= Self::TAG_LEN);
-
+        
         let alen = aad.len();
         let clen = ciphertext_and_plaintext.len() - Self::TAG_LEN;
-
-        let ciphertext = &ciphertext_and_plaintext[..clen];
-
+        
         // Input TAG
-        let tag1 = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
+        let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
 
         let mut counter_block = [0u8; Self::BLOCK_LEN];
-        counter_block.copy_from_slice(&tag1);
+        counter_block.copy_from_slice(&input_tag);
         counter_block[15] |= 0x80;
-
+        
         // CTR
         let ciphertext = &mut ciphertext_and_plaintext[..clen];
         for chunk in ciphertext.chunks_mut(Self::BLOCK_LEN) {
             incr(&mut counter_block);
-
+            
             let mut keystream_block = counter_block.clone();
             self.cipher.encrypt(&mut keystream_block);
             for i in 0..chunk.len() {
@@ -388,10 +392,8 @@ impl Aes128GcmSiv {
         self.cipher.encrypt(&mut tag);
 
         // Verify
-        if bool::from(subtle::ConstantTimeEq::ct_eq(&tag1[..], &tag)) {
-            // ok
-        } else {
-            panic!("TagMisMatch");
-        }
+        let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
+        // TODO: 使用 Result 类型抛出 `TagMisMatch` 错误？
+        bool::from(subtle::ConstantTimeEq::ct_eq(input_tag, &tag))
     }
 }

@@ -18,6 +18,7 @@
 // https://csrc.nist.gov/projects/block-cipher-techniques/bcm/modes-development
 // 
 use crate::aes::Aes128;
+use super::dbl;
 
 use subtle;
 
@@ -32,62 +33,141 @@ use subtle;
 // 31           AEAD_AES_256_GCM_SIV        [RFC8452]
 
 
-#[allow(dead_code)]
-#[inline]
-fn dbl2(s: u128) -> u128 {
-    if s & 0x80000000000000000000000000000000 != 0 {
-        (s << 1) ^ 0b10000111
-    } else {
-        s << 1
-    }
+#[derive(Debug, Clone)]
+pub struct Aes128Cmac {
+    cipher: Aes128,
+    k1: [u8; Self::BLOCK_LEN],
+    k2: [u8; Self::BLOCK_LEN],
 }
 
-// doubling operation
-// https://github.com/briansmith/ring/issues/517
-#[inline]
-fn dbl(s: u128) -> u128 {
-    (s << 1) ^ ( (((s as i128) >> 127) as u128) & 0b10000111)
-}
+impl Aes128Cmac {
+    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
+    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
+    pub const TAG_LEN: usize   = 16;
 
-struct MBuf<'a, 'b> {
-    m1: &'a [u8],
-    m2: &'b [u8],
-    len: usize,
-}
+    pub fn new(key: &[u8]) -> Self {
+        assert_eq!(key.len(), Self::KEY_LEN);
 
-impl<'a, 'b> MBuf<'a, 'b> {
-    pub fn new(m1: &'a [u8], m2: &'b [u8]) -> Self {
-        let len = self.m1.len() + self.m2.len();
-        Self { m1, m2, len, }
+        let cipher = Aes128::new(key);
+
+        let mut zeros = [0u8; Self::BLOCK_LEN];
+        cipher.encrypt(&mut zeros);
+
+        let k1 = dbl(u128::from_be_bytes(zeros)).to_be_bytes();
+        let k2 = dbl(u128::from_be_bytes(k1)).to_be_bytes();
+
+        Self { cipher, k1, k2, }
     }
 
-    pub fn len(&self) -> usize {
-        self.len
-    }
-}
 
-impl<'a, 'b> std::ops::Index<usize> for MBuf<'a, 'b> {
-    type Output = u8;
+    pub fn hash(&self, m: &[u8]) -> [u8; Self::BLOCK_LEN] {
+        // 2.4.  MAC Generation Algorithm
+        // https://tools.ietf.org/html/rfc4493#section-2.4
+        let len = m.len();
+        
+        let mut padding_block = [
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        
+        if len < Self::BLOCK_LEN {
+            padding_block[..m.len()].copy_from_slice(&m);
+            padding_block[m.len()] = 0x80;
 
-    fn index(&self, index: usize) -> &Self::Output {
-        if index < m1.len() {
-            &self.m1[index]
-        } else {
-            let i = index - m1.len();
-            &self.m2[i]
+            for i in 0..Self::BLOCK_LEN {
+                padding_block[i] ^= self.k2[i];
+            }
+
+            self.cipher.encrypt(&mut padding_block);
+            return padding_block;
         }
+
+        if len == Self::BLOCK_LEN {
+            let mut block = self.k1.clone();
+            for i in 0..Self::BLOCK_LEN {
+                block[i] ^= m[i];
+            }
+
+            self.cipher.encrypt(&mut block);
+            return block;
+        }
+
+        let n = len / Self::BLOCK_LEN;
+        let r = len % Self::BLOCK_LEN;
+
+        let mn = if r == 0 { n - 1 } else { n };
+        let mut x = [0u8; Self::BLOCK_LEN];
+
+        for i in 0..mn {
+            let start = i * Self::BLOCK_LEN;
+            let end   = start + Self::BLOCK_LEN;
+            let block = &m[start..end];
+            debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+
+            for i2 in 0..Self::BLOCK_LEN {
+                x[i2] ^= block[i2];
+            }
+            
+            self.cipher.encrypt(&mut x);
+        }
+
+        let last_block_offset = mn * Self::BLOCK_LEN;
+        let last_block = &m[last_block_offset..];
+        let last_block_len = last_block.len();
+
+        if last_block_len == Self::BLOCK_LEN {
+            let block = last_block;
+            for i in 0..Self::BLOCK_LEN {
+                x[i] ^= block[i] ^ self.k1[i];
+            }
+        } else {
+            let mut block = padding_block;
+            block[..last_block_len].copy_from_slice(&last_block);
+            block[last_block_len] = 0x80;
+
+            for i in 0..Self::BLOCK_LEN {
+                x[i] ^= block[i] ^ self.k2[i];
+            }
+        }
+
+        self.cipher.encrypt(&mut x);
+
+        return x;
     }
 }
 
-impl<'a, 'b> std::ops::IndexMut<usize> for MBuf<'a, 'b> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        if index < m1.len() {
-            &mut self.m1[index]
-        } else {
-            let i = index - m1.len();
-            &mut self.m2[i]
-        }
-    }
+#[test]
+fn test_aes128_cmac() {
+    let key = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
+
+    let cmac = Aes128Cmac::new(&key);
+
+    let k1 = cmac.k1;
+    let k2 = cmac.k2;
+    assert_eq!(&k1[..], &hex::decode("fbeed618357133667c85e08f7236a8de").unwrap()[..]);
+    assert_eq!(&k2[..], &hex::decode("f7ddac306ae266ccf90bc11ee46d513b").unwrap()[..]);
+
+    let m = hex::decode("").unwrap();
+    let mac = cmac.hash(&m);
+    assert_eq!(&mac[..], &hex::decode("bb1d6929e95937287fa37d129b756746").unwrap()[..] );
+
+    let m = hex::decode("6bc1bee22e409f96e93d7e117393172a").unwrap();
+    let mac = cmac.hash(&m);
+    assert_eq!(&mac[..], &hex::decode("070a16b46b4d4144f79bdd9dd04a287c").unwrap()[..] );
+
+    let m = hex::decode("6bc1bee22e409f96e93d7e117393172a\
+ae2d8a571e03ac9c9eb76fac45af8e51\
+30c81c46a35ce411").unwrap();
+    let mac = cmac.hash(&m);
+    assert_eq!(&mac[..], &hex::decode("dfa66747de9ae63030ca32611497c827").unwrap()[..] );
+
+    let m = hex::decode("\
+6bc1bee22e409f96e93d7e117393172a\
+ae2d8a571e03ac9c9eb76fac45af8e51\
+30c81c46a35ce411e5fbc1191a0a52ef\
+f69f2445df4f9b17ad2b417be66c3710").unwrap();
+    let mac = cmac.hash(&m);
+    assert_eq!(&mac[..], &hex::decode("51f0bebf7e3b9d92fc49741779363cfe").unwrap()[..] );
 }
 
 
@@ -99,7 +179,6 @@ pub struct AesSivCmac256 {
     cmac_cipher: Aes128,
     cmac_k1: [u8; Self::BLOCK_LEN],
     cmac_k2: [u8; Self::BLOCK_LEN],
-    nonce: [0u8; Self::NONCE_LEN],
 }
 
 impl AesSivCmac256 {
@@ -111,16 +190,20 @@ impl AesSivCmac256 {
     // C_MAX  is 2^132 + 16 octets.
     pub const KEY_LEN: usize   = Aes128::KEY_LEN * 2; // 16 Byte Cipher Key, 16 Byte CMac Key
     pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
-    pub const TAG_LEN: usize   = Aes128::BLOCK_LEN;
+    pub const TAG_LEN: usize   = 16;
     
     pub const N_MIN: usize = 1;
-    pub const N_MIN: usize = usize::MAX;
-    // NOTE: Nonce 的长度暂时限定在 16 Bytes.
-    pub const NONCE_LEN: usize = 16;
+    pub const N_MAX: usize = usize::MAX;
 
-    pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+    const BLOCK_ZERO: [u8; Self::BLOCK_LEN] = [0u8; Self::BLOCK_LEN];
+    // 1^64 || 0^1 || 1^31 || 0^1 || 1^31
+    const V1: [u8; Self::BLOCK_LEN] = [
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+        0x7f, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 
+    ];
+
+    pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
-        assert_eq!(nonce.len(), Self::NONCE_LEN); // 96-Bits
 
         // CMac Cipher Key
         let k1 = &key[..Aes128::KEY_LEN];
@@ -132,20 +215,11 @@ impl AesSivCmac256 {
         
         // 2.3.  Subkey Generation Algorithm
         // https://tools.ietf.org/html/rfc4493#section-2.3
-        // 
-        // +   Step 1.  L := AES-128(K, const_Zero);                           +
-        // +   Step 2.  if MSB(L) is equal to 0                                +
-        // +            then    K1 := L << 1;                                  +
-        // +            else    K1 := (L << 1) XOR const_Rb;                   +
-        // +   Step 3.  if MSB(K1) is equal to 0                               +
-        // +            then    K2 := K1 << 1;                                 +
-        // +            else    K2 := (K1 << 1) XOR const_Rb;                  +
-        // +   Step 4.  return K1, K2;                                         +
-        // 
-        const ZERO: [u8; Self::BLOCK_LEN] = [0u8; Self::BLOCK_LEN];
-        let l = cmac_cipher.encrypt(&ZERO);
-        let cmac_k1 = dbl(l).to_be_bytes();
-        let cmac_k2 = dbl(cmac_k1).to_be_bytes();
+        let mut cmac_k1 = [0u8; Self::BLOCK_LEN];
+        cmac_cipher.encrypt(&mut cmac_k1);
+
+        let cmac_k1 = dbl(u128::from_be_bytes(cmac_k1)).to_be_bytes();
+        let cmac_k2 = dbl(u128::from_be_bytes(cmac_k1)).to_be_bytes();
 
         Self { cipher, cmac_cipher, cmac_k1, cmac_k2 }
     }
@@ -155,105 +229,81 @@ impl AesSivCmac256 {
         // 2.4.  MAC Generation Algorithm
         // https://tools.ietf.org/html/rfc4493#section-2.4
         let len = m.len();
-        // for number of blocks to be processed
-        let n = len / Self::BLOCK_LEN;
-        // for number of octets of last block
-        let r = len % Self::BLOCK_LEN;
-        // is the last block xor-ed with K1 or K2
-
-        let mut x = [0u8; Self::BLOCK_LEN];
-
-        if len == 0 {
-            let mut m_last: [u8; Self::BLOCK_LEN] = [
-                0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            ];
-            // M_last := padding(M_n) XOR K2;
-            for i in 0..Self::BLOCK_LEN {
-                m_last[i] ^= self.cmac_k2[i];
-                m_last[i] ^= x[i];
-            }
-            return self.cmac_cipher.encrypt(&m_last);
-        }
-
+        
+        let mut padding_block = [
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        
         if len < Self::BLOCK_LEN {
-            let mut m_last: [u8; Self::BLOCK_LEN] = [
-                0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            ];
-            // M_last := padding(M_n) XOR K2;
-            m_last[..m.len()].copy_from_slice(&m);
-            m_last[m.len() - 1] = 0x80;
+            padding_block[..m.len()].copy_from_slice(&m);
+            padding_block[m.len()] = 0x80;
 
             for i in 0..Self::BLOCK_LEN {
-                m_last[i] ^= self.cmac_k2[i];
-                m_last[i] ^= x[i];
+                padding_block[i] ^= self.cmac_k2[i];
             }
 
-            return self.cmac_cipher.encrypt(&m_last);
+            self.cmac_cipher.encrypt(&mut padding_block);
+            return padding_block;
         }
 
         if len == Self::BLOCK_LEN {
-            // M_n XOR K1;
+            let mut block = self.cmac_k1.clone();
             for i in 0..Self::BLOCK_LEN {
-                x[i] ^= m[i] ^ self.cmac_k1[i];
+                block[i] ^= m[i];
             }
 
-            return self.cmac_cipher.encrypt(&x);
+            self.cmac_cipher.encrypt(&mut block);
+            return block;
         }
 
-        if len > Self::BLOCK_LEN {
-            let (last_block, blocks) = if r == 0 {
-                (&m[m.len() - Self::BLOCK_LEN..], &m[..m.len() - Self::BLOCK_LEN])
-            } else {
-                (&m[m.len() - r..], &m[..m.len() - r])
-            };
+        let n = len / Self::BLOCK_LEN;
+        let r = len % Self::BLOCK_LEN;
 
-            for chunk in blocks.chunks_exact(Self::BLOCK_LEN) {
-                // Y := X XOR M_i;
-                // X := AES-128(K,Y);
-                for i in 0..Self::BLOCK_LEN {
-                    x[i] ^= chunk[i];
-                }
-                self.cmac_cipher.encrypt(&mut x);
+        let mn = if r == 0 { n - 1 } else { n };
+        let mut x = [0u8; Self::BLOCK_LEN];
+
+        for i in 0..mn {
+            let start = i * Self::BLOCK_LEN;
+            let end   = start + Self::BLOCK_LEN;
+            let block = &m[start..end];
+            debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+
+            for i2 in 0..Self::BLOCK_LEN {
+                x[i2] ^= block[i2];
             }
+            
+            self.cmac_cipher.encrypt(&mut x);
+        }
 
-            if r == 0 {
-                // M_n XOR K1;
-                for i in 0..last_block.len() {
-                    x[i] ^= last_block[i] ^ self.cmac_k1[i];
-                }
-                return self.cmac_cipher.encrypt(&mut x);
-            } else {
-                // M_last := padding(M_n) XOR K2;
-                for i in 0..last_block.len() {
-                    x[i] ^= last_block[i] ^ self.cmac_k2[i];
-                }
-                return self.cmac_cipher.encrypt(&mut x);
+        let last_block_offset = mn * Self::BLOCK_LEN;
+        let last_block = &m[last_block_offset..];
+        let last_block_len = last_block.len();
+
+        if last_block_len == Self::BLOCK_LEN {
+            let block = last_block;
+            for i in 0..Self::BLOCK_LEN {
+                x[i] ^= block[i] ^ self.cmac_k1[i];
+            }
+        } else {
+            let mut block = padding_block;
+            block[..last_block_len].copy_from_slice(&last_block);
+            block[last_block_len] = 0x80;
+
+            for i in 0..Self::BLOCK_LEN {
+                x[i] ^= block[i] ^ self.cmac_k2[i];
             }
         }
+
+        self.cmac_cipher.encrypt(&mut x);
+
+        return x;
     }
 
     #[inline]
     fn siv(&self, components: &[&[u8]], payload: &[u8]) -> [u8; Self::BLOCK_LEN] {
         // 2.4.  S2V
         // https://tools.ietf.org/html/rfc5297#section-2.4
-        // 
-        // S2V(K, S1, ..., Sn) {
-        //     if n = 0 then
-        //         return V = AES-CMAC(K, <one>)
-        //     fi
-        //     D = AES-CMAC(K, <zero>)
-        //     for i = 1 to n-1 do
-        //         D = dbl(D) xor AES-CMAC(K, Si)
-        //     done
-        //     if len(Sn) >= 128 then
-        //         T = Sn xorend D
-        //     else
-        //         T = dbl(D) xor pad(Sn)
-        //     fi
-        //     return V = AES-CMAC(K, T)
-        // }
 
         // a vector of associated data AD[ ] where the number 
         // of components in the vector is not greater than 126
@@ -263,52 +313,40 @@ impl AesSivCmac256 {
         if components.is_empty() && payload.is_empty() {
             // indicates a string that is 127 zero bits concatenated with a
             // single one bit, that is 0^127 || 1^1.
-            const ONE: [u8; Self::BLOCK_LEN] = 1u128.to_be_bytes();
-            return self.cmac(&ONE);
+            let one = 1u128.to_be_bytes();
+            return self.cmac(&one);
         }
 
-        // indicates a string that is 128 zero bits.
-        const ZERO: [u8; Self::BLOCK_LEN] = [0u8; Self::BLOCK_LEN];
-        let mut d = self.cmac(&ZERO);
+        let mut d = self.cmac(&Self::BLOCK_ZERO);
         for aad in components.iter() {
-            // assert_eq!(aad.len(), Self::BLOCK_LEN);
             let d1 = dbl(u128::from_be_bytes(d.clone())).to_be_bytes();
             let d2 = self.cmac(aad);
+
             for i in 0..Self::BLOCK_LEN {
                 d[i] = d1[i] ^ d2[i];
             }
         }
 
-        if payload.len() == Self::BLOCK_LEN {
-            for i in 0..Self::BLOCK_LEN {
-                d[i] ^= payload[i];
-            }
-            return self.cmac(&d);
-        } else if payload.len() > Self::BLOCK_LEN {
-            // T = Sn xorend D
-            // leftmost(A, len(A)-len(B)) || (rightmost(A, len(B)) xor B)
-            let n = payload.len() - Self::BLOCK_LEN;
-            
-            // TODO: 消除 Alloc.
-            let mut p = payload.to_vec();
+        let plen = payload.len();
+        if plen >= Self::BLOCK_LEN {
+            let n = plen - Self::BLOCK_LEN;
+            // FIXME: 消除 Alloc，这个需要 CMAC 算法分离 LastBlock 处理部分。
+            let mut data = payload.to_vec();
+            let block = &mut data[n..];
 
-            let a = &mut p[n..n + Self::BLOCK_LEN];
             for i in 0..Self::BLOCK_LEN {
-                a[i] ^= d[i];
+                d[i] ^= block[i];
             }
 
-            return self.cmac(&p);
+            return self.cmac(&data);
         } else {
             // T = dbl(D) xor pad(Sn)
             let mut t = dbl(u128::from_be_bytes(d)).to_be_bytes();
-            for i in 0..payload.len() {
+
+            for i in 0..plen {
                 t[i] ^= payload[i];
             }
-            t[payload.len()] ^= 0b1000_0000;
-            for i in payload.len() + 1..Self::BLOCK_LEN {
-                // many 0 bits
-                t[i] ^= 0;
-            }
+            t[plen] ^= 0b1000_0000;
 
             return self.cmac(&t);
         }
@@ -320,44 +358,33 @@ impl AesSivCmac256 {
         counter_block.copy_from_slice(&n);
     }
 
-    pub fn encrypt(&self, components: &[&[u8]], plaintext_and_ciphertext: &mut [u8]) -> [u8; Self::BLOCK_LEN] {
+    pub fn aead_encrypt(&self, nonce: &[u8], components: &[&[u8]], plaintext_and_ciphertext: &mut [u8]) {
         // 2.6.  SIV Encrypt
         // https://tools.ietf.org/html/rfc5297#section-2.6
-        // 
-        // SIV-ENCRYPT(K, P, AD1, ..., ADn) {
-        //     K1 = leftmost(K, len(K)/2)
-        //     K2 = rightmost(K, len(K)/2)
-        //     V = S2V(K1, AD1, ..., ADn, P)
-        //     Q = V bitand (1^64 || 0^1 || 1^31 || 0^1 || 1^31)
-        //     m = (len(P) + 127)/128
-        // 
-        //     for i = 0 to m-1 do
-        //        Xi = AES(K2, Q+i)
-        //     done
-        //     X = leftmost(X0 || ... || Xm-1, len(P))
-        //     C = P xor X
-        // 
-        //     return V || C
-        // }
+        debug_assert!(nonce.is_empty() || nonce.len() >= Self::BLOCK_LEN);
+
+        let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
+        let plaintext = &mut plaintext_and_ciphertext[Self::TAG_LEN..];
 
         // V = S2V(K1, AD1, ..., ADn, P)
-        let v = self.siv(components, &plaintext_and_ciphertext);
+        let v = self.siv(components, &plaintext);
         // Q = V bitand (1^64 || 0^1 || 1^31 || 0^1 || 1^31)
-        const V1: [u8; Self::BLOCK_LEN] = [
-            // 1^64
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
-            0x7f, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 
-        ];
         let mut q = v.clone();
+        // let mut q = [0u8; Self::BLOCK_LEN];
+        // if nonce.is_empty() {
+        //     q.copy_from_slice(&v);
+        // } else {
+        //     q.copy_from_slice(&nonce[..Self::BLOCK_LEN]);
+        // }
         for i in 0..Self::BLOCK_LEN {
-            q[i] &= V1[i];
+            q[i] &= Self::V1[i];
         }
 
         // CTR Counter
         let mut counter = u128::from_be_bytes(q);
 
         // m = (len(P) + 127)/128
-        for chunk in plaintext_and_ciphertext.chunks_mut(Self::BLOCK_LEN) {
+        for chunk in plaintext.chunks_mut(Self::BLOCK_LEN) {
             let mut output_block = counter.clone().to_be_bytes();
             self.cipher.encrypt(&mut output_block);
             for i in 0..chunk.len() {
@@ -367,51 +394,36 @@ impl AesSivCmac256 {
             counter = counter.wrapping_add(1);
         }
 
-        v
+        let iv = &mut plaintext_and_ciphertext[..Self::TAG_LEN];
+        iv.copy_from_slice(&v[..Self::TAG_LEN]);
     }
 
-    pub fn decrypt(&self, components: &[&[u8]], iv: &[u8; Self::BLOCK_LEN], ciphertext_and_plaintext: &mut [u8]) {
+    pub fn aead_decrypt(&self, nonce: &[u8], components: &[&[u8]], ciphertext_and_plaintext: &mut [u8]) -> bool {
         // 2.7.  SIV Decrypt
         // https://tools.ietf.org/html/rfc5297#section-2.7
-        // 
-        // SIV-DECRYPT(K, Z, AD1, ..., ADn) {
-        //     V = leftmost(Z, 128)
-        //     C = rightmost(Z, len(Z)-128)
-        //     K1 = leftmost(K, len(K)/2)
-        //     K2 = rightmost(K, len(K)/2)
-        //     Q = V bitand (1^64 || 0^1 || 1^31 || 0^1 || 1^31)
-        // 
-        //     m = (len(C) + 127)/128
-        //     for i = 0 to m-1 do
-        //         Xi = AES(K2, Q+i)
-        //     done
-        //     X = leftmost(X0 || ... || Xm-1, len(C))
-        //     P = C xor X
-        //     T = S2V(K1, AD1, ..., ADn, P)
-        // 
-        //     if T = V then
-        //         return P
-        //     else
-        //         return FAIL
-        //     fi
+        debug_assert!(nonce.is_empty() || nonce.len() >= Self::BLOCK_LEN);
+
+        let mut input_iv = [0u8; Self::BLOCK_LEN];
+        input_iv.copy_from_slice(&ciphertext_and_plaintext[..Self::TAG_LEN]);
+
+        let clen = ciphertext_and_plaintext.len() - Self::TAG_LEN;
+        let ciphertext = &mut ciphertext_and_plaintext[Self::TAG_LEN..];
+
+        let mut q = input_iv.clone();
+        // let mut q = [0u8; Self::BLOCK_LEN];
+        // if nonce.is_empty() {
+        //     q.copy_from_slice(&input_iv);
+        // } else {
+        //     q.copy_from_slice(&nonce[..Self::BLOCK_LEN]);
         // }
-        const V1: [u8; Self::BLOCK_LEN] = [
-            // 1^64
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
-            0x7f, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 
-        ];
-
-        let v = iv;
-
-        let mut q = v.clone();
         for i in 0..Self::BLOCK_LEN {
-            q[i] &= V1[i];
+            q[i] &= Self::V1[i];
         }
 
         // CTR Counter
         let mut counter = u128::from_be_bytes(q);
 
-        for chunk in ciphertext_and_plaintext.chunks_mut(Self::BLOCK_LEN) {
+        for chunk in ciphertext.chunks_mut(Self::BLOCK_LEN) {
             let mut output_block = counter.clone().to_be_bytes();
             self.cipher.encrypt(&mut output_block);
             for i in 0..chunk.len() {
@@ -422,14 +434,83 @@ impl AesSivCmac256 {
         }
 
         // T = S2V(K1, AD1, ..., ADn, P)
-        let plaintext = &ciphertext_and_plaintext;
-        let t = self.siv(components, &plaintext);
+        let plaintext = &ciphertext_and_plaintext[Self::TAG_LEN..];
+        let tag = self.siv(components, &plaintext);
 
         // Verify
-        let is_match = bool::from(subtle::ConstantTimeEq::ct_eq(&t[..], &v));
-
-        if !is_match {
-            panic!("TagMisMatch ...");
-        }
+        bool::from(subtle::ConstantTimeEq::ct_eq(&tag[..], &input_iv[..]))
     }
+}
+
+
+#[test]
+fn test_aes_siv_cmac256_dec() {
+    let key       = hex::decode("fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0\
+f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
+    let aad       = hex::decode("101112131415161718191a1b1c1d1e1f\
+2021222324252627").unwrap();
+    let plaintext = hex::decode("112233445566778899aabbccddee").unwrap();
+    let mut ciphertext_and_tag = hex::decode("85632d07c6e8f37f950acd320a2ecc93\
+40c02b9690c4dc04daef7f6afe5c").unwrap();
+
+    let cipher = AesSivCmac256::new(&key);
+    let ret = cipher.aead_decrypt(&[], &[&aad], &mut ciphertext_and_tag);
+    assert_eq!(ret, true);
+    assert_eq!(&ciphertext_and_tag[AesSivCmac256::TAG_LEN..], &plaintext[..]);
+
+}
+
+#[test]
+fn test_aes_siv_cmac256_enc() {
+    // Appendix A.  Test Vectors
+    // https://tools.ietf.org/html/rfc5297#appendix-A
+    let key       = hex::decode("fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0\
+f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
+    let aad       = hex::decode("101112131415161718191a1b1c1d1e1f\
+2021222324252627").unwrap();
+    let plaintext = hex::decode("112233445566778899aabbccddee").unwrap();
+
+    let plen      = plaintext.len();
+    // NOTE: Layout = IV || C
+    let mut ciphertext_and_tag = plaintext.clone();
+    for _ in 0..AesSivCmac256::TAG_LEN {
+        ciphertext_and_tag.insert(0, 0);
+    }
+
+    let cipher = AesSivCmac256::new(&key);
+    cipher.aead_encrypt(&[], &[&aad], &mut ciphertext_and_tag);
+    assert_eq!(&ciphertext_and_tag[..],
+        &hex::decode("85632d07c6e8f37f950acd320a2ecc93\
+40c02b9690c4dc04daef7f6afe5c").unwrap()[..]);
+
+    //////////////// TODO ///////////////
+//     // A.2.  Nonce-Based Authenticated Encryption Example
+//     // https://tools.ietf.org/html/rfc5297#appendix-A.2
+//     let key       = hex::decode("7f7e7d7c7b7a79787776757473727170\
+// 404142434445464748494a4b4c4d4e4f").unwrap();
+//     let ad1       = hex::decode("00112233445566778899aabbccddeeff\
+// deaddadadeaddadaffeeddccbbaa9988\
+// 7766554433221100").unwrap();
+//     let ad2       = hex::decode("102030405060708090a0").unwrap();
+//     let nonce     = hex::decode("09f911029d74e35bd84156c5635688c0").unwrap();
+//     let plaintext = hex::decode("7468697320697320736f6d6520706c61\
+// 696e7465787420746f20656e63727970\
+// 74207573696e67205349562d414553").unwrap();
+    
+//     println!("Nonce: {:?}", nonce);
+
+//     let plen      = plaintext.len();
+//     // NOTE: Layout = IV || C
+//     let mut ciphertext_and_tag = plaintext.clone();
+//     for _ in 0..AesSivCmac256::TAG_LEN {
+//         ciphertext_and_tag.insert(0, 0);
+//     }
+//     // ciphertext_and_tag.exten_from_slice(&nonce);
+
+//     let mut cipher = AesSivCmac256::new(&key);
+//     cipher.aead_encrypt(&nonce, &[&ad1, &ad2], &mut ciphertext_and_tag);
+//     assert_eq!(&ciphertext_and_tag[..], &hex::decode("7bdb6e3b432667eb06f4d14bff2fbd0f\
+// cb900f2fddbe404326601965c889bf17\
+// dba77ceb094fa663b7a3f748ba8af829\
+// ea64ad544a272e9c485b62a3fd5c0d").unwrap()[..]);
 }
