@@ -7,3 +7,12 @@
 // Disk encryption theory
 // https://en.wikipedia.org/wiki/Disk_encryption_theory
 // 
+
+// C code
+// https://docs.rs/crate/xtsn/0.1.1/source/src/ccrypto.c
+
+// Rust Code
+// https://github.com/pheki/xts-mode/blob/master/src/lib.rs
+
+// C Code
+// https://github.com/randombit/botan/blob/master/src/lib/modes/xts/xts.cpp
