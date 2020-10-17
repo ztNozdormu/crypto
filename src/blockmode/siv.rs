@@ -319,6 +319,8 @@ impl AesSivCmac256 {
 
         let mut d = self.cmac(&Self::BLOCK_ZERO);
         for aad in components.iter() {
+            println!("AD: {:?}", aad);
+
             let d1 = dbl(u128::from_be_bytes(d.clone())).to_be_bytes();
             let d2 = self.cmac(aad);
 
@@ -358,11 +360,19 @@ impl AesSivCmac256 {
         counter_block.copy_from_slice(&n);
     }
 
-    pub fn aead_encrypt(&self, nonce: &[u8], components: &[&[u8]], plaintext_and_ciphertext: &mut [u8]) {
+    /// Nonce-Based Authenticated Encryption
+    pub fn aead_encrypt_with_nonce(&self, nonce: &[u8], components: &[&[u8]], plaintext_and_ciphertext: &mut [u8]) {
+        unimplemented!()
+    }
+
+    pub fn aead_decrypt_with_nonce(&self, nonce: &[u8], components: &[&[u8]], ciphertext_and_plaintext: &mut [u8]) -> bool {
+        unimplemented!()
+    }
+
+    /// Deterministic Authenticated Encryption
+    pub fn aead_encrypt(&self, components: &[&[u8]], plaintext_and_ciphertext: &mut [u8]) {
         // 2.6.  SIV Encrypt
         // https://tools.ietf.org/html/rfc5297#section-2.6
-        debug_assert!(nonce.is_empty() || nonce.len() >= Self::BLOCK_LEN);
-
         let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
         let plaintext = &mut plaintext_and_ciphertext[Self::TAG_LEN..];
 
@@ -370,12 +380,6 @@ impl AesSivCmac256 {
         let v = self.siv(components, &plaintext);
         // Q = V bitand (1^64 || 0^1 || 1^31 || 0^1 || 1^31)
         let mut q = v.clone();
-        // let mut q = [0u8; Self::BLOCK_LEN];
-        // if nonce.is_empty() {
-        //     q.copy_from_slice(&v);
-        // } else {
-        //     q.copy_from_slice(&nonce[..Self::BLOCK_LEN]);
-        // }
         for i in 0..Self::BLOCK_LEN {
             q[i] &= Self::V1[i];
         }
@@ -398,11 +402,9 @@ impl AesSivCmac256 {
         iv.copy_from_slice(&v[..Self::TAG_LEN]);
     }
 
-    pub fn aead_decrypt(&self, nonce: &[u8], components: &[&[u8]], ciphertext_and_plaintext: &mut [u8]) -> bool {
+    pub fn aead_decrypt(&self, components: &[&[u8]], ciphertext_and_plaintext: &mut [u8]) -> bool {
         // 2.7.  SIV Decrypt
         // https://tools.ietf.org/html/rfc5297#section-2.7
-        debug_assert!(nonce.is_empty() || nonce.len() >= Self::BLOCK_LEN);
-
         let mut input_iv = [0u8; Self::BLOCK_LEN];
         input_iv.copy_from_slice(&ciphertext_and_plaintext[..Self::TAG_LEN]);
 
@@ -410,12 +412,6 @@ impl AesSivCmac256 {
         let ciphertext = &mut ciphertext_and_plaintext[Self::TAG_LEN..];
 
         let mut q = input_iv.clone();
-        // let mut q = [0u8; Self::BLOCK_LEN];
-        // if nonce.is_empty() {
-        //     q.copy_from_slice(&input_iv);
-        // } else {
-        //     q.copy_from_slice(&nonce[..Self::BLOCK_LEN]);
-        // }
         for i in 0..Self::BLOCK_LEN {
             q[i] &= Self::V1[i];
         }
@@ -454,7 +450,7 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
 40c02b9690c4dc04daef7f6afe5c").unwrap();
 
     let cipher = AesSivCmac256::new(&key);
-    let ret = cipher.aead_decrypt(&[], &[&aad], &mut ciphertext_and_tag);
+    let ret = cipher.aead_decrypt(&[&aad], &mut ciphertext_and_tag);
     assert_eq!(ret, true);
     assert_eq!(&ciphertext_and_tag[AesSivCmac256::TAG_LEN..], &plaintext[..]);
 
@@ -462,8 +458,8 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
 
 #[test]
 fn test_aes_siv_cmac256_enc() {
-    // Appendix A.  Test Vectors
-    // https://tools.ietf.org/html/rfc5297#appendix-A
+    // A.1.  Deterministic Authenticated Encryption Example
+    // https://tools.ietf.org/html/rfc5297#appendix-A.1
     let key       = hex::decode("fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0\
 f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
     let aad       = hex::decode("101112131415161718191a1b1c1d1e1f\
@@ -478,14 +474,14 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
     }
 
     let cipher = AesSivCmac256::new(&key);
-    cipher.aead_encrypt(&[], &[&aad], &mut ciphertext_and_tag);
+    cipher.aead_encrypt(&[&aad], &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..],
         &hex::decode("85632d07c6e8f37f950acd320a2ecc93\
 40c02b9690c4dc04daef7f6afe5c").unwrap()[..]);
 
     //////////////// TODO ///////////////
-//     // A.2.  Nonce-Based Authenticated Encryption Example
-//     // https://tools.ietf.org/html/rfc5297#appendix-A.2
+    // A.2.  Nonce-Based Authenticated Encryption Example
+    // https://tools.ietf.org/html/rfc5297#appendix-A.2
 //     let key       = hex::decode("7f7e7d7c7b7a79787776757473727170\
 // 404142434445464748494a4b4c4d4e4f").unwrap();
 //     let ad1       = hex::decode("00112233445566778899aabbccddeeff\
@@ -505,9 +501,15 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
 //     for _ in 0..AesSivCmac256::TAG_LEN {
 //         ciphertext_and_tag.insert(0, 0);
 //     }
-//     // ciphertext_and_tag.exten_from_slice(&nonce);
+//     // ciphertext_and_tag.extend_from_slice(&nonce);
 
-//     let mut cipher = AesSivCmac256::new(&key);
+//     // let mut ciphertext_and_tag = nonce.clone();
+//     // for _ in 0..AesSivCmac256::TAG_LEN {
+//     //     ciphertext_and_tag.insert(0, 0);
+//     // }
+//     // ciphertext_and_tag.extend_from_slice(&plaintext);
+
+//     let cipher = AesSivCmac256::new(&key);
 //     cipher.aead_encrypt(&nonce, &[&ad1, &ad2], &mut ciphertext_and_tag);
 //     assert_eq!(&ciphertext_and_tag[..], &hex::decode("7bdb6e3b432667eb06f4d14bff2fbd0f\
 // cb900f2fddbe404326601965c889bf17\
