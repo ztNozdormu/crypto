@@ -1,5 +1,6 @@
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "pclmulqdq"))]
+// #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "pclmulqdq"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "aes"))]
 #[path = "./ghash_x86.rs"]
 mod platform;
 
@@ -12,7 +13,8 @@ mod platform;
 mod platform;
 
 #[cfg(all(
-    not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "pclmulqdq")),
+    // not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "pclmulqdq")),
+    not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "aes")),
     not(all(target_arch = "aarch64", target_feature = "pmull")),
 ))]
 #[path = "./ghash_generic.rs"]
