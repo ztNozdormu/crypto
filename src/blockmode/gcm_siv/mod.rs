@@ -302,43 +302,24 @@ impl Aes128GcmSiv {
             self.polyval.h[i] ^= self.nonce[i];
         }
 
-        #[cfg(test)]
-        {
-            println!("POLYVAL result XOR nonce: {:?}", &hex::encode(&self.polyval.h) );
-        }
-
         self.polyval.h[15] &= 0x7f;
-        #[cfg(test)]
-        {
-            println!("... and masked: {:?}", &hex::encode(&self.polyval.h) );
-        }
-
 
         // tag = AES(key = message_encryption_key, block = S_s)
         let mut tag = self.polyval.h.clone();
         self.cipher.encrypt(&mut tag);
-        #[cfg(test)]
-        {
-            println!("Tag: {:?}", &hex::encode(&tag) );
-        }
 
         // u32 (Counter) || u96 (Nonce)
         let mut counter_block = tag.clone();
         counter_block[15] |= 0x80;
-        #[cfg(test)]
-        {
-            println!("Initial counter =: {:?}", &hex::encode(&counter_block) );
-        }
 
         // CTR
         let plaintext = &mut plaintext_and_ciphertext[..plen];
         for chunk in plaintext.chunks_mut(Self::BLOCK_LEN) {
-            
-
             let mut keystream_block = counter_block.clone();
             self.cipher.encrypt(&mut keystream_block);
 
             incr(&mut counter_block);
+            
             for i in 0..chunk.len() {
                 chunk[i] ^= keystream_block[i];
             }
