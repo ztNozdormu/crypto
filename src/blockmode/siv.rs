@@ -319,8 +319,6 @@ impl AesSivCmac256 {
 
         let mut d = self.cmac(&Self::BLOCK_ZERO);
         for aad in components.iter() {
-            println!("AD: {:?}", aad);
-
             let d1 = dbl(u128::from_be_bytes(d.clone())).to_be_bytes();
             let d2 = self.cmac(aad);
 
@@ -337,7 +335,7 @@ impl AesSivCmac256 {
             let block = &mut data[n..];
 
             for i in 0..Self::BLOCK_LEN {
-                d[i] ^= block[i];
+                block[i] ^= d[i];
             }
 
             return self.cmac(&data);
@@ -360,15 +358,6 @@ impl AesSivCmac256 {
         counter_block.copy_from_slice(&n);
     }
 
-    /// Nonce-Based Authenticated Encryption
-    pub fn aead_encrypt_with_nonce(&self, nonce: &[u8], components: &[&[u8]], plaintext_and_ciphertext: &mut [u8]) {
-        unimplemented!()
-    }
-
-    pub fn aead_decrypt_with_nonce(&self, nonce: &[u8], components: &[&[u8]], ciphertext_and_plaintext: &mut [u8]) -> bool {
-        unimplemented!()
-    }
-
     /// Deterministic Authenticated Encryption
     pub fn aead_encrypt(&self, components: &[&[u8]], plaintext_and_ciphertext: &mut [u8]) {
         // 2.6.  SIV Encrypt
@@ -389,10 +378,11 @@ impl AesSivCmac256 {
 
         // m = (len(P) + 127)/128
         for chunk in plaintext.chunks_mut(Self::BLOCK_LEN) {
-            let mut output_block = counter.clone().to_be_bytes();
-            self.cipher.encrypt(&mut output_block);
+            let mut keystream_block = counter.clone().to_be_bytes();
+
+            self.cipher.encrypt(&mut keystream_block);
             for i in 0..chunk.len() {
-                chunk[i] ^= output_block[i];
+                chunk[i] ^= keystream_block[i];
             }
 
             counter = counter.wrapping_add(1);
@@ -479,40 +469,30 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
         &hex::decode("85632d07c6e8f37f950acd320a2ecc93\
 40c02b9690c4dc04daef7f6afe5c").unwrap()[..]);
 
-    //////////////// TODO ///////////////
+    
     // A.2.  Nonce-Based Authenticated Encryption Example
     // https://tools.ietf.org/html/rfc5297#appendix-A.2
-//     let key       = hex::decode("7f7e7d7c7b7a79787776757473727170\
-// 404142434445464748494a4b4c4d4e4f").unwrap();
-//     let ad1       = hex::decode("00112233445566778899aabbccddeeff\
-// deaddadadeaddadaffeeddccbbaa9988\
-// 7766554433221100").unwrap();
-//     let ad2       = hex::decode("102030405060708090a0").unwrap();
-//     let nonce     = hex::decode("09f911029d74e35bd84156c5635688c0").unwrap();
-//     let plaintext = hex::decode("7468697320697320736f6d6520706c61\
-// 696e7465787420746f20656e63727970\
-// 74207573696e67205349562d414553").unwrap();
-    
-//     println!("Nonce: {:?}", nonce);
-
-//     let plen      = plaintext.len();
-//     // NOTE: Layout = IV || C
-//     let mut ciphertext_and_tag = plaintext.clone();
-//     for _ in 0..AesSivCmac256::TAG_LEN {
-//         ciphertext_and_tag.insert(0, 0);
-//     }
-//     // ciphertext_and_tag.extend_from_slice(&nonce);
-
-//     // let mut ciphertext_and_tag = nonce.clone();
-//     // for _ in 0..AesSivCmac256::TAG_LEN {
-//     //     ciphertext_and_tag.insert(0, 0);
-//     // }
-//     // ciphertext_and_tag.extend_from_slice(&plaintext);
-
-//     let cipher = AesSivCmac256::new(&key);
-//     cipher.aead_encrypt(&nonce, &[&ad1, &ad2], &mut ciphertext_and_tag);
-//     assert_eq!(&ciphertext_and_tag[..], &hex::decode("7bdb6e3b432667eb06f4d14bff2fbd0f\
-// cb900f2fddbe404326601965c889bf17\
-// dba77ceb094fa663b7a3f748ba8af829\
-// ea64ad544a272e9c485b62a3fd5c0d").unwrap()[..]);
+    let key       = hex::decode("7f7e7d7c7b7a79787776757473727170\
+404142434445464748494a4b4c4d4e4f").unwrap();
+    let ad1       = hex::decode("\
+00112233445566778899aabbccddeeff\
+deaddadadeaddadaffeeddccbbaa9988\
+7766554433221100").unwrap();
+    let ad2       = hex::decode("102030405060708090a0").unwrap();
+    let nonce     = hex::decode("09f911029d74e35bd84156c5635688c0").unwrap();
+    let plaintext = hex::decode("7468697320697320736f6d6520706c61\
+696e7465787420746f20656e63727970\
+74207573696e67205349562d414553").unwrap();
+    let plen      = plaintext.len();
+    // NOTE: Layout = IV || C
+    let mut ciphertext_and_tag = plaintext.clone();
+    for _ in 0..AesSivCmac256::TAG_LEN {
+        ciphertext_and_tag.insert(0, 0);
+    }
+    let cipher = AesSivCmac256::new(&key);
+    cipher.aead_encrypt(&[&ad1, &ad2, &nonce], &mut ciphertext_and_tag);
+    assert_eq!(&ciphertext_and_tag[..], &hex::decode("7bdb6e3b432667eb06f4d14bff2fbd0f\
+cb900f2fddbe404326601965c889bf17\
+dba77ceb094fa663b7a3f748ba8af829\
+ea64ad544a272e9c485b62a3fd5c0d").unwrap()[..]);
 }
