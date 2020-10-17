@@ -2,19 +2,19 @@
 
 // NOTE: 等待 std::array::FixedSizeArray 稳定后，即可替换。
 pub trait Array<T> {
-    fn as_slice(&self) -> &[T];
-    fn as_mut_slice(&mut self) -> &mut [T];
+    fn array_as_slice(&self) -> &[T];
+    fn array_as_mut_slice(&mut self) -> &mut [T];
 }
 
 macro_rules! array_impls {
     ($($N:literal)+) => {
         $(
             impl<T> Array<T> for [T; $N] {
-                fn as_slice(&self) -> &[T] {
+                fn array_as_slice(&self) -> &[T] {
                     self
                 }
 
-                fn as_mut_slice(&mut self) -> &mut [T] {
+                fn array_as_mut_slice(&mut self) -> &mut [T] {
                     self
                 }
 
@@ -22,7 +22,6 @@ macro_rules! array_impls {
         )+
     }
 }
-
 array_impls! {
      0  1  2  3  4  5  6  7  8  9
     10 11 12 13 14 15 16 17 18 19
@@ -31,6 +30,21 @@ array_impls! {
     40 41 42 43 44 45 46 47 48 49 
     50 51 52 53 54 55 56 57 58 59 
     60 61 62 63 64
+}
+
+
+// TODO: multihash
+// https://github.com/multiformats/multicodec/blob/master/table.csv
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum CryptoHashKind {
+    MD2,
+    MD4,
+    MD5,
+    SHA1,
+    SHA2_256,
+    SHA2_384,
+    SHA2_512,
 }
 
 pub trait CryptoHasher {
@@ -48,7 +62,7 @@ pub trait CryptoHasher {
         Self: Sized 
     {
         let digest = self.digest();
-        let digest: &[u8] = digest.as_slice();
+        let digest: &[u8] = digest.array_as_slice();
 
         let mut s = String::with_capacity(digest.len()*2);
         for n in digest.iter() {

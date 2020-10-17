@@ -393,8 +393,9 @@ pub fn sha256_transform_neon(state: &mut [u32; 8], block: &[u8]) {
         // Combine state
         state0 = vaddq_u32(state0, abef_save);
         state1 = vaddq_u32(state1, cdgh_save);
-
+        
         // vst1q_u32
+        #[inline]
         fn save_state(state: &mut [u32], vec: uint32x4_t) {
             union U {
                 array: [u32; 4],

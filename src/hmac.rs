@@ -28,7 +28,7 @@ macro_rules! impl_hmac {
                     h.write(key);
                     h.finish();
                     let new_key = h.digest();
-                    return Self::hmac_inner(new_key.as_slice(), data1, data2, data3);
+                    return Self::hmac_inner(new_key.array_as_slice(), data1, data2, data3);
                 }
 
                 let mut ikey = [0u8; <Self as CryptoHasher>::BLOCK_LEN];

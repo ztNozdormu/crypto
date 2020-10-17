@@ -83,7 +83,7 @@ macro_rules! impl_hkdf {
                     } else {
                         t = $hasher::hmac_inner(prk, &t[..], Some(info), Some(i + 1));
                     }
-                    okm.extend_from_slice(&t.as_slice());
+                    okm.extend_from_slice(&t.array_as_slice());
                 }
 
                 okm.truncate(len);
