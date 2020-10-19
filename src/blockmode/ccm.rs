@@ -1,75 +1,6 @@
-use crate::aes::{Aes128, Aes192, Aes256};
+use crate::aes::{Aes128, Aes256};
 
 use subtle;
-
-
-// 3            AEAD_AES_128_CCM            [RFC5116]
-// 9            AEAD_AES_128_CCM_SHORT      [RFC5282]
-// 11           AEAD_AES_128_CCM_SHORT_8    [RFC5282]
-// 13           AEAD_AES_128_CCM_SHORT_12   [RFC5282]
-// 18           AEAD_AES_128_CCM_8          [RFC6655]
-// 
-// 4            AEAD_AES_256_CCM            [RFC5116]
-// 10           AEAD_AES_256_CCM_SHORT      [RFC5282]
-// 12           AEAD_AES_256_CCM_SHORT_8    [RFC5282]
-// 14           AEAD_AES_256_CCM_SHORT_12   [RFC5282]
-// 19           AEAD_AES_256_CCM_8          [RFC6655]
-
-
-// AEAD_AES_128_CCM
-//       the nonce length n is 12,
-//       the tag length t is 16, and
-//       the value of q is 3.
-// 
-//       K_LEN is 16 octets,
-//       P_MAX is 2^24 - 1 octets,
-//       A_MAX is 2^64 - 1 octets,
-//       N_MIN and N_MAX are both 12 octets, and
-//       C_MAX is 2^24 + 15 octets.
-
-// AEAD_AES_256_CCM
-//       K_LEN is 32 octets, instead of 16, and
-//       AES-256 CCM is used instead of AES-128 CCM.
-
-// AEAD_AES_128_CCM_SHORT
-//          the nonce length n is 11,
-//          the tag length t is 16, and
-//          the value of q is 3.
-// 
-//          K_LEN is 16 octets,
-//          P_MAX is 2^24 - 1 octets,
-//          A_MAX is 2^64 - 1 octets,
-//          N_MIN and N_MAX are both 11 octets, and
-//          C_MAX is 2^24 + 15 octets.
-
-// AEAD_AES_256_CCM_SHORT
-//          K_LEN is 32 octets, instead of 16, and
-//          AES-256 CCM is used instead of AES-128 CCM.
-
-// AEAD_AES_128_CCM_SHORT_8
-//     This algorithm is identical to AEAD_AES_128_CCM_SHORT, except that
-//     the tag length, t, is 8, and an authentication tag with a length of 8
-//     octets (64 bits) is used.
-//      TAG-LEN=8
-
-// AEAD_AES_128_CCM_SHORT_12
-//    This algorithm is identical to AEAD_AES_128_CCM_SHORT, except that
-//    the tag length, t, is 12, and an authentication tag with a length of
-//    12 octets (64 bits) is used.
-//      TAG-LEN=12
-
-// AEAD_AES_128_CCM_8
-//       the nonce length n is 12,
-//       the tag length t is 8, and
-//       the value of q is 3.
-// 
-//       K_LEN is 16 octets,
-//       P_MAX is 2^24 - 1 octets,
-//       A_MAX is 2^64 - 1 octets,
-//       N_MIN and N_MAX are both 12 octets, and
-//       C_MAX is 2^24 + 15 octets.
-
-
 
 
 macro_rules! impl_block_cipher_with_ccm_mode {
@@ -335,6 +266,72 @@ impl_block_cipher_with_ccm_mode!(Aes128CcmNLen13TagLen10,  Aes128, 13,  10, 2); 
 
 
 // 3            AEAD_AES_128_CCM            [RFC5116]
+// 9            AEAD_AES_128_CCM_SHORT      [RFC5282]
+// 11           AEAD_AES_128_CCM_SHORT_8    [RFC5282]
+// 13           AEAD_AES_128_CCM_SHORT_12   [RFC5282]
+// 18           AEAD_AES_128_CCM_8          [RFC6655]
+// 
+// 4            AEAD_AES_256_CCM            [RFC5116]
+// 10           AEAD_AES_256_CCM_SHORT      [RFC5282]
+// 12           AEAD_AES_256_CCM_SHORT_8    [RFC5282]
+// 14           AEAD_AES_256_CCM_SHORT_12   [RFC5282]
+// 19           AEAD_AES_256_CCM_8          [RFC6655]
+
+
+// AEAD_AES_128_CCM
+//       the nonce length n is 12,
+//       the tag length t is 16, and
+//       the value of q is 3.
+// 
+//       K_LEN is 16 octets,
+//       P_MAX is 2^24 - 1 octets,
+//       A_MAX is 2^64 - 1 octets,
+//       N_MIN and N_MAX are both 12 octets, and
+//       C_MAX is 2^24 + 15 octets.
+
+// AEAD_AES_256_CCM
+//       K_LEN is 32 octets, instead of 16, and
+//       AES-256 CCM is used instead of AES-128 CCM.
+
+// AEAD_AES_128_CCM_SHORT
+//          the nonce length n is 11,
+//          the tag length t is 16, and
+//          the value of q is 3.
+// 
+//          K_LEN is 16 octets,
+//          P_MAX is 2^24 - 1 octets,
+//          A_MAX is 2^64 - 1 octets,
+//          N_MIN and N_MAX are both 11 octets, and
+//          C_MAX is 2^24 + 15 octets.
+
+// AEAD_AES_256_CCM_SHORT
+//          K_LEN is 32 octets, instead of 16, and
+//          AES-256 CCM is used instead of AES-128 CCM.
+
+// AEAD_AES_128_CCM_SHORT_8
+//     This algorithm is identical to AEAD_AES_128_CCM_SHORT, except that
+//     the tag length, t, is 8, and an authentication tag with a length of 8
+//     octets (64 bits) is used.
+//      TAG-LEN=8
+
+// AEAD_AES_128_CCM_SHORT_12
+//    This algorithm is identical to AEAD_AES_128_CCM_SHORT, except that
+//    the tag length, t, is 12, and an authentication tag with a length of
+//    12 octets (64 bits) is used.
+//      TAG-LEN=12
+
+// AEAD_AES_128_CCM_8
+//       the nonce length n is 12,
+//       the tag length t is 8, and
+//       the value of q is 3.
+// 
+//       K_LEN is 16 octets,
+//       P_MAX is 2^24 - 1 octets,
+//       A_MAX is 2^64 - 1 octets,
+//       N_MIN and N_MAX are both 12 octets, and
+//       C_MAX is 2^24 + 15 octets.
+
+// 3            AEAD_AES_128_CCM            [RFC5116]
 impl_block_cipher_with_ccm_mode!(Aes128Ccm, Aes128, 12, 16, 3);        // NONCE-LEN=12, TAG-LEN=16, Q=3
 // 9            AEAD_AES_128_CCM_SHORT      [RFC5282]
 impl_block_cipher_with_ccm_mode!(Aes128CcmShort, Aes128, 11, 16, 3);   // NONCE-LEN=11, TAG-LEN=16, Q=3
@@ -344,6 +341,20 @@ impl_block_cipher_with_ccm_mode!(Aes128CcmShort8, Aes128, 11, 8, 3);   // NONCE-
 impl_block_cipher_with_ccm_mode!(Aes128CcmShort12, Aes128, 11, 12, 3); // NONCE-LEN=11, TAG-LEN=12, Q=3
 // 18           AEAD_AES_128_CCM_8          [RFC6655]
 impl_block_cipher_with_ccm_mode!(Aes128Ccm8, Aes128, 12, 8, 3);        // NONCE-LEN=12, TAG-LEN= 8, Q=3
+
+
+// 3            AEAD_AES_128_CCM            [RFC5116]
+impl_block_cipher_with_ccm_mode!(Aes256Ccm, Aes256, 12, 16, 3);        // NONCE-LEN=12, TAG-LEN=16, Q=3
+// 9            AEAD_AES_128_CCM_SHORT      [RFC5282]
+impl_block_cipher_with_ccm_mode!(Aes256CcmShort, Aes256, 11, 16, 3);   // NONCE-LEN=11, TAG-LEN=16, Q=3
+// 11           AEAD_AES_128_CCM_SHORT_8    [RFC5282]
+impl_block_cipher_with_ccm_mode!(Aes256CcmShort8, Aes256, 11, 8, 3);   // NONCE-LEN=11, TAG-LEN= 8, Q=3
+// 13           AEAD_AES_128_CCM_SHORT_12   [RFC5282]
+impl_block_cipher_with_ccm_mode!(Aes256CcmShort12, Aes256, 11, 12, 3); // NONCE-LEN=11, TAG-LEN=12, Q=3
+// 18           AEAD_AES_128_CCM_8          [RFC6655]
+impl_block_cipher_with_ccm_mode!(Aes256Ccm8, Aes256, 12, 8, 3);        // NONCE-LEN=12, TAG-LEN= 8, Q=3
+
+
 
 
 
