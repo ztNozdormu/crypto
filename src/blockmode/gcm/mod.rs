@@ -1,245 +1,305 @@
-use subtle;
-use crate::aes::Aes128;
-
-mod ghash;
-
-pub use self::ghash::GHash;
-
-
 // Recommendation for Block Cipher Modes of Operation:  Galois/Counter Mode (GCM) and GMAC
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
 // 
 // Galois/Counter Mode:
 // https://en.wikipedia.org/wiki/Galois/Counter_Mode
 // 
+use crate::aes::{Aes128, Aes256};
+
+use subtle;
+
+
+mod ghash;
+use self::ghash::GHash;
+
+
 // NOTE: 
 //      1. GCM 认证算法本身支持变长的 IV，但是目前普遍的实现都是限制 IV 长度至 12 Bytes。
 //      2. GCM 只可以和 块大小为 16 Bytes 的块密码算法协同工作。
 //      3. GCM 不接受用户输入的 BlockCounter。
 // 
-// IANA AEAD:
-// 
-// AEAD_AES_128_GCM_8   // TAG_LEN:  8
-// AEAD_AES_128_GCM_12  // TAG_LEN: 12
-// AEAD_AES_128_GCM     // TAG LEN: 16
-// 
-// AEAD_AES_256_GCM_8   // TAG_LEN:  8
-// AEAD_AES_256_GCM_12  // TAG_LEN: 12
-// AEAD_AES_256_GCM     // TAG LEN: 16
-
 
 const GCM_BLOCK_LEN: usize = 16;
 
-#[derive(Debug, Clone)]
-pub struct Aes128Gcm {
-    cipher: Aes128,
-    ghash: GHash,
-    nonce: [u8; Self::NONCE_LEN],
+
+macro_rules! impl_block_cipher_with_gcm_mode {
+    ($name:tt, $cipher:tt, $tlen:tt) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            cipher: $cipher,
+            ghash: GHash,
+            nonce: [u8; Self::BLOCK_LEN],
+        }
+
+        // 6.  AES GCM Algorithms for Secure Shell
+        // https://tools.ietf.org/html/rfc5647#section-6
+        impl $name {
+            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
+            pub const TAG_LEN: usize   = $tlen;
+            // NOTE: GCM 认证算法本身支持变长的 IV，但是目前普遍的实现都是限制 IV 长度至 12 Bytes。
+            //       这样和 BlockCounter (u32) 合在一起 组成一个 Nonce，为 12 + 4 = 16 Bytes。
+            pub const NONCE_LEN: usize = 12;
+            
+            pub const A_MAX: usize = 2305843009213693951; // 2 ** 61
+            pub const P_MAX: usize = 68719476735;         // 2^36 - 31
+            pub const C_MAX: usize = 68719476721;         // 2^36 - 15
+            pub const N_MIN: usize = Self::NONCE_LEN;
+            pub const N_MAX: usize = Self::NONCE_LEN;
+
+            pub fn new(key: &[u8], iv: &[u8]) -> Self {
+                // NOTE: GCM 只可以和 块大小为 16 Bytes 的块密码算法协同工作。
+                assert_eq!(Self::BLOCK_LEN, GCM_BLOCK_LEN);
+                assert_eq!(Self::BLOCK_LEN, GHash::BLOCK_LEN);
+                assert_eq!(key.len(), Self::KEY_LEN);
+                // NOTE: 前面 12 Bytes 为 IV，后面 4 Bytes 为 BlockCounter。
+                //       BlockCounter 不接受用户的输入，如果输入了直接忽略。
+                assert_eq!(iv.len(), Self::NONCE_LEN);
+
+                let mut nonce = [0u8; Self::BLOCK_LEN];
+                nonce[..Self::NONCE_LEN].copy_from_slice(&iv[..Self::NONCE_LEN]);
+                nonce[15] = 1; // 初始化计数器
+
+                let cipher = $cipher::new(key);
+
+                // NOTE: 计算 Ghash 初始状态。
+                let mut h = [0u8; Self::BLOCK_LEN];
+                cipher.encrypt(&mut h);
+
+                let ghash = GHash::new(&h);
+
+                Self { cipher, ghash, nonce }
+            }
+
+            #[inline]
+            pub fn ae_encrypt(&mut self, plaintext_and_ciphertext: &mut [u8]) {
+                self.aead_encrypt(&[], plaintext_and_ciphertext);
+            }
+            
+            #[inline]
+            pub fn ae_decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) -> bool {
+                self.aead_decrypt(&[], ciphertext_and_plaintext)
+            }
+
+            #[inline]
+            fn block_num_inc(nonce: &mut [u8; Self::BLOCK_LEN]) {
+                // Counter inc
+                for i in 1..5 {
+                    nonce[16 - i] = nonce[16 - i].wrapping_add(1);
+                    if nonce[16 - i] != 0 {
+                        break;
+                    }
+                }
+            }
+
+            #[inline]
+            fn hash_aad(&self, aad: &[u8], buf: &mut [u8; Self::BLOCK_LEN] ) {
+                if aad.is_empty() {
+                    return ();
+                }
+
+                for chunk in aad.chunks(Self::BLOCK_LEN) {
+                    for i in 0..chunk.len() {
+                        buf[i] ^= chunk[i];
+                    }
+                    self.ghash.ghash(buf);
+                }
+            }
+
+            pub fn aead_encrypt(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8]) {
+                debug_assert!(aad.len() < Self::A_MAX);
+                debug_assert!(plaintext_and_ciphertext.len() < Self::P_MAX + Self::TAG_LEN);
+                debug_assert!(plaintext_and_ciphertext.len() >= Self::TAG_LEN);
+
+                let alen = aad.len();
+                let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
+                let plaintext = &mut plaintext_and_ciphertext[..plen];
+
+                let mut counter_block = self.nonce.clone();
+                // NOTE: 初始化 BlockCounter 计数器
+                counter_block[12] = 0;
+                counter_block[13] = 0;
+                counter_block[14] = 0;
+                counter_block[15] = 1;
+
+                let mut base_ectr = counter_block.clone();
+                self.cipher.encrypt(&mut base_ectr);
+
+                let mut buf = [0u8; 16];
+
+                self.hash_aad(aad, &mut buf);
+
+                //////// Update ////////
+                for (block_index, chunk) in plaintext.chunks_mut(Self::BLOCK_LEN).enumerate() {
+                    Self::block_num_inc(&mut counter_block);
+
+                    let mut ectr = counter_block.clone();
+                    self.cipher.encrypt(&mut ectr);
+
+                    for i in 0..chunk.len() {
+                        chunk[i] = ectr[i] ^ chunk[i];
+                        buf[i] ^= chunk[i];
+                    }
+
+                    self.ghash.ghash(&mut buf);
+                }
+
+                // Finalize
+                let plen_bits: u64 = (plen as u64) * 8;
+                let alen_bits: u64 = (alen as u64) * 8;
+                
+                let mut octets = [0u8; 16];
+                let mut tag = [0u8; Self::TAG_LEN];
+                tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
+
+                octets[0.. 8].copy_from_slice(&alen_bits.to_be_bytes());
+                octets[8..16].copy_from_slice(&plen_bits.to_be_bytes());
+
+                for i in 0..Self::BLOCK_LEN {
+                    buf[i] ^= octets[i];
+                }
+
+                self.ghash.ghash(&mut buf);
+
+                for i in 0..Self::TAG_LEN {
+                    tag[i] ^= buf[i];
+                }
+
+                let tag_out = &mut plaintext_and_ciphertext[plen..plen + Self::TAG_LEN];
+                // Append Tag.
+                tag_out.copy_from_slice(&tag);
+            }
+
+            pub fn aead_decrypt(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8]) -> bool {
+                debug_assert!(aad.len() < Self::A_MAX);
+                debug_assert!(ciphertext_and_plaintext.len() < Self::C_MAX + Self::TAG_LEN);
+                debug_assert!(ciphertext_and_plaintext.len() >= Self::TAG_LEN);
+
+                let alen = aad.len();
+                let clen = ciphertext_and_plaintext.len() - Self::TAG_LEN;
+                let ciphertext = &mut ciphertext_and_plaintext[..clen];
+
+                let mut counter_block = self.nonce.clone();
+                // NOTE: 初始化 BlockCounter 计数器
+                counter_block[12] = 0;
+                counter_block[13] = 0;
+                counter_block[14] = 0;
+                counter_block[15] = 1;
+
+                let mut base_ectr = counter_block.clone();
+                self.cipher.encrypt(&mut base_ectr);
+
+                let mut buf = [0u8; 16];
+
+                self.hash_aad(aad, &mut buf);
+
+                //////////// Update ///////////////
+                for (block_index, chunk) in ciphertext.chunks_mut(Self::BLOCK_LEN).enumerate() {
+                    Self::block_num_inc(&mut counter_block);
+
+                    let mut ectr = counter_block.clone();
+                    self.cipher.encrypt(&mut ectr);
+
+                    for i in 0..chunk.len() {
+                        buf[i] ^= chunk[i];
+                        chunk[i] = ectr[i] ^ chunk[i];
+                    }
+
+                    self.ghash.ghash(&mut buf);
+                }
+
+                // Finalize
+                let clen_bits: u64 = (clen as u64) * 8;
+                let alen_bits: u64 = (alen as u64) * 8;
+                
+                let mut octets = [0u8; 16];
+                let mut tag = [0u8; Self::TAG_LEN];
+                tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
+
+                octets[0.. 8].copy_from_slice(&clen_bits.to_le_bytes());
+                octets[8..16].copy_from_slice(&alen_bits.to_le_bytes());
+
+                for i in 0..Self::BLOCK_LEN {
+                    buf[i] ^= octets[i];
+                }
+
+                self.ghash.ghash(&mut buf);
+
+                for i in 0..Self::TAG_LEN {
+                    tag[i] ^= buf[i];
+                }
+
+                // Verify
+                let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
+                bool::from(subtle::ConstantTimeEq::ct_eq(input_tag, &tag[..]))
+            }
+        }
+    }
 }
 
-// 6.  AES GCM Algorithms for Secure Shell
-// https://tools.ietf.org/html/rfc5647#section-6
-impl Aes128Gcm {
-    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
-    pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
-    pub const TAG_LEN: usize   = 16;
-    // NOTE: GCM 认证算法本身支持变长的 IV，但是目前普遍的实现都是限制 IV 长度至 12 Bytes。
-    //       这样和 BlockCounter (u32) 合在一起 组成一个 Nonce，为 12 + 4 = 16 Bytes。
-    pub const IV_LEN: usize    = 12;
-    pub const NONCE_LEN: usize = Self::IV_LEN + 4; // 16 Bytes
-    
-    pub const A_MAX: usize = 2305843009213693952; // 2 ** 61
-    
-    pub fn new(key: &[u8], iv: &[u8]) -> Self {
-        // NOTE: GCM 只可以和 块大小为 16 Bytes 的块密码算法协同工作。
-        assert_eq!(Self::BLOCK_LEN, GCM_BLOCK_LEN);
-        assert_eq!(Self::BLOCK_LEN, GHash::BLOCK_LEN);
-        assert_eq!(key.len(), Self::KEY_LEN);
-        // NOTE: 前面 12 Bytes 为 IV，后面 4 Bytes 为 BlockCounter。
-        //       BlockCounter 不接受用户的输入，如果输入了直接忽略。
-        assert!(iv.len() >= Self::IV_LEN);
 
-        let mut nonce = [0u8; Self::NONCE_LEN];
-        nonce[..Self::IV_LEN].copy_from_slice(&iv[..Self::IV_LEN]);
-        nonce[15] = 1; // 初始化计数器
+// 1            AEAD_AES_128_GCM            [RFC5116]
+// 5            AEAD_AES_128_GCM_8          [RFC5282]
+// 7            AEAD_AES_128_GCM_12         [RFC5282]
+// 
+// 2            AEAD_AES_256_GCM            [RFC5116]
+// 6            AEAD_AES_256_GCM_8          [RFC5282]
+// 8            AEAD_AES_256_GCM_12         [RFC5282]
 
-        let cipher = Aes128::new(key);
+// AEAD_AES_256_GCM
+//     This algorithm is identical to AEAD_AES_128_GCM, but with the
+//     following differences:
+// 
+//         K_LEN is 32 octets, instead of 16 octets, and
+//         AES-256 GCM is used instead of AES-128 GCM.
 
-        // NOTE: 计算 Ghash 初始状态。
-        let mut h = [0u8; Self::BLOCK_LEN];
-        cipher.encrypt(&mut h);
+// AEAD_AES_256_GCM_8
+//    This algorithm is identical to AEAD_AES_256_GCM (see Section 5.2 of
+//    [RFC5116]), except that the tag length, t, is 8, and an
+//    authentication tag with a length of 8 octets (64 bits) is used.
+// 
+//    An AEAD_AES_256_GCM_8 ciphertext is exactly 8 octets longer than its
+//    corresponding plaintext.
 
-        let ghash = GHash::new(&h);
-
-        Self { cipher, ghash, nonce }
-    }
-
-    #[inline]
-    pub fn ae_encrypt(&mut self, plaintext_and_ciphertext: &mut [u8]) {
-        self.aead_encrypt(&[], plaintext_and_ciphertext);
-    }
-    
-    #[inline]
-    pub fn ae_decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) -> bool {
-        self.aead_decrypt(&[], ciphertext_and_plaintext)
-    }
-
-    #[inline]
-    fn block_num_inc(nonce: &mut [u8; Self::BLOCK_LEN]) {
-        // Counter inc
-        for i in 1..5 {
-            nonce[16 - i] = nonce[16 - i].wrapping_add(1);
-            if nonce[16 - i] != 0 {
-                break;
-            }
-        }
-    }
-
-    #[inline]
-    fn hash_aad(&self, aad: &[u8], buf: &mut [u8; Self::BLOCK_LEN] ) {
-        if aad.is_empty() {
-            return ();
-        }
-
-        for chunk in aad.chunks(Self::BLOCK_LEN) {
-            for i in 0..chunk.len() {
-                buf[i] ^= chunk[i];
-            }
-            self.ghash.ghash(buf);
-        }
-    }
-
-    pub fn aead_encrypt(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8]) {
-        debug_assert!(aad.len() < Self::A_MAX);
-        // debug_assert!(plaintext_and_ciphertext.len() < Self::C_MAX);
-        debug_assert!(plaintext_and_ciphertext.len() >= Self::TAG_LEN);
-
-        let alen = aad.len();
-        let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
-        let plaintext = &mut plaintext_and_ciphertext[..plen];
-
-        let mut counter_block = self.nonce.clone();
-        // NOTE: 初始化 BlockCounter 计数器
-        counter_block[12] = 0;
-        counter_block[13] = 0;
-        counter_block[14] = 0;
-        counter_block[15] = 1;
-
-        let mut base_ectr = counter_block.clone();
-        self.cipher.encrypt(&mut base_ectr);
-
-        let mut buf = [0u8; 16];
-
-        self.hash_aad(aad, &mut buf);
-
-        //////// Update ////////
-        for (block_index, chunk) in plaintext.chunks_mut(Self::BLOCK_LEN).enumerate() {
-            Self::block_num_inc(&mut counter_block);
-
-            let mut ectr = counter_block.clone();
-            self.cipher.encrypt(&mut ectr);
-
-            for i in 0..chunk.len() {
-                chunk[i] = ectr[i] ^ chunk[i];
-                buf[i] ^= chunk[i];
-            }
-
-            self.ghash.ghash(&mut buf);
-        }
-
-        // Finalize
-        let plen_bits: u64 = (plen as u64) * 8;
-        let alen_bits: u64 = (alen as u64) * 8;
-        
-        let mut octets = [0u8; 16];
-        let mut tag = [0u8; Self::TAG_LEN];
-        tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
-
-        octets[0.. 8].copy_from_slice(&alen_bits.to_be_bytes());
-        octets[8..16].copy_from_slice(&plen_bits.to_be_bytes());
-
-        for i in 0..Self::BLOCK_LEN {
-            buf[i] ^= octets[i];
-        }
-
-        self.ghash.ghash(&mut buf);
-
-        for i in 0..Self::TAG_LEN {
-            tag[i] ^= buf[i];
-        }
-
-        let tag_out = &mut plaintext_and_ciphertext[plen..plen + Self::TAG_LEN];
-        // Append Tag.
-        tag_out.copy_from_slice(&tag);
-    }
-
-    // pub fn decrypt(&mut self, ciphertext: &[u8], input_tag: &[u8; Self::TAG_LEN], plaintext: &mut [u8]) -> bool {
-    pub fn aead_decrypt(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8]) -> bool {
-        // debug_assert_eq!(plaintext.len(), ciphertext.len());
-        // debug_assert_eq!(input_tag.len(), Self::TAG_LEN);
-        // debug_assert_eq!(&self.gcm_key.nonce[12..16], &[0, 0, 0, 1]);
-
-        let alen = aad.len();
-        let clen = ciphertext_and_plaintext.len() - Self::TAG_LEN;
-        let ciphertext = &mut ciphertext_and_plaintext[..clen];
-
-        let mut counter_block = self.nonce.clone();
-        // NOTE: 初始化 BlockCounter 计数器
-        counter_block[12] = 0;
-        counter_block[13] = 0;
-        counter_block[14] = 0;
-        counter_block[15] = 1;
-
-        let mut base_ectr = counter_block.clone();
-        self.cipher.encrypt(&mut base_ectr);
-
-        let mut buf = [0u8; 16];
-
-        self.hash_aad(aad, &mut buf);
-
-        //////////// Update ///////////////
-        for (block_index, chunk) in ciphertext.chunks_mut(Self::BLOCK_LEN).enumerate() {
-            Self::block_num_inc(&mut counter_block);
-
-            let mut ectr = counter_block.clone();
-            self.cipher.encrypt(&mut ectr);
-
-            for i in 0..chunk.len() {
-                buf[i] ^= chunk[i];
-                chunk[i] = ectr[i] ^ chunk[i];
-            }
-
-            self.ghash.ghash(&mut buf);
-        }
-
-        // Finalize
-        let clen_bits: u64 = (clen as u64) * 8;
-        let alen_bits: u64 = (alen as u64) * 8;
-        
-        let mut octets = [0u8; 16];
-        let mut tag = [0u8; Self::TAG_LEN];
-        tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
-
-        octets[0.. 8].copy_from_slice(&clen_bits.to_le_bytes());
-        octets[8..16].copy_from_slice(&alen_bits.to_le_bytes());
-
-        for i in 0..Self::BLOCK_LEN {
-            buf[i] ^= octets[i];
-        }
-
-        self.ghash.ghash(&mut buf);
-
-        for i in 0..Self::TAG_LEN {
-            tag[i] ^= buf[i];
-        }
-
-        // Verify
-        let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
-        bool::from(subtle::ConstantTimeEq::ct_eq(input_tag, &tag[..]))
-    }
-}
+// AEAD_AES_256_GCM_12
+//    This algorithm is identical to AEAD_AES_256_GCM (see Section 5.2 of
+//    [RFC5116], except that the tag length, t, is 12 and an authentication
+//    tag with a length of 12 octets (64 bits) is used.
+// 
+//    An AEAD_AES_256_GCM_12 ciphertext is exactly 12 octets longer than
+//    its corresponding plaintext.
 
 
+// AEAD_AES_128_GCM
+//       K_LEN is 16 octets,
+//       P_MAX is 2^36 - 31 octets,
+//       A_MAX is 2^61 - 1 octets,
+//       N_MIN and N_MAX are both 12 octets, and
+//       C_MAX is 2^36 - 15 octets.
+
+// AEAD_AES_128_GCM_8
+//     This algorithm is identical to AEAD_AES_128_GCM (see Section 5.1 of
+//     [RFC5116]), except that the tag length, t, is 8, and an
+//     authentication tag with a length of 8 octets (64 bits) is used.
+// 
+//     An AEAD_AES_128_GCM_8 ciphertext is exactly 8 octets longer than its
+//     corresponding plaintext.
+
+// AEAD_AES_128_GCM_12
+//    This algorithm is identical to AEAD_AES_128_GCM (see Section 5.1 of
+//    [RFC5116]), except that the tag length, t, is 12, and an
+//    authentication tag with a length of 12 octets (64 bits) is used.
+// 
+//    An AEAD_AES_128_GCM_12 ciphertext is exactly 12 octets longer than
+//    its corresponding plaintext.
+
+impl_block_cipher_with_gcm_mode!(Aes128Gcm,   Aes128, 16); // TAG-LEN=16
+impl_block_cipher_with_gcm_mode!(Aes128Gcm8,  Aes128,  8); // TAG-LEN= 8
+impl_block_cipher_with_gcm_mode!(Aes128Gcm12, Aes128, 12); // TAG-LEN=12
+
+impl_block_cipher_with_gcm_mode!(Aes256Gcm,   Aes256, 16); // TAG-LEN=16
+impl_block_cipher_with_gcm_mode!(Aes256Gcm8,  Aes256,  8); // TAG-LEN= 8
+impl_block_cipher_with_gcm_mode!(Aes256Gcm12, Aes256, 12); // TAG-LEN=12
 
 
 

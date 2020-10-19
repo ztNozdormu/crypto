@@ -16,11 +16,18 @@ pub use self::ctr::*;
 
 
 // AEAD
-pub mod ccm;
-pub mod gcm;
-pub mod ocb;
-pub mod siv;
-pub mod gcm_siv;
+mod ccm;
+mod gcm;
+mod ocb;
+mod siv;
+mod gcm_siv;
+pub use self::ccm::*;
+pub use self::gcm::*;
+pub use self::ocb::*;
+pub use self::siv::*;
+pub use self::gcm_siv::*;
+
+
 
 // IEEE P1619™/D16 Standard for Cryptographic Protection of Data on Block-Oriented Storage Devices 
 // http://libeccio.di.unisa.it/Crypto14/Lab/p1619.pdf
