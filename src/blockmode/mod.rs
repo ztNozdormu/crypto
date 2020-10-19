@@ -16,6 +16,7 @@ pub use self::ctr::*;
 
 
 // AEAD
+pub mod ccm;
 pub mod gcm;
 pub mod ocb;
 pub mod siv;
