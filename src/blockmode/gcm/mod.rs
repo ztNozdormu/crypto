@@ -40,20 +40,21 @@ pub struct Aes128Gcm {
 // 6.  AES GCM Algorithms for Secure Shell
 // https://tools.ietf.org/html/rfc5647#section-6
 impl Aes128Gcm {
+    pub const KEY_LEN: usize   = Aes128::KEY_LEN;
     pub const BLOCK_LEN: usize = Aes128::BLOCK_LEN;
     pub const TAG_LEN: usize   = 16;
     // NOTE: GCM 认证算法本身支持变长的 IV，但是目前普遍的实现都是限制 IV 长度至 12 Bytes。
     //       这样和 BlockCounter (u32) 合在一起 组成一个 Nonce，为 12 + 4 = 16 Bytes。
     pub const IV_LEN: usize    = 12;
     pub const NONCE_LEN: usize = Self::IV_LEN + 4; // 16 Bytes
-
+    
     pub const A_MAX: usize = 2305843009213693952; // 2 ** 61
-
+    
     pub fn new(key: &[u8], iv: &[u8]) -> Self {
         // NOTE: GCM 只可以和 块大小为 16 Bytes 的块密码算法协同工作。
         assert_eq!(Self::BLOCK_LEN, GCM_BLOCK_LEN);
         assert_eq!(Self::BLOCK_LEN, GHash::BLOCK_LEN);
-        assert_eq!(key.len(), Aes128::KEY_LEN);
+        assert_eq!(key.len(), Self::KEY_LEN);
         // NOTE: 前面 12 Bytes 为 IV，后面 4 Bytes 为 BlockCounter。
         //       BlockCounter 不接受用户的输入，如果输入了直接忽略。
         assert!(iv.len() >= Self::IV_LEN);
