@@ -261,7 +261,9 @@ macro_rules! impl_block_cipher_with_ccm_mode {
 // NOTE: 测试案例里面的 Nonce-Len 和 Tag-Len 跟 AEAD 里面的不一样，
 //       所以 `Aes128CcmNLen13TagLen8` 和 `Aes128CcmNLen13TagLen12` 
 //       只是为了通过测试案例的数据而定义。
+#[cfg(test)]
 impl_block_cipher_with_ccm_mode!(Aes128CcmNLen13TagLen8,  Aes128, 13,  8, 2);   // NONCE-LEN=13, TAG-LEN= 8, Q=2
+#[cfg(test)]
 impl_block_cipher_with_ccm_mode!(Aes128CcmNLen13TagLen10,  Aes128, 13,  10, 2); // NONCE-LEN=13, TAG-LEN=10, Q=2
 
 
