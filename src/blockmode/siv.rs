@@ -8,12 +8,6 @@
 // Synthetic Initialization Vector (SIV) Authenticated Encryption Using the Advanced Encryption Standard (AES)
 // https://tools.ietf.org/html/rfc5297
 // 
-// AES-GCM-SIV: Specification and Analysis
-// https://eprint.iacr.org/2017/168.pdf
-// 
-// AES-GCM-SIV: Nonce Misuse-Resistant Authenticated Encryption
-// https://tools.ietf.org/html/rfc8452
-// 
 // Block Cipher Techniques
 // https://csrc.nist.gov/projects/block-cipher-techniques/bcm/modes-development
 // 
