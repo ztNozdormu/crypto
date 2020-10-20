@@ -6,9 +6,10 @@
 use std::convert::TryFrom;
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
-use crate::sha2::shani::sha256_transform_shani;
+use super::shani::sha256_transform_shani;
+
 #[cfg(all(target_arch = "aarch64", target_feature = "neon", target_feature = "crypto"))]
-use crate::sha2::shani::sha256_transform_neon;
+use super::shani::sha256_transform_neon;
 
 
 // Round constants
