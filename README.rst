@@ -106,6 +106,13 @@ AArch64:
 *   ✅ CAMELLIA-OFB
 *   ✅ CAMELLIA-CTR
 
+*   🚧 ARIA-CFB1
+*   🚧 ARIA-CFB8
+*   🚧 ARIA-CFB64
+*   🚧 ARIA-CFB128
+*   🚧 ARIA-OFB
+*   🚧 ARIA-CTR
+
 *   ✅ SM4-CFB1
 *   ✅ SM4-CFB8
 *   ✅ SM4-CFB64
