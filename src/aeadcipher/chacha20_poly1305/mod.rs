@@ -1,7 +1,10 @@
-use super::chacha20::Chacha20;
-use super::poly1305::Poly1305;
-
 use subtle;
+
+use crate::streamcipher::Chacha20;
+
+
+mod poly1305;
+use self::poly1305::Poly1305;
 
 
 /// ChaCha20 and Poly1305 for IETF Protocols

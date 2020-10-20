@@ -24,6 +24,7 @@
 // CFB128 和 分组大小为 16 byte 的对称分组密码结合时（如 AES/Camellia/Aria），也可以被当作是一个流密码。
 // 
 use crate::blockcipher::{
+    Sm4,
     Aes128, Aes192, Aes256,
     Camellia128, Camellia192, Camellia256,
 };
@@ -469,6 +470,7 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
     }
 }
 
+impl_block_cipher_with_cfb1_mode!(Sm4Cfb1, Sm4);
 impl_block_cipher_with_cfb1_mode!(Aes128Cfb1, Aes128);
 impl_block_cipher_with_cfb1_mode!(Aes192Cfb1, Aes192);
 impl_block_cipher_with_cfb1_mode!(Aes256Cfb1, Aes256);
@@ -476,6 +478,7 @@ impl_block_cipher_with_cfb1_mode!(Camellia128Cfb1, Camellia128);
 impl_block_cipher_with_cfb1_mode!(Camellia192Cfb1, Camellia192);
 impl_block_cipher_with_cfb1_mode!(Camellia256Cfb1, Camellia256);
 
+impl_block_cipher_with_cfb1_mode!(Sm4Cfb8, Sm4);
 impl_block_cipher_with_cfb8_mode!(Aes128Cfb8, Aes128);
 impl_block_cipher_with_cfb8_mode!(Aes192Cfb8, Aes192);
 impl_block_cipher_with_cfb8_mode!(Aes256Cfb8, Aes256);
@@ -483,6 +486,7 @@ impl_block_cipher_with_cfb8_mode!(Camellia128Cfb8, Camellia128);
 impl_block_cipher_with_cfb8_mode!(Camellia192Cfb8, Camellia192);
 impl_block_cipher_with_cfb8_mode!(Camellia256Cfb8, Camellia256);
 
+impl_block_cipher_with_cfb1_mode!(Sm4Cfb64, Sm4);
 impl_block_cipher_with_cfb64_mode!(Aes128Cfb64, Aes128);
 impl_block_cipher_with_cfb64_mode!(Aes192Cfb64, Aes192);
 impl_block_cipher_with_cfb64_mode!(Aes256Cfb64, Aes256);
@@ -490,6 +494,7 @@ impl_block_cipher_with_cfb64_mode!(Camellia128Cfb64, Camellia128);
 impl_block_cipher_with_cfb64_mode!(Camellia192Cfb64, Camellia192);
 impl_block_cipher_with_cfb64_mode!(Camellia256Cfb64, Camellia256);
 
+impl_block_cipher_with_cfb1_mode!(Sm4Cfb128, Sm4);
 impl_block_cipher_with_cfb128_mode!(Aes128Cfb128, Aes128);
 impl_block_cipher_with_cfb128_mode!(Aes192Cfb128, Aes192);
 impl_block_cipher_with_cfb128_mode!(Aes256Cfb128, Aes256);

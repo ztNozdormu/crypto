@@ -30,17 +30,16 @@ pub mod hmac;
 
 // Key derivation function (KDF)
 pub mod hkdf;
-pub mod scrypt; // TODO
 
-// pub mod cipher;
 
+
+pub mod cipher;
 pub mod blockmode;
+
 pub mod blockcipher;
-
 pub mod streamcipher;
+pub mod aeadcipher;
 
-// AEAD Cipher
-// pub mod aead;
 
 
 // Elliptic Curve Cryptography（ECC）
@@ -50,3 +49,9 @@ pub mod streamcipher;
 // RSA
 // https://docs.rs/rsa
 
+
+// pub mod scrypt; // TODO
+// The scrypt Password-Based Key Derivation Function
+// https://tools.ietf.org/html/rfc7914
+// 
+// https://en.wikipedia.org/wiki/Scrypt#Algorithm
