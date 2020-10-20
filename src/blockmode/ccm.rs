@@ -42,8 +42,7 @@ macro_rules! impl_block_cipher_with_ccm_mode {
             pub const N_MIN: usize = Self::NONCE_LEN;
             pub const N_MAX: usize = Self::NONCE_LEN;
 
-            // parameter L
-            // pub const Q: u8 = 15 - Self::NONCE_LEN as u8;
+            // Parameter L
             pub const Q: u8 = $q;
 
             // the size of the authentication field.
@@ -53,8 +52,9 @@ macro_rules! impl_block_cipher_with_ccm_mode {
             // This value requires a trade-off between the maximum message size and the size of the Nonce.
             // Valid values of L range between 2 octets and 8 octets
             // (the value L=1 is reserved).
+            // ParameterL - 1
             pub const L: u8 = Self::Q - 1;
-
+            
 
             pub fn new(key: &[u8], iv: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
