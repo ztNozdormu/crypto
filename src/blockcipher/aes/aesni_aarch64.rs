@@ -69,7 +69,7 @@ fn decrypt_aarch64(expanded_key: &[u8], nr: usize, ciphertext: &mut [u8]) {
 
 #[derive(Debug, Clone)]
 pub struct Aes128 {
-    pub ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+    ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
 }
 
 impl Aes128 {
@@ -100,7 +100,7 @@ impl Aes128 {
 
 #[derive(Debug, Clone)]
 pub struct Aes192 {
-    pub ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+    ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
 }
 
 impl Aes192 {
@@ -130,7 +130,7 @@ impl Aes192 {
 
 #[derive(Debug, Clone)]
 pub struct Aes256 {
-    pub ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+    ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
 }
 
 impl Aes256 {

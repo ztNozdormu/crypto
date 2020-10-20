@@ -20,7 +20,7 @@ macro_rules! aes128_keyround {
 
 #[derive(Debug, Clone)]
 pub struct Aes128 {
-    pub ek: [__m128i; 20],
+    ek: [__m128i; 20],
 }
 
 impl Aes128 {
@@ -123,7 +123,7 @@ macro_rules! aes192_keyround {
 
 #[derive(Debug, Clone)]
 pub struct Aes192 {
-    pub ek: [__m128i; 24],
+    ek: [__m128i; 24],
 }
 
 impl Aes192 {
@@ -284,7 +284,7 @@ macro_rules! aes256_keyround_2 {
 
 #[derive(Debug, Clone)]
 pub struct Aes256 {
-    pub ek: [__m128i; 28],
+    ek: [__m128i; 28],
 }
 
 impl Aes256 {
