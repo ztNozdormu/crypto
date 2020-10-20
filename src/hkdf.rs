@@ -8,12 +8,7 @@
 
 use crate::hmac::Hmac;
 use crate::hash::{Array, CryptoHasher, BuildCryptoHasher};
-
-use crate::md5::Md5;
-use crate::sha1::Sha1;
-use crate::sha2::Sha256;
-use crate::sha2::Sha384;
-use crate::sha2::Sha512;
+use crate::hash::{Md2, Md4, Md5, Sm3, Sha1, sha2, };
 
 
 pub trait Hkdf: Hmac {
@@ -94,32 +89,27 @@ macro_rules! impl_hkdf {
     }
 }
 
-impl_hkdf!{ Md5 }
-impl_hkdf!{ Sha1 }
-impl_hkdf!{ Sha256 }
-impl_hkdf!{ Sha384 }
-impl_hkdf!{ Sha512 }
+impl_hkdf!(Md2);
+impl_hkdf!(Md4);
+impl_hkdf!(Md5);
+impl_hkdf!(Sm3);
+impl_hkdf!(Sha1);
 
+mod inner {
+    use crate::hash::sha2::{Sha256, Sha384, Sha512};
+    use super::*;
 
-#[cfg(test)]
-fn hexdigest(digest: &[u8]) -> String {
-    let mut s = String::new();
-    for n in digest.iter() {
-        s.push_str(format!("{:02x}", n).as_str());
-    }
-    s
+    impl_hkdf!(Sha256);
+    impl_hkdf!(Sha384);
+    impl_hkdf!(Sha512);
 }
+
+
 
 #[cfg(test)]
 fn hexdecode(s: &str) -> Vec<u8> {
-    s.replace("0x", "").chars()
-        .collect::<Vec<char>>()
-        .chunks(2)
-        .map(|two_char| {
-            let s: String = std::iter::FromIterator::from_iter(two_char.iter());
-            u8::from_str_radix(&s, 16).unwrap()
-        })
-        .collect::<Vec<u8>>()
+    let h = s.replace("0x", "").replace(" ", "").replace("\n", "").replace("\r", "");
+    hex::decode(&h).unwrap()
 }
 
 #[test]
@@ -137,13 +127,13 @@ fn test_hkdf() {
     assert_eq!(salt.len(), 13);
     assert_eq!(info.len(), 10);
 
-    let prk = Sha256::hkdf_extract(&salt, &ikm);
+    let prk = sha2::Sha256::hkdf_extract(&salt, &ikm);
     assert_eq!(prk.len(), 32);
-    assert_eq!(&hexdigest(&prk), "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5");
+    assert_eq!(&hex::encode(&prk), "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5");
 
-    let okm = Sha256::hkdf_expand(&prk, &info, len);
+    let okm = sha2::Sha256::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
-    assert_eq!(&hexdigest(&okm), "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865");
+    assert_eq!(&hex::encode(&okm), "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865");
 
     // Test Case 2
     let ikm = hexdecode("0x000102030405060708090a0b0c0d0e0f\
@@ -166,13 +156,13 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff\
 ");
     let len = 82usize;
 
-    let prk = Sha256::hkdf_extract(&salt, &ikm);
+    let prk = sha2::Sha256::hkdf_extract(&salt, &ikm);
     assert_eq!(prk.len(), 32);
-    assert_eq!(&hexdigest(&prk), "06a6b88c5853361a06104c9ceb35b45cef760014904671014a193f40c15fc244");
+    assert_eq!(&hex::encode(&prk), "06a6b88c5853361a06104c9ceb35b45cef760014904671014a193f40c15fc244");
 
-    let okm = Sha256::hkdf_expand(&prk, &info, len);
+    let okm = sha2::Sha256::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
-    assert_eq!(&hexdigest(&okm), "b11e398dc80327a1c8e7f78c596a4934\
+    assert_eq!(&hex::encode(&okm), "b11e398dc80327a1c8e7f78c596a4934\
 4f012eda2d4efad8a050cc4c19afa97c\
 59045a99cac7827271cb41c65e590e09\
 da3275600c2f09b8367793a9aca3db71\
@@ -186,13 +176,13 @@ cc30c58179ec3e87c14c01d5c1f3434f\
     let info = [];
     let len = 42usize;
 
-    let prk = Sha256::hkdf_extract(&salt, &ikm);
+    let prk = sha2::Sha256::hkdf_extract(&salt, &ikm);
     assert_eq!(prk.len(), 32);
-    assert_eq!(&hexdigest(&prk), "19ef24a32c717b167f33a91d6f648bdf96596776afdb6377ac434c1c293ccb04");
+    assert_eq!(&hex::encode(&prk), "19ef24a32c717b167f33a91d6f648bdf96596776afdb6377ac434c1c293ccb04");
 
-    let okm = Sha256::hkdf_expand(&prk, &info, len);
+    let okm = sha2::Sha256::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
-    assert_eq!(&hexdigest(&okm), "8da4e775a563c18f715f802a063c5a31\
+    assert_eq!(&hex::encode(&okm), "8da4e775a563c18f715f802a063c5a31\
 b8a11f5c5ee1879ec3454e5f3c738d2d\
 9d201395faa4b61a96c8\
 ");
@@ -204,11 +194,11 @@ b8a11f5c5ee1879ec3454e5f3c738d2d\
     let len = 42usize;
 
     let prk = Sha1::hkdf_extract(&salt, &ikm);
-    assert_eq!(&hexdigest(&prk), "9b6c18c432a7bf8f0e71c8eb88f4b30baa2ba243");
+    assert_eq!(&hex::encode(&prk), "9b6c18c432a7bf8f0e71c8eb88f4b30baa2ba243");
 
     let okm = Sha1::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
-    assert_eq!(&hexdigest(&okm), "085a01ea1b10f36933068b56efa5ad81\
+    assert_eq!(&hex::encode(&okm), "085a01ea1b10f36933068b56efa5ad81\
 a4f14b822f5b091568a9cdd4f155fda2\
 c22e422478d305f3f896\
 ");
@@ -235,11 +225,11 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff\
     let len = 82usize;
 
     let prk = Sha1::hkdf_extract(&salt, &ikm);
-    assert_eq!(&hexdigest(&prk), "8adae09a2a307059478d309b26c4115a224cfaf6");
+    assert_eq!(&hex::encode(&prk), "8adae09a2a307059478d309b26c4115a224cfaf6");
 
     let okm = Sha1::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
-    assert_eq!(&hexdigest(&okm), "0bd770a74d1160f7c9f12cd5912a06eb\
+    assert_eq!(&hex::encode(&okm), "0bd770a74d1160f7c9f12cd5912a06eb\
 ff6adcae899d92191fe4305673ba2ffe\
 8fa3f1a4e5ad79f3f334b3b202b2173c\
 486ea37ce3d397ed034c7f9dfeb15c5e\
@@ -254,11 +244,11 @@ d3b4\
     let len = 42usize;
 
     let prk = Sha1::hkdf_extract(&salt, &ikm);
-    assert_eq!(&hexdigest(&prk), "da8c8a73c7fa77288ec6f5e7c297786aa0d32d01");
+    assert_eq!(&hex::encode(&prk), "da8c8a73c7fa77288ec6f5e7c297786aa0d32d01");
 
     let okm = Sha1::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
-    assert_eq!(&hexdigest(&okm), "0ac1af7002b3d761d1e55298da9d0506\
+    assert_eq!(&hex::encode(&okm), "0ac1af7002b3d761d1e55298da9d0506\
 b9ae52057220a306e07b6b87e8df21d0\
 ea00033de03984d34918\
 ");
@@ -271,11 +261,11 @@ ea00033de03984d34918\
     let len = 42usize;
 
     let prk = Sha1::hkdf_extract(&salt, &ikm);
-    assert_eq!(&hexdigest(&prk), "2adccada18779e7c2077ad2eb19d3f3e731385dd");
+    assert_eq!(&hex::encode(&prk), "2adccada18779e7c2077ad2eb19d3f3e731385dd");
 
     let okm = Sha1::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
-    assert_eq!(&hexdigest(&okm), "2c91117204d745f3500d636a62f64f0a\
+    assert_eq!(&hex::encode(&okm), "2c91117204d745f3500d636a62f64f0a\
 b3bae548aa53d423b0d1f27ebba6f5e5\
 673a081d70cce7acfc48\
 ");

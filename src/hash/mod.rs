@@ -66,7 +66,7 @@ pub trait CryptoHasher {
     
     type Output: Array<u8> + Sized;
 
-    fn finish(&mut self);
+    // fn finish(self);
     
     fn digest(self) -> Self::Output;
 
@@ -85,22 +85,10 @@ pub trait CryptoHasher {
     }
 
     fn write<T: AsRef<[u8]>>(&mut self, bytes: T);
+
+    fn oneshot<T: AsRef<[u8]>>(data: T) -> Self::Output;
 }
 
-pub trait CryptoHash {
-    /// Feeds this value into the given `Hasher`.
-    fn crypto_hash<H: CryptoHasher>(&self, state: &mut H);
-
-    /// Feeds a slice of this type into the given `Hasher`.
-    fn crypto_hash_slice<H: CryptoHasher>(data: &[Self], state: &mut H)
-    where
-        Self: Sized,
-    {
-        for piece in data {
-            piece.crypto_hash(state);
-        }
-    }
-}
 
 pub trait BuildCryptoHasher {
     type Hasher: CryptoHasher;
@@ -108,151 +96,93 @@ pub trait BuildCryptoHasher {
     fn build_hasher() -> Self::Hasher;
 }
 
-impl<T: CryptoHash> CryptoHash for [T] {
-    fn crypto_hash<H: CryptoHasher>(&self, state: &mut H) {
-        CryptoHash::crypto_hash_slice(self, state);
+// pub trait CryptoHash {
+//     /// Feeds this value into the given `Hasher`.
+//     fn crypto_hash<H: CryptoHasher>(&self, state: &mut H);
+
+//     /// Feeds a slice of this type into the given `Hasher`.
+//     fn crypto_hash_slice<H: CryptoHasher>(data: &[Self], state: &mut H)
+//     where
+//         Self: Sized,
+//     {
+//         for piece in data {
+//             piece.crypto_hash(state);
+//         }
+//     }
+// }
+
+// impl<T: CryptoHash> CryptoHash for [T] {
+//     fn crypto_hash<H: CryptoHasher>(&self, state: &mut H) {
+//         CryptoHash::crypto_hash_slice(self, state);
+//     }
+// }
+// impl<'a, T: CryptoHash> CryptoHash for &'a [T] {
+//     fn crypto_hash<H: CryptoHasher>(&self, state: &mut H) {
+//         CryptoHash::crypto_hash_slice(self, state);
+//     }
+// }
+
+macro_rules! impl_crypto_hasher {
+    ($name:tt) => {
+        impl CryptoHasher for $name {
+            const BLOCK_LEN : usize = $name::BLOCK_LEN;
+            const OUTPUT_LEN: usize = $name::DIGEST_LEN;
+            
+            type Output = [u8; Self::DIGEST_LEN];
+
+            // fn finish(self);
+
+            fn write<T: AsRef<[u8]>>(&mut self, bytes: T) {
+                self.update(bytes.as_ref());
+            }
+
+            fn digest(mut self) -> Self::Output {
+                self.finalize();
+                self.output()
+            }
+
+            fn oneshot<T: AsRef<[u8]>>(data: T) -> Self::Output {
+                Self::oneshot(data)
+            }
+        }
     }
 }
-impl<'a, T: CryptoHash> CryptoHash for &'a [T] {
-    fn crypto_hash<H: CryptoHasher>(&self, state: &mut H) {
-        CryptoHash::crypto_hash_slice(self, state);
+
+macro_rules! impl_build_crypto_hasher {
+    ($name:tt) => {
+        impl BuildCryptoHasher for $name {
+            type Hasher = Self;
+
+            fn build_hasher() -> Self::Hasher {
+                Self::new()
+            }
+        }
     }
 }
 
+impl_crypto_hasher!(Md2);
+impl_crypto_hasher!(Md4);
+impl_crypto_hasher!(Md5);
+impl_crypto_hasher!(Sm3);
+impl_crypto_hasher!(Sha1);
+impl_build_crypto_hasher!(Md2);
+impl_build_crypto_hasher!(Md4);
+impl_build_crypto_hasher!(Md5);
+impl_build_crypto_hasher!(Sm3);
+impl_build_crypto_hasher!(Sha1);
 
+mod inner {
+    use crate::hash::CryptoHasher;
+    use crate::hash::BuildCryptoHasher;
 
-// // =========================== MD5 ===========================
-// impl BuildCryptoHasher for crate::md5::Md5 {
-//     type Hasher = crate::md5::Md5;
+    use super::sha2::{Sha256, Sha384, Sha512};
+    
 
-//     fn build_hasher() -> Self::Hasher {
-//         crate::md5::Md5::new()
-//     }
-// }
-// impl CryptoHasher for crate::md5::Md5 {
-//     const BLOCK_LEN : usize = crate::md5::BLOCK_LEN;
-//     const OUTPUT_LEN: usize = crate::md5::DIGEST_LEN; // Output digest
-    
-//     type Output = [u8; crate::md5::DIGEST_LEN];
+    impl_crypto_hasher!(Sha256);
+    impl_crypto_hasher!(Sha384);
+    impl_crypto_hasher!(Sha512);
 
-//     fn finish(&mut self) {
-//         self.finalize();
-//     }
-    
-//     fn digest(self) -> Self::Output {
-//         self.output()
-//     }
-
-//     fn write<T: AsRef<[u8]>>(&mut self, bytes: T) {
-//         self.update(bytes.as_ref());
-//     }
-// }
-
-// // =========================== SHA1 ===========================
-// impl BuildCryptoHasher for crate::sha1::Sha1 {
-//     type Hasher = crate::sha1::Sha1;
-
-//     fn build_hasher() -> Self::Hasher {
-//         crate::sha1::Sha1::new()
-//     }
-// }
-// impl CryptoHasher for crate::sha1::Sha1 {
-//     const BLOCK_LEN : usize = crate::sha1::BLOCK_LEN;
-//     const OUTPUT_LEN: usize = crate::sha1::DIGEST_LEN; // Output digest
-    
-//     type Output = [u8; crate::sha1::DIGEST_LEN];
-    
-//     fn finish(&mut self) {
-//         self.finalize();
-//     }
-    
-//     fn digest(self) -> Self::Output {
-//         self.output()
-//     }
-
-//     fn write<T: AsRef<[u8]>>(&mut self, bytes: T) {
-//         self.update(bytes.as_ref());
-//     }
-// }
-
-
-// // =========================== SHA2-256 ===========================
-// impl BuildCryptoHasher for crate::sha2::Sha256 {
-//     type Hasher = crate::sha2::Sha256;
-
-//     fn build_hasher() -> Self::Hasher {
-//         crate::sha2::Sha256::new()
-//     }
-// }
-// impl CryptoHasher for crate::sha2::Sha256 {
-//     const BLOCK_LEN : usize = crate::sha2::sha256::BLOCK_LEN;
-//     const OUTPUT_LEN: usize = crate::sha2::sha256::DIGEST_LEN; // Output digest
-    
-//     type Output = [u8; crate::sha2::sha256::DIGEST_LEN];
-    
-//     fn finish(&mut self) {
-//         self.finalize();
-//     }
-    
-//     fn digest(self) -> Self::Output {
-//         self.output()
-//     }
-    
-//     fn write<T: AsRef<[u8]>>(&mut self, bytes: T) {
-//         self.update(bytes.as_ref());
-//     }
-// }
-
-// // =========================== SHA2-384 ===========================
-// impl BuildCryptoHasher for crate::sha2::Sha384 {
-//     type Hasher = crate::sha2::Sha384;
-
-//     fn build_hasher() -> Self::Hasher {
-//         crate::sha2::Sha384::new()
-//     }
-// }
-// impl CryptoHasher for crate::sha2::Sha384 {
-//     const BLOCK_LEN : usize = crate::sha2::sha512::BLOCK_LEN;
-//     const OUTPUT_LEN: usize = crate::sha2::sha512::SHA384_DIGEST_LEN; // Output digest
-    
-//     type Output = [u8; crate::sha2::sha512::SHA384_DIGEST_LEN];
-    
-//     fn finish(&mut self) {
-//         self.finalize();
-//     }
-    
-//     fn digest(self) -> Self::Output {
-//         self.output()
-//     }
-    
-//     fn write<T: AsRef<[u8]>>(&mut self, bytes: T) {
-//         self.update(bytes.as_ref());
-//     }
-// }
-
-// // =========================== SHA2-512 ===========================
-// impl BuildCryptoHasher for crate::sha2::Sha512 {
-//     type Hasher = crate::sha2::Sha512;
-
-//     fn build_hasher() -> Self::Hasher {
-//         crate::sha2::Sha512::new()
-//     }
-// }
-// impl CryptoHasher for crate::sha2::Sha512 {
-//     const BLOCK_LEN : usize = crate::sha2::sha512::BLOCK_LEN;
-//     const OUTPUT_LEN: usize = crate::sha2::sha512::DIGEST_LEN; // Output digest
-    
-//     type Output = [u8; crate::sha2::sha512::DIGEST_LEN];
-    
-//     fn finish(&mut self) {
-//         self.finalize();
-//     }
-    
-//     fn digest(self) -> Self::Output {
-//         self.output()
-//     }
-    
-//     fn write<T: AsRef<[u8]>>(&mut self, bytes: T) {
-//         self.update(bytes.as_ref());
-//     }
-// }
+    impl_build_crypto_hasher!(Sha256);
+    impl_build_crypto_hasher!(Sha384);
+    impl_build_crypto_hasher!(Sha512);
+}
