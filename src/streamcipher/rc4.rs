@@ -30,13 +30,24 @@ pub struct Rc4 {
     state: [u8; 256],
 }
 
+impl std::fmt::Debug for Rc4 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let state = &self.state[..];
+        f.debug_struct("Rc4")
+            .field("x", &self.x)
+            .field("y", &self.y)
+            .field("state", &state)
+            .finish()
+    }
+}
+
 impl Rc4 {
-    // pub const BLOCK_LEN: usize   =   8; // In bytes
     pub const MIN_KEY_LEN: usize =   1; // In bytes
     pub const MAX_KEY_LEN: usize = 256; // In bytes
 
+
     pub fn new(key: &[u8]) -> Self {
-        assert!(key.len() > 0 && key.len() < 257);
+        assert!(key.len() >= Self::MIN_KEY_LEN && key.len() <= Self::MAX_KEY_LEN);
 
         let key_len = key.len() as u8;
         let mut state = INIT_STATE;
@@ -52,7 +63,8 @@ impl Rc4 {
         Self { x: 0, y: 0, state, }
     }
 
-    pub fn in_place(&mut self, data: &mut [u8]) {
+    #[inline]
+    fn in_place(&mut self, data: &mut [u8]) {
         let mut xor_index = 0u8;
 
         for counter in 0..data.len() {
@@ -68,16 +80,13 @@ impl Rc4 {
             data[counter] ^= self.state[xor_index as usize];
         }
     }
-}
 
-impl std::fmt::Debug for Rc4 {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let state = &self.state[..];
-        f.debug_struct("Rc4")
-            .field("x", &self.x)
-            .field("y", &self.y)
-            .field("state", &state)
-            .finish()
+    pub fn encrypt(&mut self, plaintext_and_ciphertext: &mut [u8]) {
+        self.in_place(plaintext_and_ciphertext);
+    }
+    
+    pub fn decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) {
+        self.in_place(ciphertext_and_plaintext);
     }
 }
 
@@ -95,7 +104,7 @@ fn bench_rc4(b: &mut test::Bencher) {
             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
             0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
         ]);
-        cipher.in_place(&mut ciphertext);
+        cipher.encrypt(&mut ciphertext);
         ciphertext
     })
 }
@@ -108,7 +117,7 @@ fn test_rc4() {
     let mut rc4 = Rc4::new(&key);
     let plaintext = b"Plaintext";
     let mut ciphertext = plaintext.clone();
-    rc4.in_place(&mut ciphertext);
+    rc4.encrypt(&mut ciphertext);
     assert_eq!(&ciphertext[..],
         &hex::decode("BBF316E8D940AF0AD3").unwrap()[..]);
 
@@ -116,7 +125,7 @@ fn test_rc4() {
     let mut rc4 = Rc4::new(&key);
     let plaintext = b"pedia";
     let mut ciphertext = plaintext.clone();
-    rc4.in_place(&mut ciphertext);
+    rc4.encrypt(&mut ciphertext);
     assert_eq!(&ciphertext[..],
         &hex::decode("1021BF0420").unwrap()[..]);
 
@@ -124,7 +133,7 @@ fn test_rc4() {
     let mut rc4 = Rc4::new(&key);
     let plaintext = b"Attack at dawn";
     let mut ciphertext = plaintext.clone();
-    rc4.in_place(&mut ciphertext);
+    rc4.encrypt(&mut ciphertext);
     assert_eq!(&ciphertext[..],
         &hex::decode("45A01F645FC35B383552544B9BF5").unwrap()[..]);
 
