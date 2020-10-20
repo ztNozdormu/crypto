@@ -1,4 +1,4 @@
-use crate::sha2::sha256::BLOCK_LEN;
+use super::Sha256;
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86::*;
@@ -21,7 +21,7 @@ pub fn sha256_transform_shani(state: &mut [u32; 8], block: &[u8]) {
     // Process a block with the SHA-256 algorithm.
     // Based on https://github.com/noloader/SHA-Intrinsics/blob/master/sha256-x86.c
     debug_assert_eq!(state.len(), 8);
-    debug_assert_eq!(block.len(), BLOCK_LEN);
+    debug_assert_eq!(block.len(), Sha256::BLOCK_LEN);
 
     unsafe {
         let mut state0: __m128i;
@@ -231,7 +231,7 @@ pub fn sha256_transform_neon(state: &mut [u32; 8], block: &[u8]) {
     // Process a block with the SHA-256 algorithm.
     // https://github.com/noloader/SHA-Intrinsics/blob/master/sha256-arm.c
     debug_assert_eq!(state.len(), 8);
-    debug_assert_eq!(block.len(), BLOCK_LEN);
+    debug_assert_eq!(block.len(), Sha256::BLOCK_LEN);
 
     // vld1q_u32
     fn uint32x4_t_new(a: u32, b: u32, c: u32, d: u32) -> uint32x4_t {

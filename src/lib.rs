@@ -17,18 +17,18 @@ pub mod error;
 
 // cryptographic hash function (CHF)
 pub mod hash;
-pub mod md2;
-pub mod md4;
-pub mod md5;
-pub mod sha1;
-pub mod sha2;
-pub mod sha3; // TODO
-pub mod sm3;
+// pub mod md2;
+// pub mod md4;
+// pub mod md5;
+// pub mod sha1;
+// pub mod sha2;
+// pub mod sha3; // TODO
+// pub mod sm3;
 
-pub mod hmac;
+// pub mod hmac;
 
 // Key derivation function (KDF)
-pub mod hkdf;
+// pub mod hkdf;
 
 
 

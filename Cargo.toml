@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 subtle      = { version = "2.3", default-features = false }
-byteorder   = { version = "1.3", default-features = false }
 
 [dev-dependencies]
 hex = "0.4"
@@ -19,7 +18,6 @@ default = [
 ]
 std     = [
     "subtle/std",
-    "byteorder/std",
 ]
 nightly = [
     "subtle/nightly",

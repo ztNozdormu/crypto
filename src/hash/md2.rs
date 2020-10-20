@@ -1,8 +1,6 @@
 // The MD2 Message-Digest Algorithm
 // https://tools.ietf.org/html/rfc1319
 
-const BLOCK_LEN: usize  = 16;
-const DIGEST_LEN: usize = 16;
 
 // The S-table's values are derived from Pi
 const S: [u8; 256] = [
@@ -25,12 +23,9 @@ const S: [u8; 256] = [
 ];
 
 #[inline]
-pub fn transform(state_and_checksum: &mut [u8; 64], block: &[u8]) {
+fn transform(state_and_checksum: &mut [u8; 64], block: &[u8]) {
     debug_assert_eq!(state_and_checksum.len(), 64);
-    debug_assert_eq!(block.len(), BLOCK_LEN);
-    
-    // let state = &mut state_and_checksum[..48];
-    // let checksum = &mut state_and_checksum[48..];
+    debug_assert_eq!(block.len(), Md2::BLOCK_LEN);
     
     for j in 0..16 {
         state_and_checksum[16 + j] = block[j];
@@ -54,13 +49,13 @@ pub fn transform(state_and_checksum: &mut [u8; 64], block: &[u8]) {
 }
 
 
-fn last_block(data: &[u8]) -> [u8; BLOCK_LEN] {
-    debug_assert!(data.len() < BLOCK_LEN);
+fn last_block(data: &[u8]) -> [u8; Md2::BLOCK_LEN] {
+    debug_assert!(data.len() < Md2::BLOCK_LEN);
 
-    let mut block = [0u8; BLOCK_LEN];
+    let mut block = [0u8; Md2::BLOCK_LEN];
     block[..data.len()].copy_from_slice(data);
 
-    let pad_byte = (BLOCK_LEN - data.len()) as u8;
+    let pad_byte = (Md2::BLOCK_LEN - data.len()) as u8;
     for byte in &mut block[data.len()..].iter_mut() {
         *byte = pad_byte;
     }
@@ -68,27 +63,72 @@ fn last_block(data: &[u8]) -> [u8; BLOCK_LEN] {
     block
 }
 
-pub fn md2<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
-    let data = data.as_ref();
-    let blocks = data.len() / BLOCK_LEN;
+pub fn md2<T: AsRef<[u8]>>(data: T) -> [u8; Md2::DIGEST_LEN] {
+    Md2::oneshot(data)
+}
 
-    let mut state = [0u8; 64];
-    for i in 0..blocks {
-        transform(&mut state, &data[i * BLOCK_LEN..i * BLOCK_LEN + BLOCK_LEN]);
+
+#[derive(Clone)]
+pub struct Md2 {
+    buffer: [u8; Self::BLOCK_LEN],
+    state: [u8; 64],
+    // len: usize,      // in bytes.
+    offset: usize,
+}
+
+impl Md2 {
+    pub const BLOCK_LEN: usize  = 16;
+    pub const DIGEST_LEN: usize = 16;
+
+    pub fn new() -> Self {
+        Self {
+            buffer: [0u8; Self::BLOCK_LEN],
+            state: [0u8; 64],
+            // len: 0usize,
+            offset: 0usize,
+        }
     }
 
-    let data = &data[blocks * BLOCK_LEN..];
-    let block = last_block(data);
-    transform(&mut state, &block);
+    pub fn update(&mut self, data: &[u8]) {
+        for i in 0..data.len() {
+            if self.offset == Self::BLOCK_LEN {
+                transform(&mut self.state, &self.buffer);
+                self.offset = 0;
+            }
 
-    let mut block = [0u8; 16];
-    block.copy_from_slice(&state[48..]);
-    transform(&mut state, &block);
+            self.buffer[self.offset] = data[i];
+            self.offset += 1;
+        }
 
-    let mut output = [0u8; BLOCK_LEN];
-    output.copy_from_slice(&state[..BLOCK_LEN]);
+        if self.offset == Self::BLOCK_LEN {
+            transform(&mut self.state, &self.buffer);
+            self.offset = 0;
+        }
+    }
 
-    output
+    pub fn finalize(&mut self) {
+        let data = &self.buffer[..self.offset];
+
+        let block = last_block(data);
+        transform(&mut self.state, &block);
+
+        let mut block = [0u8; 16];
+        block.copy_from_slice(&self.state[48..]);
+        transform(&mut self.state, &block);
+    }
+
+    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
+        let mut output = [0u8; Self::DIGEST_LEN];
+        output.copy_from_slice(&self.state[..Self::DIGEST_LEN]);
+        output
+    }
+
+    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
+        let mut m = Self::new();
+        m.update(data.as_ref());
+        m.finalize();
+        m.output()
+    }
 }
 
 

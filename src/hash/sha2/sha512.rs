@@ -6,11 +6,6 @@
 use std::convert::TryFrom;
 
 
-pub const BLOCK_LEN: usize  = 128;
-pub const DIGEST_LEN: usize =  64;
-
-pub const SHA384_DIGEST_LEN: usize =  48;
-
 // Round constants
 const K64: [u64; 80] = [
     0x428A2F98D728AE22, 0x7137449123EF65CD, 0xB5C0FBCFEC4D3B2F, 0xE9B5DBA58189DBBC,
@@ -37,16 +32,199 @@ const K64: [u64; 80] = [
 
 
 // SHA-512
-pub const SHA512_INITIAL_STATE: [u64; 8] = [
+const SHA512_INITIAL_STATE: [u64; 8] = [
     0x6A09E667F3BCC908, 0xBB67AE8584CAA73B, 0x3C6EF372FE94F82B, 0xA54FF53A5F1D36F1,
     0x510E527FADE682D1, 0x9B05688C2B3E6C1F, 0x1F83D9ABFB41BD6B, 0x5BE0CD19137E2179,
 ];
 
 // SHA-384
-pub const SHA384_INITIAL_STATE: [u64; 8] = [
+const SHA384_INITIAL_STATE: [u64; 8] = [
     0xCBBB9D5DC1059ED8, 0x629A292A367CD507, 0x9159015A3070DD17, 0x152FECD8F70E5939,
     0x67332667FFC00B31, 0x8EB44A8768581511, 0xDB0C2E0D64F98FA7, 0x47B5481DBEFA4FA4,
 ];
+
+
+
+pub fn sha512<T: AsRef<[u8]>>(data: T) -> [u8; Sha512::DIGEST_LEN] {
+    Sha512::oneshot(data)
+}
+
+pub fn sha384<T: AsRef<[u8]>>(data: T) -> [u8; Sha384::DIGEST_LEN] {
+    Sha384::oneshot(data)
+}
+
+
+#[derive(Clone)]
+pub struct Sha512 {
+    buffer: [u8; 128],
+    state: [u64; 8],
+    len: u128,      // in bytes.
+}
+
+impl Sha512 {
+    pub const BLOCK_LEN: usize  = 128;
+    pub const DIGEST_LEN: usize =  64;
+
+    pub fn new() -> Self {
+        Self {
+            buffer: [0u8; 128],
+            state: SHA512_INITIAL_STATE,
+            len: 0,
+        }
+    }
+
+    pub fn update(&mut self, data: &[u8]) {
+        let mut n = self.len % Self::BLOCK_LEN as u128;
+        if n != 0 {
+            let mut i = 0usize;
+            loop {
+                if n == 128 || i >= data.len() {
+                    break;
+                }
+                self.buffer[n as usize] = data[i];
+                n += 1;
+                i += 1;
+                self.len += 1;
+            }
+
+            if self.len % Self::BLOCK_LEN as u128 != 0 {
+                return ();
+            } else {
+                transform(&mut self.state, &self.buffer);
+
+                let data = &data[i..];
+                if data.len() > 0 {
+                    return self.update(data);
+                }
+            }
+        }
+
+        if data.len() < 128 {
+            self.buffer[..data.len()].copy_from_slice(data);
+            self.len += data.len() as u128;
+        } else if data.len() == 128 {
+            transform(&mut self.state, data);
+            self.len += 128;
+        } else if data.len() > 128 {
+            let blocks = data.len() / 128;
+            for i in 0..blocks {
+                transform(&mut self.state, &data[i*128..i*128+128]);
+                self.len += 128;
+            }
+            let data = &data[blocks*128..];
+            if data.len() > 0 {
+                self.buffer[..data.len()].copy_from_slice(data);
+                self.len += data.len() as u128;
+            }
+        } else {
+            unreachable!()
+        }
+    }
+
+    pub fn finalize(&mut self) {
+        let len_bits: u128 = self.len * 8;
+        let n = usize::try_from(self.len % Self::BLOCK_LEN as u128).unwrap();
+        if n == 0 {
+            let mut block = [0u8; 128];
+            block[0] = 0x80;
+            block[112..].copy_from_slice(&len_bits.to_be_bytes());
+            transform(&mut self.state, &block);
+        } else {
+            self.buffer[n] = 0x80;
+            for i in n+1..128 {
+                self.buffer[i] = 0;
+            }
+            if 128 - n - 1 >= 16 {
+                self.buffer[112..].copy_from_slice(&len_bits.to_be_bytes());
+                transform(&mut self.state, &self.buffer);
+            } else {
+                transform(&mut self.state, &self.buffer);
+                let mut block = [0u8; 128];
+                block[112..].copy_from_slice(&len_bits.to_be_bytes());
+                transform(&mut self.state, &block);
+            }
+        }
+    }
+    
+    pub fn state(&self) -> &[u64; 8] {
+        &self.state
+    }
+
+    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
+        let mut output = [0u8; Self::DIGEST_LEN];
+
+        output[ 0.. 8].copy_from_slice(&self.state[0].to_be_bytes());
+        output[ 8..16].copy_from_slice(&self.state[1].to_be_bytes());
+        output[16..24].copy_from_slice(&self.state[2].to_be_bytes());
+        output[24..32].copy_from_slice(&self.state[3].to_be_bytes());
+        output[32..40].copy_from_slice(&self.state[4].to_be_bytes());
+        output[40..48].copy_from_slice(&self.state[5].to_be_bytes());
+        output[48..56].copy_from_slice(&self.state[6].to_be_bytes());
+        output[56..64].copy_from_slice(&self.state[7].to_be_bytes());
+
+        output
+    }
+
+    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
+        let mut m = Self::new();
+        m.update(data.as_ref());
+        m.finalize();
+        m.output()
+    }
+}
+
+#[derive(Clone)]
+pub struct Sha384 {
+    inner: Sha512,
+}
+
+impl Sha384 {
+    pub const BLOCK_LEN: usize  = 128;
+    pub const DIGEST_LEN: usize =  48;
+
+    pub fn new() -> Self {
+        let inner = Sha512 {
+            buffer: [0u8; 128],
+            state: SHA384_INITIAL_STATE,
+            len: 0,
+        };
+        Self { inner }
+    }
+    
+    pub fn update(&mut self, data: &[u8]) {
+        self.inner.update(data)
+    }
+
+    pub fn state(&self) -> &[u64; 8] {
+        &self.inner.state
+    }
+
+    pub fn finalize(&mut self) {
+        self.inner.finalize();
+    }
+
+    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
+        let mut output = [0u8; Self::DIGEST_LEN];
+        
+        output[ 0.. 8].copy_from_slice(&self.inner.state[0].to_be_bytes());
+        output[ 8..16].copy_from_slice(&self.inner.state[1].to_be_bytes());
+        output[16..24].copy_from_slice(&self.inner.state[2].to_be_bytes());
+        output[24..32].copy_from_slice(&self.inner.state[3].to_be_bytes());
+        output[32..40].copy_from_slice(&self.inner.state[4].to_be_bytes());
+        output[40..48].copy_from_slice(&self.inner.state[5].to_be_bytes());
+
+        output
+    }
+
+    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
+        let mut m = Self::new();
+        m.update(data.as_ref());
+        m.finalize();
+        m.output()
+    }
+}
+
+
 
 macro_rules! S0 {
     ($v:expr) => (
@@ -112,9 +290,9 @@ macro_rules! SIG1 {
 }
 
 #[inline]
-pub fn transform(state: &mut [u64; 8], block: &[u8]) {
+fn transform(state: &mut [u64; 8], block: &[u8]) {
     debug_assert_eq!(state.len(), 8);
-    debug_assert_eq!(block.len(), BLOCK_LEN);
+    debug_assert_eq!(block.len(), Sha512::BLOCK_LEN);
     
     let mut w = [0u64; 80];
     for i in 0..16 {
@@ -167,179 +345,6 @@ pub fn transform(state: &mut [u64; 8], block: &[u8]) {
     state[6] = state[6].wrapping_add(g);
     state[7] = state[7].wrapping_add(h);
 }
-
-#[derive(Clone)]
-pub struct Sha512 {
-    buffer: [u8; 128],
-    state: [u64; 8],
-    len: u128,      // in bytes.
-}
-
-impl Sha512 {
-    pub fn new() -> Self {
-        Self {
-            buffer: [0u8; 128],
-            state: SHA512_INITIAL_STATE,
-            len: 0,
-        }
-    }
-
-    pub fn update(&mut self, data: &[u8]) {
-        let mut n = self.len % BLOCK_LEN as u128;
-        if n != 0 {
-            let mut i = 0usize;
-            loop {
-                if n == 128 || i >= data.len() {
-                    break;
-                }
-                self.buffer[n as usize] = data[i];
-                n += 1;
-                i += 1;
-                self.len += 1;
-            }
-
-            if self.len % BLOCK_LEN as u128 != 0 {
-                return ();
-            } else {
-                transform(&mut self.state, &self.buffer);
-
-                let data = &data[i..];
-                if data.len() > 0 {
-                    return self.update(data);
-                }
-            }
-        }
-
-        if data.len() < 128 {
-            self.buffer[..data.len()].copy_from_slice(data);
-            self.len += data.len() as u128;
-        } else if data.len() == 128 {
-            transform(&mut self.state, data);
-            self.len += 128;
-        } else if data.len() > 128 {
-            let blocks = data.len() / 128;
-            for i in 0..blocks {
-                transform(&mut self.state, &data[i*128..i*128+128]);
-                self.len += 128;
-            }
-            let data = &data[blocks*128..];
-            if data.len() > 0 {
-                self.buffer[..data.len()].copy_from_slice(data);
-                self.len += data.len() as u128;
-            }
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub fn finalize(&mut self) {
-        let len_bits: u128 = self.len * 8;
-        let n = usize::try_from(self.len % BLOCK_LEN as u128).unwrap();
-        if n == 0 {
-            let mut block = [0u8; 128];
-            block[0] = 0x80;
-            block[112..].copy_from_slice(&len_bits.to_be_bytes());
-            transform(&mut self.state, &block);
-        } else {
-            self.buffer[n] = 0x80;
-            for i in n+1..128 {
-                self.buffer[i] = 0;
-            }
-            if 128 - n - 1 >= 16 {
-                self.buffer[112..].copy_from_slice(&len_bits.to_be_bytes());
-                transform(&mut self.state, &self.buffer);
-            } else {
-                transform(&mut self.state, &self.buffer);
-                let mut block = [0u8; 128];
-                block[112..].copy_from_slice(&len_bits.to_be_bytes());
-                transform(&mut self.state, &block);
-            }
-        }
-    }
-    
-    pub fn state(&self) -> &[u64; 8] {
-        &self.state
-    }
-
-    pub fn output(self) -> [u8; DIGEST_LEN] {
-        let mut output = [0u8; DIGEST_LEN];
-
-        output[ 0.. 8].copy_from_slice(&self.state[0].to_be_bytes());
-        output[ 8..16].copy_from_slice(&self.state[1].to_be_bytes());
-        output[16..24].copy_from_slice(&self.state[2].to_be_bytes());
-        output[24..32].copy_from_slice(&self.state[3].to_be_bytes());
-        output[32..40].copy_from_slice(&self.state[4].to_be_bytes());
-        output[40..48].copy_from_slice(&self.state[5].to_be_bytes());
-        output[48..56].copy_from_slice(&self.state[6].to_be_bytes());
-        output[56..64].copy_from_slice(&self.state[7].to_be_bytes());
-
-        output
-    }
-
-    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
-        let mut m = Self::new();
-        m.update(data.as_ref());
-        m.finalize();
-        m.output()
-    }
-}
-
-#[derive(Clone)]
-pub struct Sha384 {
-    inner: Sha512,
-}
-
-impl Sha384 {
-    pub fn new() -> Self {
-        let inner = Sha512 {
-            buffer: [0u8; 128],
-            state: SHA384_INITIAL_STATE,
-            len: 0,
-        };
-        Self { inner }
-    }
-    
-    pub fn update(&mut self, data: &[u8]) {
-        self.inner.update(data)
-    }
-
-    pub fn state(&self) -> &[u64; 8] {
-        &self.inner.state
-    }
-
-    pub fn finalize(&mut self) {
-        self.inner.finalize();
-    }
-
-    pub fn output(self) -> [u8; SHA384_DIGEST_LEN] {
-        let mut output = [0u8; 48];
-        
-        output[ 0.. 8].copy_from_slice(&self.inner.state[0].to_be_bytes());
-        output[ 8..16].copy_from_slice(&self.inner.state[1].to_be_bytes());
-        output[16..24].copy_from_slice(&self.inner.state[2].to_be_bytes());
-        output[24..32].copy_from_slice(&self.inner.state[3].to_be_bytes());
-        output[32..40].copy_from_slice(&self.inner.state[4].to_be_bytes());
-        output[40..48].copy_from_slice(&self.inner.state[5].to_be_bytes());
-
-        output
-    }
-
-    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; SHA384_DIGEST_LEN] {
-        let mut m = Self::new();
-        m.update(data.as_ref());
-        m.finalize();
-        m.output()
-    }
-}
-
-pub fn sha512<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
-    Sha512::oneshot(data)
-}
-
-pub fn sha384<T: AsRef<[u8]>>(data: T) -> [u8; SHA384_DIGEST_LEN] {
-    Sha384::oneshot(data)
-}
-
 
 #[cfg(test)]
 #[bench]

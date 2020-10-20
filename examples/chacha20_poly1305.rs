@@ -1,6 +1,6 @@
 extern crate crypto;
 
-use crypto::streamcipher::Chacha20Poly1305;
+use crypto::aeadcipher::Chacha20Poly1305;
 
 
 fn main() {

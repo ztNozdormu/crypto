@@ -4,9 +4,135 @@
 use std::convert::TryFrom;
 
 
-const BLOCK_LEN: usize  = 64;
-const DIGEST_LEN: usize = 16;
 const INITIAL_STATE: [u32; 4] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476];
+
+
+pub fn md4<T: AsRef<[u8]>>(data: T) -> [u8; Md4::DIGEST_LEN] {
+    Md4::oneshot(data)
+}
+
+#[derive(Clone)]
+pub struct Md4 {
+    buffer: [u8; 64],
+    state: [u32; 4],
+    len: usize,      // in bytes.
+}
+
+impl Md4 {
+    pub const BLOCK_LEN: usize  = 64;
+    pub const DIGEST_LEN: usize = 16;
+
+    pub fn new() -> Self {
+        Self {
+            buffer: [0u8; 64],
+            state: INITIAL_STATE,
+            len: 0,
+        }
+    }
+
+    pub fn update(&mut self, data: &[u8]) {
+        // TODO:
+        // Unlike Sha1 and Sha2, the length value in MD5 is defined as
+        // the length of the message mod 2^64 - ie: integer overflow is OK.
+        if data.len() == 0 {
+            return ();
+        }
+
+        let mut n = self.len % Self::BLOCK_LEN;
+        if n != 0 {
+            let mut i = 0usize;
+            loop {
+                if n == 64 || i >= data.len() {
+                    break;
+                }
+                self.buffer[n] = data[i];
+                n += 1;
+                i += 1;
+                self.len += 1;
+            }
+
+            if self.len % Self::BLOCK_LEN != 0 {
+                return ();
+            } else {
+                transform(&mut self.state, &self.buffer);
+
+                let data = &data[i..];
+                if data.len() > 0 {
+                    return self.update(data);
+                }
+            }
+        }
+
+        if data.len() < 64 {
+            self.buffer[..data.len()].copy_from_slice(data);
+            self.len += data.len();
+        } else if data.len() == 64 {
+            transform(&mut self.state, data);
+            self.len += 64;
+        } else if data.len() > 64 {
+            let blocks = data.len() / 64;
+            for i in 0..blocks {
+                transform(&mut self.state, &data[i*64..i*64+64]);
+                self.len += 64;
+            }
+            let data = &data[blocks*64..];
+            if data.len() > 0 {
+                self.buffer[..data.len()].copy_from_slice(data);
+                self.len += data.len();
+            }
+        } else {
+            unreachable!()
+        }
+    }
+
+    pub fn finalize(&mut self) {
+        // last_block
+        let len_bits = u64::try_from(self.len).unwrap() * 8;
+        let n = self.len % Self::BLOCK_LEN;
+        if n == 0 {
+            let mut block = [0u8; 64];
+            block[0] = 0x80;
+            block[56..].copy_from_slice(&len_bits.to_le_bytes());
+            transform(&mut self.state, &block);
+        } else {
+            self.buffer[n] = 0x80;
+            for i in n+1..64 {
+                self.buffer[i] = 0;
+            }
+            if 64 - n - 1 >= 8 {
+                self.buffer[56..].copy_from_slice(&len_bits.to_le_bytes());
+                transform(&mut self.state, &self.buffer);
+            } else {
+                transform(&mut self.state, &self.buffer);
+                let mut block = [0u8; 64];
+                block[56..].copy_from_slice(&len_bits.to_le_bytes());
+                transform(&mut self.state, &block);
+            }
+        }
+    }
+
+    pub fn state(&self) -> &[u32; 4] {
+        &self.state
+    }
+
+    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
+        let mut output = [0u8; Self::DIGEST_LEN];
+        output[ 0.. 4].copy_from_slice(&self.state[0].to_le_bytes());
+        output[ 4.. 8].copy_from_slice(&self.state[1].to_le_bytes());
+        output[ 8..12].copy_from_slice(&self.state[2].to_le_bytes());
+        output[12..16].copy_from_slice(&self.state[3].to_le_bytes());
+
+        output
+    }
+
+    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
+        let mut m = Self::new();
+        m.update(data.as_ref());
+        m.finalize();
+        m.output()
+    }
+}
+
 
 macro_rules! F {
     ($x:expr, $y:expr, $z:expr) => (
@@ -41,9 +167,9 @@ macro_rules! HH {
 }
 
 #[inline]
-pub fn transform(state: &mut [u32; 4], block: &[u8]) {
+fn transform(state: &mut [u32; 4], block: &[u8]) {
     debug_assert_eq!(state.len(), 4);
-    debug_assert_eq!(block.len(), BLOCK_LEN);
+    debug_assert_eq!(block.len(), Md4::BLOCK_LEN);
 
     let mut a = state[0];
     let mut b = state[1];
@@ -90,129 +216,6 @@ pub fn transform(state: &mut [u32; 4], block: &[u8]) {
     state[1] = state[1].wrapping_add(b);
     state[2] = state[2].wrapping_add(c);
     state[3] = state[3].wrapping_add(d);
-}
-
-#[derive(Clone)]
-pub struct Md4 {
-    buffer: [u8; 64],
-    state: [u32; 4],
-    len: usize,      // in bytes.
-}
-
-impl Md4 {
-    pub fn new() -> Self {
-        Self {
-            buffer: [0u8; 64],
-            state: INITIAL_STATE,
-            len: 0,
-        }
-    }
-
-    pub fn update(&mut self, data: &[u8]) {
-        // TODO:
-        // Unlike Sha1 and Sha2, the length value in MD5 is defined as
-        // the length of the message mod 2^64 - ie: integer overflow is OK.
-        if data.len() == 0 {
-            return ();
-        }
-
-        let mut n = self.len % BLOCK_LEN;
-        if n != 0 {
-            let mut i = 0usize;
-            loop {
-                if n == 64 || i >= data.len() {
-                    break;
-                }
-                self.buffer[n] = data[i];
-                n += 1;
-                i += 1;
-                self.len += 1;
-            }
-
-            if self.len % BLOCK_LEN != 0 {
-                return ();
-            } else {
-                transform(&mut self.state, &self.buffer);
-
-                let data = &data[i..];
-                if data.len() > 0 {
-                    return self.update(data);
-                }
-            }
-        }
-
-        if data.len() < 64 {
-            self.buffer[..data.len()].copy_from_slice(data);
-            self.len += data.len();
-        } else if data.len() == 64 {
-            transform(&mut self.state, data);
-            self.len += 64;
-        } else if data.len() > 64 {
-            let blocks = data.len() / 64;
-            for i in 0..blocks {
-                transform(&mut self.state, &data[i*64..i*64+64]);
-                self.len += 64;
-            }
-            let data = &data[blocks*64..];
-            if data.len() > 0 {
-                self.buffer[..data.len()].copy_from_slice(data);
-                self.len += data.len();
-            }
-        } else {
-            unreachable!()
-        }
-    }
-
-    pub fn finalize(&mut self) {
-        // last_block
-        let len_bits = u64::try_from(self.len).unwrap() * 8;
-        let n = self.len % BLOCK_LEN;
-        if n == 0 {
-            let mut block = [0u8; 64];
-            block[0] = 0x80;
-            block[56..].copy_from_slice(&len_bits.to_le_bytes());
-            transform(&mut self.state, &block);
-        } else {
-            self.buffer[n] = 0x80;
-            for i in n+1..64 {
-                self.buffer[i] = 0;
-            }
-            if 64 - n - 1 >= 8 {
-                self.buffer[56..].copy_from_slice(&len_bits.to_le_bytes());
-                transform(&mut self.state, &self.buffer);
-            } else {
-                transform(&mut self.state, &self.buffer);
-                let mut block = [0u8; 64];
-                block[56..].copy_from_slice(&len_bits.to_le_bytes());
-                transform(&mut self.state, &block);
-            }
-        }
-    }
-
-    pub fn state(&self) -> &[u32; 4] {
-        &self.state
-    }
-
-    pub fn output(self) -> [u8; DIGEST_LEN] {
-        let mut output = [0u8; DIGEST_LEN];
-        output[ 0.. 4].copy_from_slice(&self.state[0].to_le_bytes());
-        output[ 4.. 8].copy_from_slice(&self.state[1].to_le_bytes());
-        output[ 8..12].copy_from_slice(&self.state[2].to_le_bytes());
-        output[12..16].copy_from_slice(&self.state[3].to_le_bytes());
-
-        output
-    }
-
-    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
-        let mut m = Self::new();
-        m.update(data.as_ref());
-        m.finalize();
-        m.output()
-    }
-}
-
-pub fn md4<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
-    Md4::oneshot(data)
 }
 
 

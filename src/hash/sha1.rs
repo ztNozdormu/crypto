@@ -9,22 +9,139 @@
 use std::convert::TryFrom;
 
 
-pub const BLOCK_LEN: usize  = 64;
-pub const DIGEST_LEN: usize = 20;
-
 const K1: u32 = 0x5a827999;
 const K2: u32 = 0x6ed9eba1;
 const K3: u32 = 0x8f1bbcdc;
 const K4: u32 = 0xca62c1d6;
 
-pub const INITIAL_STATE: [u32; 5] = [ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0 ];
+const INITIAL_STATE: [u32; 5] = [ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0 ];
 
+
+pub fn sha1<T: AsRef<[u8]>>(data: T) -> [u8; Sha1::DIGEST_LEN] {
+    Sha1::oneshot(data)
+}
+
+#[derive(Clone)]
+pub struct Sha1 {
+    buffer: [u8; 64],
+    state: [u32; 5],
+    len: usize,      // in bytes.
+}
+
+impl Sha1 {
+    pub const BLOCK_LEN: usize  = 64;
+    pub const DIGEST_LEN: usize = 20;
+
+    pub fn new() -> Self {
+        Self {
+            buffer: [0u8; 64],
+            state: INITIAL_STATE,
+            len: 0,
+        }
+    }
+
+    pub fn update(&mut self, data: &[u8]) {
+        let mut n = self.len % Self::BLOCK_LEN;
+        if n != 0 {
+            let mut i = 0usize;
+            loop {
+                if n == 64 || i >= data.len() {
+                    break;
+                }
+                self.buffer[n] = data[i];
+                n += 1;
+                i += 1;
+                self.len += 1;
+            }
+
+            if self.len % Self::BLOCK_LEN != 0 {
+                return ();
+            } else {
+                transform(&mut self.state, &self.buffer);
+
+                let data = &data[i..];
+                if data.len() > 0 {
+                    return self.update(data);
+                }
+            }
+        }
+
+        if data.len() < 64 {
+            self.buffer[..data.len()].copy_from_slice(data);
+            self.len += data.len();
+        } else if data.len() == 64 {
+            transform(&mut self.state, data);
+            self.len += 64;
+        } else if data.len() > 64 {
+            let blocks = data.len() / 64;
+            for i in 0..blocks {
+                transform(&mut self.state, &data[i*64..i*64+64]);
+                self.len += 64;
+            }
+            let data = &data[blocks*64..];
+            if data.len() > 0 {
+                self.buffer[..data.len()].copy_from_slice(data);
+                self.len += data.len();
+            }
+        } else {
+            unreachable!()
+        }
+    }
+    
+    pub fn finalize(&mut self) {
+        let len_bits = u64::try_from(self.len).unwrap() * 8;
+        let n = self.len % Self::BLOCK_LEN;
+        if n == 0 {
+            let mut block = [0u8; 64];
+            block[0] = 0x80;
+            block[56..].copy_from_slice(&len_bits.to_be_bytes());
+            transform(&mut self.state, &block);
+        } else {
+            self.buffer[n] = 0x80;
+            for i in n+1..64 {
+                self.buffer[i] = 0;
+            }
+            if 64 - n - 1 >= 8 {
+                self.buffer[56..].copy_from_slice(&len_bits.to_be_bytes());
+                transform(&mut self.state, &self.buffer);
+            } else {
+                transform(&mut self.state, &self.buffer);
+                let mut block = [0u8; 64];
+                block[56..].copy_from_slice(&len_bits.to_be_bytes());
+                transform(&mut self.state, &block);
+            }
+        }
+    }
+
+    pub fn state(&self) -> &[u32; 5] {
+        &self.state
+    }
+    
+    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
+        let mut output = [0u8; 20];
+        
+        output[ 0.. 4].copy_from_slice(&self.state[0].to_be_bytes());
+        output[ 4.. 8].copy_from_slice(&self.state[1].to_be_bytes());
+        output[ 8..12].copy_from_slice(&self.state[2].to_be_bytes());
+        output[12..16].copy_from_slice(&self.state[3].to_be_bytes());
+        output[16..20].copy_from_slice(&self.state[4].to_be_bytes());
+
+        output
+    }
+
+    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
+        let mut m = Self::new();
+        m.update(data.as_ref());
+        m.finalize();
+        m.output()
+    }
+}
 
 // https://github.com/B-Con/crypto-algorithms/blob/master/sha1.c
 #[inline]
-pub fn transform(state: &mut [u32; 5], block: &[u8]) {
+fn transform(state: &mut [u32; 5], block: &[u8]) {
     debug_assert_eq!(state.len(), 5);
-    debug_assert_eq!(block.len(), BLOCK_LEN);
+    debug_assert_eq!(block.len(), Sha1::BLOCK_LEN);
 
     let mut w = [0u32; 80];
     for i in 0..16 {
@@ -101,128 +218,12 @@ pub fn transform(state: &mut [u32; 5], block: &[u8]) {
 }
 
 
-#[derive(Clone)]
-pub struct Sha1 {
-    buffer: [u8; 64],
-    state: [u32; 5],
-    len: usize,      // in bytes.
-}
-
-impl Sha1 {
-    pub fn new() -> Self {
-        Self {
-            buffer: [0u8; 64],
-            state: INITIAL_STATE,
-            len: 0,
-        }
-    }
-
-    pub fn update(&mut self, data: &[u8]) {
-        let mut n = self.len % BLOCK_LEN;
-        if n != 0 {
-            let mut i = 0usize;
-            loop {
-                if n == 64 || i >= data.len() {
-                    break;
-                }
-                self.buffer[n] = data[i];
-                n += 1;
-                i += 1;
-                self.len += 1;
-            }
-
-            if self.len % BLOCK_LEN != 0 {
-                return ();
-            } else {
-                transform(&mut self.state, &self.buffer);
-
-                let data = &data[i..];
-                if data.len() > 0 {
-                    return self.update(data);
-                }
-            }
-        }
-
-        if data.len() < 64 {
-            self.buffer[..data.len()].copy_from_slice(data);
-            self.len += data.len();
-        } else if data.len() == 64 {
-            transform(&mut self.state, data);
-            self.len += 64;
-        } else if data.len() > 64 {
-            let blocks = data.len() / 64;
-            for i in 0..blocks {
-                transform(&mut self.state, &data[i*64..i*64+64]);
-                self.len += 64;
-            }
-            let data = &data[blocks*64..];
-            if data.len() > 0 {
-                self.buffer[..data.len()].copy_from_slice(data);
-                self.len += data.len();
-            }
-        } else {
-            unreachable!()
-        }
-    }
-    
-    pub fn finalize(&mut self) {
-        let len_bits = u64::try_from(self.len).unwrap() * 8;
-        let n = self.len % BLOCK_LEN;
-        if n == 0 {
-            let mut block = [0u8; 64];
-            block[0] = 0x80;
-            block[56..].copy_from_slice(&len_bits.to_be_bytes());
-            transform(&mut self.state, &block);
-        } else {
-            self.buffer[n] = 0x80;
-            for i in n+1..64 {
-                self.buffer[i] = 0;
-            }
-            if 64 - n - 1 >= 8 {
-                self.buffer[56..].copy_from_slice(&len_bits.to_be_bytes());
-                transform(&mut self.state, &self.buffer);
-            } else {
-                transform(&mut self.state, &self.buffer);
-                let mut block = [0u8; 64];
-                block[56..].copy_from_slice(&len_bits.to_be_bytes());
-                transform(&mut self.state, &block);
-            }
-        }
-    }
-
-    pub fn state(&self) -> &[u32; 5] {
-        &self.state
-    }
-    
-    pub fn output(self) -> [u8; DIGEST_LEN] {
-        let mut output = [0u8; 20];
-        
-        output[ 0.. 4].copy_from_slice(&self.state[0].to_be_bytes());
-        output[ 4.. 8].copy_from_slice(&self.state[1].to_be_bytes());
-        output[ 8..12].copy_from_slice(&self.state[2].to_be_bytes());
-        output[12..16].copy_from_slice(&self.state[3].to_be_bytes());
-        output[16..20].copy_from_slice(&self.state[4].to_be_bytes());
-
-        output
-    }
-
-    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
-        let mut m = Self::new();
-        m.update(data.as_ref());
-        m.finalize();
-        m.output()
-    }
-}
-
-pub fn sha1<T: AsRef<[u8]>>(data: T) -> [u8; DIGEST_LEN] {
-    Sha1::oneshot(data)
-}
 
 
 #[cfg(test)]
 #[bench]
 fn bench_sha1_transform(b: &mut test::Bencher) {
-    let data = [0u8; 64];
+    let data = [0u8; Sha1::BLOCK_LEN];
     b.bytes = data.len() as u64;
     b.iter(|| {
         let mut state = INITIAL_STATE;
