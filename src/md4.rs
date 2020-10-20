@@ -1,16 +1,12 @@
 // The MD4 Message-Digest Algorithm
 // https://tools.ietf.org/html/rfc1320
 // 
-
-use byteorder::{LE, ByteOrder};
-
 use std::convert::TryFrom;
 
 
-pub const BLOCK_LEN: usize  = 64;
-pub const DIGEST_LEN: usize = 16;
-
-pub const INITIAL_STATE: [u32; 4] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476];
+const BLOCK_LEN: usize  = 64;
+const DIGEST_LEN: usize = 16;
+const INITIAL_STATE: [u32; 4] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476];
 
 macro_rules! F {
     ($x:expr, $y:expr, $z:expr) => (
@@ -199,11 +195,11 @@ impl Md4 {
 
     pub fn output(self) -> [u8; DIGEST_LEN] {
         let mut output = [0u8; DIGEST_LEN];
-        LE::write_u32(&mut output[ 0.. 4], self.state[0]);
-        LE::write_u32(&mut output[ 4.. 8], self.state[1]);
-        LE::write_u32(&mut output[ 8..12], self.state[2]);
-        LE::write_u32(&mut output[12..16], self.state[3]);
-        
+        output[ 0.. 4].copy_from_slice(&self.state[0].to_le_bytes());
+        output[ 4.. 8].copy_from_slice(&self.state[1].to_le_bytes());
+        output[ 8..12].copy_from_slice(&self.state[2].to_le_bytes());
+        output[12..16].copy_from_slice(&self.state[3].to_le_bytes());
+
         output
     }
 

@@ -8,8 +8,6 @@
 // 
 use crate::hash::{CryptoHasher, BuildCryptoHasher};
 
-use byteorder::{LE, ByteOrder};
-
 use std::convert::TryFrom;
 
 
@@ -392,11 +390,10 @@ impl Md5 {
 
     pub fn output(self) -> [u8; DIGEST_LEN] {
         let mut output = [0u8; DIGEST_LEN];
-        LE::write_u32(&mut output[ 0.. 4], self.state[0]);
-        LE::write_u32(&mut output[ 4.. 8], self.state[1]);
-        LE::write_u32(&mut output[ 8..12], self.state[2]);
-        LE::write_u32(&mut output[12..16], self.state[3]);
-        
+        output[ 0.. 4].copy_from_slice(&self.state[0].to_le_bytes());
+        output[ 4.. 8].copy_from_slice(&self.state[1].to_le_bytes());
+        output[ 8..12].copy_from_slice(&self.state[2].to_le_bytes());
+        output[12..16].copy_from_slice(&self.state[3].to_le_bytes());
         output
     }
 

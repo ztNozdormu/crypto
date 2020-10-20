@@ -9,7 +9,6 @@
 extern crate test;
 
 extern crate subtle;
-extern crate byteorder;
 
 #[cfg(test)]
 extern crate hex;

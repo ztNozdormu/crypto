@@ -6,8 +6,6 @@
 // ❗️ SHA1算法在2005年后被证实存在弱点，可以被加以破解。
 // ‼️ SHA1算法在2017年被证实无法防止碰撞攻击，因此不适用于安全性认证。
 
-use byteorder::{BE, ByteOrder};
-
 use std::convert::TryFrom;
 
 
@@ -198,11 +196,12 @@ impl Sha1 {
     
     pub fn output(self) -> [u8; DIGEST_LEN] {
         let mut output = [0u8; 20];
-        BE::write_u32(&mut output[ 0.. 4], self.state[0]);
-        BE::write_u32(&mut output[ 4.. 8], self.state[1]);
-        BE::write_u32(&mut output[ 8..12], self.state[2]);
-        BE::write_u32(&mut output[12..16], self.state[3]);
-        BE::write_u32(&mut output[16..20], self.state[4]);
+        
+        output[ 0.. 4].copy_from_slice(&self.state[0].to_be_bytes());
+        output[ 4.. 8].copy_from_slice(&self.state[1].to_be_bytes());
+        output[ 8..12].copy_from_slice(&self.state[2].to_be_bytes());
+        output[12..16].copy_from_slice(&self.state[3].to_be_bytes());
+        output[16..20].copy_from_slice(&self.state[4].to_be_bytes());
 
         output
     }

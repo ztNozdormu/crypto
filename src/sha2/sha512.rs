@@ -3,10 +3,6 @@
 // The SHA-512 Secure Hash Standard was published by NIST in 2002.
 // http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
 // 
-
-
-use byteorder::{BE, ByteOrder};
-
 use std::convert::TryFrom;
 
 
@@ -267,14 +263,15 @@ impl Sha512 {
 
     pub fn output(self) -> [u8; DIGEST_LEN] {
         let mut output = [0u8; DIGEST_LEN];
-        BE::write_u64(&mut output[ 0.. 8], self.state[0]);
-        BE::write_u64(&mut output[ 8..16], self.state[1]);
-        BE::write_u64(&mut output[16..24], self.state[2]);
-        BE::write_u64(&mut output[24..32], self.state[3]);
-        BE::write_u64(&mut output[32..40], self.state[4]);
-        BE::write_u64(&mut output[40..48], self.state[5]);
-        BE::write_u64(&mut output[48..56], self.state[6]);
-        BE::write_u64(&mut output[56..64], self.state[7]);
+
+        output[ 0.. 8].copy_from_slice(&self.state[0].to_be_bytes());
+        output[ 8..16].copy_from_slice(&self.state[1].to_be_bytes());
+        output[16..24].copy_from_slice(&self.state[2].to_be_bytes());
+        output[24..32].copy_from_slice(&self.state[3].to_be_bytes());
+        output[32..40].copy_from_slice(&self.state[4].to_be_bytes());
+        output[40..48].copy_from_slice(&self.state[5].to_be_bytes());
+        output[48..56].copy_from_slice(&self.state[6].to_be_bytes());
+        output[56..64].copy_from_slice(&self.state[7].to_be_bytes());
 
         output
     }
@@ -316,12 +313,13 @@ impl Sha384 {
 
     pub fn output(self) -> [u8; SHA384_DIGEST_LEN] {
         let mut output = [0u8; 48];
-        BE::write_u64(&mut output[ 0.. 8], self.inner.state[0]);
-        BE::write_u64(&mut output[ 8..16], self.inner.state[1]);
-        BE::write_u64(&mut output[16..24], self.inner.state[2]);
-        BE::write_u64(&mut output[24..32], self.inner.state[3]);
-        BE::write_u64(&mut output[32..40], self.inner.state[4]);
-        BE::write_u64(&mut output[40..48], self.inner.state[5]);
+        
+        output[ 0.. 8].copy_from_slice(&self.inner.state[0].to_be_bytes());
+        output[ 8..16].copy_from_slice(&self.inner.state[1].to_be_bytes());
+        output[16..24].copy_from_slice(&self.inner.state[2].to_be_bytes());
+        output[24..32].copy_from_slice(&self.inner.state[3].to_be_bytes());
+        output[32..40].copy_from_slice(&self.inner.state[4].to_be_bytes());
+        output[40..48].copy_from_slice(&self.inner.state[5].to_be_bytes());
 
         output
     }

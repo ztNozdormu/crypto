@@ -3,9 +3,6 @@
 // The SHA-256 Secure Hash Standard was published by NIST in 2002.
 // http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
 // 
-
-use byteorder::{BE, ByteOrder};
-
 use std::convert::TryFrom;
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
@@ -232,14 +229,15 @@ impl Sha256 {
 
     pub fn output(self) -> [u8; DIGEST_LEN] {
         let mut output = [0u8; 32];
-        BE::write_u32(&mut output[ 0.. 4], self.state[0]);
-        BE::write_u32(&mut output[ 4.. 8], self.state[1]);
-        BE::write_u32(&mut output[ 8..12], self.state[2]);
-        BE::write_u32(&mut output[12..16], self.state[3]);
-        BE::write_u32(&mut output[16..20], self.state[4]);
-        BE::write_u32(&mut output[20..24], self.state[5]);
-        BE::write_u32(&mut output[24..28], self.state[6]);
-        BE::write_u32(&mut output[28..32], self.state[7]);
+
+        output[ 0.. 4].copy_from_slice(&self.state[0].to_be_bytes());
+        output[ 4.. 8].copy_from_slice(&self.state[1].to_be_bytes());
+        output[ 8..12].copy_from_slice(&self.state[2].to_be_bytes());
+        output[12..16].copy_from_slice(&self.state[3].to_be_bytes());
+        output[16..20].copy_from_slice(&self.state[4].to_be_bytes());
+        output[20..24].copy_from_slice(&self.state[5].to_be_bytes());
+        output[24..28].copy_from_slice(&self.state[6].to_be_bytes());
+        output[28..32].copy_from_slice(&self.state[7].to_be_bytes());
 
         output
     }
