@@ -1,6 +1,6 @@
 extern crate crypto;
 
-use crypto::aes::Aes128;
+use crypto::blockcipher::Aes128;
 
 
 fn main() {

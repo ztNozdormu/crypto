@@ -1,8 +1,6 @@
 extern crate crypto;
 
-use crypto::poly1305::POLY1305_TAG_LEN;
-use crypto::poly1305::POLY1305_BLOCK_LEN;
-use crypto::chacha20_poly1305::Chacha20Poly1305Ietf;
+use crypto::streamcipher::Chacha20Poly1305;
 
 
 fn main() {
@@ -16,15 +14,18 @@ fn main() {
         0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x4a, 
         0x00, 0x00, 0x00, 0x00, 
     ];
+    let aad = [1u8; Chacha20Poly1305::BLOCK_LEN];
     let plaintext = [1u8; 64];
-    let aad = [1u8; POLY1305_BLOCK_LEN];
-    
-    let mut chacha20_poly1305 = Chacha20Poly1305Ietf::new(&key, &nonce, &aad);
-    let mut tag = [0u8; POLY1305_TAG_LEN];
-    let mut ciphertext = plaintext.clone();
-    chacha20_poly1305.encrypt(&plaintext, &mut ciphertext[..], &mut tag[..]);
+    let plen = plaintext.len();
+
+    let mut chacha20_poly1305 = Chacha20Poly1305::new(&key, &nonce);
+
+    let mut ciphertext_and_tag = plaintext.to_vec();
+    ciphertext_and_tag.resize(plen + Chacha20Poly1305::TAG_LEN, 0);
+
+    chacha20_poly1305.aead_encrypt(&aad, &mut ciphertext_and_tag[..]);
     
     println!("plaintext: {:?}", &plaintext[..]);
-    println!("ciphertext: {:?}", &ciphertext[..]);
-    println!("tag: {:?}", &tag[..]);
+    println!("ciphertext: {:?}", &ciphertext_and_tag[..plen]);
+    println!("tag: {:?}", &ciphertext_and_tag[plen..]);
 }
