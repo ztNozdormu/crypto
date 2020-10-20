@@ -22,14 +22,6 @@
 //      https://github.com/sorpaas/etcommon-rs/blob/master/bigint/src/uint/mod.rs
 // 
 
-use byteorder::{LE, ByteOrder};
-
-
-pub const POLY1305_KEY_LEN: usize   = 32;
-pub const POLY1305_BLOCK_LEN: usize = 16;
-pub const POLY1305_TAG_LEN: usize   = 16; // Mac
-
-
 // 2.5.1.  The Poly1305 Algorithms in Pseudocode
 // https://tools.ietf.org/html/rfc8439#section-2.5.1
 #[derive(Debug, Clone)]
@@ -38,57 +30,52 @@ pub struct Poly1305 {
     h        : [u32; 5],
     pad      : [u32; 4], // s: le_bytes_to_num(key[16..31])
     leftover : usize,
-    buffer   : [u8; POLY1305_BLOCK_LEN],
-    finalized: bool,
-}
-
-impl Default for Poly1305 {
-    fn default() -> Self {
-        Self {
-            r  : [0u32; 5],
-            h  : [0u32; 5],
-            pad: [0u32; 4],
-            leftover: 0usize,
-            buffer: [0u8; 16],
-            finalized: false,
-        }
-    }
+    buffer   : [u8; Poly1305::BLOCK_LEN],
 }
 
 impl Poly1305 {
-    pub fn new(key: &[u8]) -> Poly1305 {
+    pub const KEY_LEN: usize   = 32;
+    pub const BLOCK_LEN: usize = 16;
+    pub const TAG_LEN: usize   = 16;
+
+    pub fn new(key: &[u8]) -> Self {
         // A 256-bit one-time key
-        debug_assert!(key.len() >= POLY1305_KEY_LEN);
-        let mut poly = Poly1305::default();
+        debug_assert!(key.len() >= Self::KEY_LEN);
+
+        let h       = [0u32; 5];
+        let mut r   = [0u32; 5];
+        let mut pad = [0u32; 4];
 
         // r &= 0xffffffc0ffffffc0ffffffc0fffffff
-        poly.r[0] =  LE::read_u32(&key[ 0.. 4])       & 0x3ffffff;
-        poly.r[1] = (LE::read_u32(&key[ 3.. 7]) >> 2) & 0x3ffff03;
-        poly.r[2] = (LE::read_u32(&key[ 6..10]) >> 4) & 0x3ffc0ff;
-        poly.r[3] = (LE::read_u32(&key[ 9..13]) >> 6) & 0x3f03fff;
-        poly.r[4] = (LE::read_u32(&key[12..16]) >> 8) & 0x00fffff;
+        r[0] =  u32::from_le_bytes([key[ 0], key[ 1], key[ 2], key[ 3]])       & 0x3ffffff;
+        r[1] = (u32::from_le_bytes([key[ 3], key[ 4], key[ 5], key[ 6]]) >> 2) & 0x3ffff03;
+        r[2] = (u32::from_le_bytes([key[ 6], key[ 7], key[ 8], key[ 9]]) >> 4) & 0x3ffc0ff;
+        r[3] = (u32::from_le_bytes([key[ 9], key[10], key[11], key[12]]) >> 6) & 0x3f03fff;
+        r[4] = (u32::from_le_bytes([key[12], key[13], key[14], key[15]]) >> 8) & 0x00fffff;
 
         // save pad for later
-        poly.pad[0] = LE::read_u32(&key[16..20]);
-        poly.pad[1] = LE::read_u32(&key[20..24]);
-        poly.pad[2] = LE::read_u32(&key[24..28]);
-        poly.pad[3] = LE::read_u32(&key[28..32]);
+        pad[0] = u32::from_le_bytes([key[16], key[17], key[18], key[19]]);
+        pad[1] = u32::from_le_bytes([key[20], key[21], key[22], key[23]]);
+        pad[2] = u32::from_le_bytes([key[24], key[25], key[26], key[27]]);
+        pad[3] = u32::from_le_bytes([key[28], key[29], key[30], key[31]]);
 
-        poly
+        Self { r, h, pad, leftover: 0, buffer: [0u8; 16] }
     }
 
+    #[inline]
     pub fn r(&self) -> &[u32; 5] {
         &self.r
     }
 
+    #[inline]
     pub fn s(&self) -> &[u32; 4] {
         &self.pad
     }
 
-    pub fn block(&mut self, m: &[u8]) {
-        debug_assert_eq!(m.len(), POLY1305_BLOCK_LEN);
-
-        let hibit : u32 = if self.finalized { 0 } else { 1 << 24 };
+    fn block(&mut self, m: &[u8], is_last: bool) {
+        debug_assert_eq!(m.len(), Self::BLOCK_LEN);
+        
+        let hibit : u32 = if is_last { 0 } else { 1 << 24 };
 
         let r0 = self.r[0];
         let r1 = self.r[1];
@@ -108,11 +95,11 @@ impl Poly1305 {
         let mut h4 = self.h[4];
 
         // h += m
-        h0 += (LE::read_u32(&m[0..4])       ) & 0x3ffffff;
-        h1 += (LE::read_u32(&m[3..7])   >> 2) & 0x3ffffff;
-        h2 += (LE::read_u32(&m[6..10])  >> 4) & 0x3ffffff;
-        h3 += (LE::read_u32(&m[9..13])  >> 6) & 0x3ffffff;
-        h4 += (LE::read_u32(&m[12..16]) >> 8) | hibit;
+        h0 += (u32::from_le_bytes([m[ 0], m[ 1], m[ 2], m[ 3]])     ) & 0x3ffffff;
+        h1 += (u32::from_le_bytes([m[ 3], m[ 4], m[ 5], m[ 6]]) >> 2) & 0x3ffffff;
+        h2 += (u32::from_le_bytes([m[ 6], m[ 7], m[ 8], m[ 9]]) >> 4) & 0x3ffffff;
+        h3 += (u32::from_le_bytes([m[ 9], m[10], m[11], m[12]]) >> 6) & 0x3ffffff;
+        h4 += (u32::from_le_bytes([m[12], m[13], m[14], m[15]]) >> 8) | hibit;
 
         // h *= r
         let     d0 = (h0 as u64 * r0 as u64) 
@@ -158,8 +145,7 @@ impl Poly1305 {
         self.h[4] = h4;
     }
 
-    pub fn input(&mut self, data: &[u8]) {
-        debug_assert!(!self.finalized);
+    pub fn update(&mut self, data: &[u8]) {
         let mut m = data;
 
         if self.leftover > 0 {
@@ -174,15 +160,14 @@ impl Poly1305 {
                 return;
             }
 
-            // self.block(self.buffer[..]);
             let tmp = self.buffer;
-            self.block(&tmp);
+            self.block(&tmp, false);
 
             self.leftover = 0;
         }
 
         while m.len() >= 16 {
-            self.block(&m[0..16]);
+            self.block(&m[0..16], false);
             m = &m[16..];
         }
 
@@ -192,15 +177,14 @@ impl Poly1305 {
         self.leftover = m.len();
     }
 
-    pub fn finish(&mut self) {
+    pub fn finalize(mut self) -> [u8; Self::TAG_LEN] {
         if self.leftover > 0 {
             self.buffer[self.leftover] = 1;
             for i in self.leftover+1..16 {
                 self.buffer[i] = 0;
             }
-            self.finalized = true;
             let tmp = self.buffer;
-            self.block(&tmp);
+            self.block(&tmp, true);
         }
 
         // fully carry h
@@ -256,24 +240,15 @@ impl Poly1305 {
         self.h[1] = h1;
         self.h[2] = h2;
         self.h[3] = h3;
-    }
-
-    pub fn state(&self) -> &[u32; 5] {
-        &self.h
-    }
-
-    pub fn mac(&mut self) -> [u8; POLY1305_TAG_LEN] {
-        if !self.finalized{
-            self.finish();
-        }
 
         // The output is a 128-bit tag.
-        let mut mac = [0u8; POLY1305_TAG_LEN];
-        LE::write_u32(&mut mac[ 0.. 4], self.h[0]);
-        LE::write_u32(&mut mac[ 4.. 8], self.h[1]);
-        LE::write_u32(&mut mac[ 8..12], self.h[2]);
-        LE::write_u32(&mut mac[12..16], self.h[3]);
-        mac
+        let mut tag = [0u8; Self::TAG_LEN];
+        tag[ 0.. 4].copy_from_slice(&self.h[0].to_le_bytes());
+        tag[ 4.. 8].copy_from_slice(&self.h[1].to_le_bytes());
+        tag[ 8..12].copy_from_slice(&self.h[2].to_le_bytes());
+        tag[12..16].copy_from_slice(&self.h[3].to_le_bytes());
+
+        tag
     }
 }
 
@@ -287,25 +262,26 @@ fn bench_poly1305(b: &mut test::Bencher) {
         0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 
         0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
     ];
-    let message = [1u8; POLY1305_BLOCK_LEN];
+    let message = [1u8; Poly1305::BLOCK_LEN];
 
-    let mut poly1305 = Poly1305::new(&key);
+    let poly1305 = Poly1305::new(&key);
     
-    b.bytes = POLY1305_BLOCK_LEN as u64;
+    b.bytes = Poly1305::BLOCK_LEN as u64;
     b.iter(|| {
-        poly1305.input(&message);
-        poly1305.mac()
+        let mut poly1305 = poly1305.clone();
+        poly1305.update(&message);
+        poly1305.finalize()
     })
 }
 
 #[test]
 fn test_poly1305_donna() {
     // https://github.com/floodyberry/poly1305-donna/blob/master/example-poly1305.c
-    let expected: [u8; POLY1305_TAG_LEN] = [
+    let expected: [u8; Poly1305::TAG_LEN] = [
         0xdd, 0xb9, 0xda, 0x7d, 0xdd, 0x5e, 0x52, 0x79, 
         0x27, 0x30, 0xed, 0x5c, 0xda, 0x5f, 0x90, 0xa4
     ];
-    let mut key = [0u8; POLY1305_KEY_LEN];
+    let mut key = [0u8; Poly1305::KEY_LEN];
     let mut msg = [0u8; 73];
     
     for i in 0..key.len() {
@@ -316,9 +292,9 @@ fn test_poly1305_donna() {
     }
 
     let mut poly1305 = Poly1305::new(&key);
-    poly1305.input(&msg);
+    poly1305.update(&msg);
 
-    assert_eq!(poly1305.mac(), expected);
+    assert_eq!(poly1305.finalize(), expected);
 }
 
 #[test]
@@ -338,13 +314,8 @@ fn test_poly1305() {
     ];
 
     let mut poly1305 = Poly1305::new(&key);
-    poly1305.input(message);
-    assert_eq!(&poly1305.mac(), &expected_tag);
-
-    poly1305.mac();
-    poly1305.mac();
-    poly1305.mac();
-    poly1305.mac();
+    poly1305.update(message);
+    assert_eq!(&poly1305.finalize(), &expected_tag);
 }
 
 

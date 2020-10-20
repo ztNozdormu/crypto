@@ -4,7 +4,7 @@
 // Galois/Counter Mode:
 // https://en.wikipedia.org/wiki/Galois/Counter_Mode
 // 
-use crate::aes::{Aes128, Aes256};
+use crate::blockcipher::{Aes128, Aes256};
 
 use subtle;
 

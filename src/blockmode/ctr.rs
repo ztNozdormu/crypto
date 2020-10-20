@@ -1,11 +1,12 @@
-use crate::aes::{Aes128, Aes192, Aes256};
-use crate::camellia::{Camellia128, Camellia192, Camellia256};
-use crate::sm4::Sm4;
-
-
-
 // 6.5 The Counter Mode, (Page-22)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
+use crate::blockcipher::{
+    Sm4,
+    Aes128, Aes192, Aes256,
+    Camellia128, Camellia192, Camellia256,
+};
+
+
 #[derive(Debug, Clone)]
 struct Ctr {
     counter: u64,

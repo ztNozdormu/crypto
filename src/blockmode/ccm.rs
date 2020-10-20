@@ -9,8 +9,7 @@
 // 
 // CBC-MAC
 // Cipher Block Chaining-Message Authentication Code 
-
-use crate::aes::{Aes128, Aes256};
+use crate::blockcipher::{Aes128, Aes256};
 
 use subtle;
 

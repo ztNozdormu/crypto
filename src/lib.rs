@@ -3,6 +3,8 @@
 #![feature(stdsimd)]
 #![allow(unused_macros, unused_variables, dead_code, unused_assignments, unused_imports)]
 
+// #![no_std]
+
 #[cfg(test)]
 extern crate test;
 
@@ -30,23 +32,15 @@ pub mod hmac;
 pub mod hkdf;
 pub mod scrypt; // TODO
 
-pub mod cipher;
+// pub mod cipher;
 
-// Block Cipher
 pub mod blockmode;
-pub mod rc2;
-pub mod aes;
-pub mod sm4;
-pub mod camellia;
+pub mod blockcipher;
 
-// Stream Cipher
-pub mod rc4;
-pub mod chacha20;
-pub mod poly1305;
-pub mod chacha20_poly1305;
+pub mod streamcipher;
 
 // AEAD Cipher
-pub mod aead;
+// pub mod aead;
 
 
 // Elliptic Curve Cryptography（ECC）

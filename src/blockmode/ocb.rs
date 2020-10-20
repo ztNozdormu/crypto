@@ -3,8 +3,9 @@
 // 
 // OCB: A Block-Cipher Mode of Operation for Efficient Authenticated Encryption
 // https://csrc.nist.gov/CSRC/media/Projects/Block-Cipher-Techniques/documents/BCM/proposed-modes/ocb/ocb-spec.pdf
-use crate::aes::{Aes128, Aes192, Aes256};
 use super::dbl;
+use crate::blockcipher::{Aes128, Aes192, Aes256};
+
 
 use subtle;
 

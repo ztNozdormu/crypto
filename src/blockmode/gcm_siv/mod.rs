@@ -3,7 +3,7 @@
 // 
 // AES-GCM-SIV: Specification and Analysis
 // https://eprint.iacr.org/2017/168.pdf
-use crate::aes::{Aes128, Aes256};
+use crate::blockcipher::{Aes128, Aes256};
 
 use subtle;
 

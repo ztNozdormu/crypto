@@ -10,9 +10,8 @@
 // 
 // Block Cipher Techniques
 // https://csrc.nist.gov/projects/block-cipher-techniques/bcm/modes-development
-// 
-use crate::aes::{Aes128, Aes192, Aes256};
 use super::dbl;
+use crate::blockcipher::{Aes128, Aes192, Aes256};
 
 use subtle;
 

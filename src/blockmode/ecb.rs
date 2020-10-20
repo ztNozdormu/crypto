@@ -1,9 +1,3 @@
-use crate::aes::{Aes128, Aes192, Aes256};
-use crate::camellia::{Camellia128, Camellia192, Camellia256};
-use crate::rc2::Rc2FixedSize;
-use crate::sm4::Sm4;
-
-
 // 6.1 The Electronic Codebook Mode, (Page-16)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 // 
@@ -11,6 +5,13 @@ use crate::sm4::Sm4;
 //      ECB 和 CBC 分组模式都无法处理不定长的输入数据，
 //      需要自己手动为不定长数据按照块密码算法的块大小做对齐工作。
 // 
+
+use crate::blockcipher::{
+    Rc2FixedSize, Sm4,
+    Aes128, Aes192, Aes256,
+    Camellia128, Camellia192, Camellia256,
+};
+
 
 macro_rules! impl_block_cipher_with_ecb_mode {
     ($name:tt, $cipher:tt) => {

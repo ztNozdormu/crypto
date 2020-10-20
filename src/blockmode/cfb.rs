@@ -1,6 +1,3 @@
-use crate::aes::{Aes128, Aes192, Aes256};
-use crate::camellia::{Camellia128, Camellia192, Camellia256};
-
 // 6.3 The Cipher Feedback Mode, (Page-18)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
 // 
@@ -26,7 +23,10 @@ use crate::camellia::{Camellia128, Camellia192, Camellia256};
 // 
 // CFB128 和 分组大小为 16 byte 的对称分组密码结合时（如 AES/Camellia/Aria），也可以被当作是一个流密码。
 // 
-// 
+use crate::blockcipher::{
+    Aes128, Aes192, Aes256,
+    Camellia128, Camellia192, Camellia256,
+};
 
 
 #[derive(Debug, Clone, Copy)]
