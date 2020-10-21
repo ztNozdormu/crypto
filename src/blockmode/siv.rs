@@ -334,7 +334,6 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
     let ret = cipher.aead_decrypt(&[&aad], &mut ciphertext_and_tag);
     assert_eq!(ret, true);
     assert_eq!(&ciphertext_and_tag[AesSivCmac256::TAG_LEN..], &plaintext[..]);
-
 }
 
 #[test]
