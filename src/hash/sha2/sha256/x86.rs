@@ -6,6 +6,11 @@ use core::arch::x86::*;
 use core::arch::x86_64::*;
 
 
+// Intel® Architecture Instruction Set Extensions ProgrammingReference
+// 
+// CHAPTER 8 INTEL® SHA EXTENSIONS
+// https://software.intel.com/sites/default/files/managed/07/b7/319433-023.pdf
+
 #[inline]
 pub fn transform(state: &mut [u32; 8], block: &[u8]) {
     // https://docs.rs/sha2ni/0.8.5/src/sha2ni/sha256_intrinsics.rs.html

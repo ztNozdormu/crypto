@@ -28,7 +28,7 @@ pub struct Polyval {
 }
 
 impl Polyval {
-    pub const KEY_LEN: usize    = 16;
+    pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
 
     pub fn new(k: &[u8]) -> Self {
