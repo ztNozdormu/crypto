@@ -73,7 +73,6 @@ pub struct Chacha20 {
     // constants | key | counter | nonce
     initial_state: [u32; 16],
     state: [u32; 16],
-    // block_seq: usize,
     keystream: [u8; Self::BLOCK_LEN],
     // keystream bytes used
     offset: usize,
