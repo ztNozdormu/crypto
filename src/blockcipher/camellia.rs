@@ -1,3 +1,6 @@
+// A Description of the Camellia Encryption Algorithm
+// https://tools.ietf.org/html/rfc3713
+// 
 // Announcement of Royalty-free Licenses for Essential Patents of NTT Encryption and Digital Signature Algorithms
 // https://www.ntt.co.jp/news/news01e/0104/010417.html
 // 
@@ -11,15 +14,10 @@
 // camellia-rb-1.2.tar.gz (Version 1.2, 36 KB)
 // https://info.isl.ntt.co.jp/crypt/eng/camellia/dl/camellia-rb-1.2.tar.gz
 // 
-// 
 // https://info.isl.ntt.co.jp/crypt/eng/camellia/specifications/
 // 
 // Speci cationofCamellia|a128-bitBlockCipher
 // https://info.isl.ntt.co.jp/crypt/eng/camellia/dl/01espec.pdf
-// 
-// A Description of the Camellia Encryption Algorithm
-// https://tools.ietf.org/html/rfc3713
-
 
 const BLOCK_LEN: usize = 16;
 const CAMELLIA_BLOCK_SIZE: usize = 16;
