@@ -5,11 +5,6 @@
 //      硬件加速代码参考:
 //          https://github.com/mjosaarinen/sm4ni
 
-const KEY_LEN: usize   = 16;
-const BLOCK_LEN: usize = 16;
-
-// Rounds
-const NR: usize = 8;
 
 const FK: [u32; 4]  = [ 0xa3b1_bac6, 0x56aa_3350, 0x677d_9197, 0xb270_22dc ];
 const CK: [u32; 32] = [
@@ -74,13 +69,17 @@ fn t_prime_trans(input: u32) -> u32 {
 #[derive(Debug, Clone)]
 pub struct Sm4 {
     // round key
-    rk: [[u32; 4]; NR],
+    rk: [[u32; 4]; Self::NR],
 }
 
 impl Sm4 {
-    pub const KEY_LEN: usize   = KEY_LEN;
-    pub const BLOCK_LEN: usize = BLOCK_LEN;
+    pub const KEY_LEN: usize   = 16;
+    pub const BLOCK_LEN: usize = 16;
     
+    // Rounds
+    const NR: usize = 8;
+
+
     pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
 
@@ -91,8 +90,8 @@ impl Sm4 {
             u32::from_be_bytes([key[12], key[13], key[14], key[15]]) ^ FK[3],
         ];
 
-        let mut rk = [[0u32; 4]; NR];
-        for i in 0..NR {
+        let mut rk = [[0u32; 4]; Self::NR];
+        for i in 0..Self::NR {
             k[0] ^= t_prime_trans(k[1] ^ k[2] ^ k[3] ^ CK[i * 4]);
             k[1] ^= t_prime_trans(k[2] ^ k[3] ^ k[0] ^ CK[i * 4 + 1]);
             k[2] ^= t_prime_trans(k[3] ^ k[0] ^ k[1] ^ CK[i * 4 + 2]);
@@ -103,7 +102,7 @@ impl Sm4 {
         Self { rk }
     }
 
-    pub fn encrypt(&self, block: &[u8]) -> [u8; Self::BLOCK_LEN] {
+    pub fn encrypt(&self, block: &mut [u8]) {
         debug_assert_eq!(block.len(), Self::BLOCK_LEN);
 
         let mut x: [u32; 4] = [
@@ -113,23 +112,20 @@ impl Sm4 {
             u32::from_be_bytes([block[12], block[13], block[14], block[15]]),
         ];
 
-        for i in 0..NR {
+        for i in 0..Self::NR {
             x[0] ^= t_trans(x[1] ^ x[2] ^ x[3] ^ self.rk[i][0] );
             x[1] ^= t_trans(x[2] ^ x[3] ^ x[0] ^ self.rk[i][1]);
             x[2] ^= t_trans(x[3] ^ x[0] ^ x[1] ^ self.rk[i][2]);
             x[3] ^= t_trans(x[0] ^ x[1] ^ x[2] ^ self.rk[i][3]);
         }
 
-        let mut output = [0u8; Self::BLOCK_LEN];
-        output[ 0.. 4].copy_from_slice(&x[3].to_be_bytes());
-        output[ 4.. 8].copy_from_slice(&x[2].to_be_bytes());
-        output[ 8..12].copy_from_slice(&x[1].to_be_bytes());
-        output[12..16].copy_from_slice(&x[0].to_be_bytes());
-
-        output
+        block[ 0.. 4].copy_from_slice(&x[3].to_be_bytes());
+        block[ 4.. 8].copy_from_slice(&x[2].to_be_bytes());
+        block[ 8..12].copy_from_slice(&x[1].to_be_bytes());
+        block[12..16].copy_from_slice(&x[0].to_be_bytes());
     }
 
-    pub fn decrypt(&self, block: &[u8]) -> [u8; Self::BLOCK_LEN] {
+    pub fn decrypt(&self, block: &mut [u8]) {
         debug_assert_eq!(block.len(), Self::BLOCK_LEN);
 
         let mut x: [u32; 4] = [
@@ -139,28 +135,43 @@ impl Sm4 {
             u32::from_be_bytes([block[12], block[13], block[14], block[15]]),
         ];
 
-        for i in 0..NR {
-            x[0] ^= t_trans(x[1] ^ x[2] ^ x[3] ^ self.rk[NR - i - 1][3]);
-            x[1] ^= t_trans(x[2] ^ x[3] ^ x[0] ^ self.rk[NR - i - 1][2]);
-            x[2] ^= t_trans(x[3] ^ x[0] ^ x[1] ^ self.rk[NR - i - 1][1]);
-            x[3] ^= t_trans(x[0] ^ x[1] ^ x[2] ^ self.rk[NR - i - 1][0]);
+        for i in 0..Self::NR {
+            x[0] ^= t_trans(x[1] ^ x[2] ^ x[3] ^ self.rk[Self::NR - i - 1][3]);
+            x[1] ^= t_trans(x[2] ^ x[3] ^ x[0] ^ self.rk[Self::NR - i - 1][2]);
+            x[2] ^= t_trans(x[3] ^ x[0] ^ x[1] ^ self.rk[Self::NR - i - 1][1]);
+            x[3] ^= t_trans(x[0] ^ x[1] ^ x[2] ^ self.rk[Self::NR - i - 1][0]);
         }
         
-        let mut output = [0u8; Self::BLOCK_LEN];
-        output[ 0.. 4].copy_from_slice(&x[3].to_be_bytes());
-        output[ 4.. 8].copy_from_slice(&x[2].to_be_bytes());
-        output[ 8..12].copy_from_slice(&x[1].to_be_bytes());
-        output[12..16].copy_from_slice(&x[0].to_be_bytes());
-        
-        output
+        block[ 0.. 4].copy_from_slice(&x[3].to_be_bytes());
+        block[ 4.. 8].copy_from_slice(&x[2].to_be_bytes());
+        block[ 8..12].copy_from_slice(&x[1].to_be_bytes());
+        block[12..16].copy_from_slice(&x[0].to_be_bytes());
     }
 }
 
 
+#[cfg(test)]
+#[bench]
+fn bench_sm4_enc(b: &mut test::Bencher) {
+    let key = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+
+    let cipher = Sm4::new(&key);
+
+    b.bytes = Sm4::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut ciphertext = test::black_box([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
+            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        ]);
+        cipher.encrypt(&mut ciphertext);
+        ciphertext
+    })
+}
+
 // Tests below
 #[test]
 fn setup_cipher() {
-    let key: [u8; KEY_LEN] = [
+    let key: [u8; Sm4::KEY_LEN] = [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 
     ];
@@ -168,28 +179,29 @@ fn setup_cipher() {
     let cipher = Sm4::new(&key);
     
     assert_eq!(cipher.rk[0][0], 0xf12186f9);
-    assert_eq!(cipher.rk[NR - 1][3], 0x9124a012);
+    assert_eq!(cipher.rk[Sm4::NR - 1][3], 0x9124a012);
 }
 
 #[test]
 fn enc_and_dec() {
-    let key: [u8; KEY_LEN] = [
+    let key: [u8; Sm4::KEY_LEN] = [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 
     ];
-    let plaintext: [u8; BLOCK_LEN] = [
+    let plaintext: [u8; Sm4::BLOCK_LEN] = [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
     ];
 
     let cipher = Sm4::new(&key);
 
-    let ciphertext = cipher.encrypt(&plaintext);
+    let mut ciphertext = plaintext.clone();
+    cipher.encrypt(&mut ciphertext);
     assert_eq!(&ciphertext[..], &[
         0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e,
         0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46,
     ]);
 
-    let cleartext = cipher.decrypt(&ciphertext);
-    assert_eq!(&cleartext[..], &plaintext[..]);
+    cipher.decrypt(&mut ciphertext);
+    assert_eq!(&ciphertext[..], &plaintext[..]);
 }
