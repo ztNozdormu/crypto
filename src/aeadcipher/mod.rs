@@ -326,11 +326,12 @@ fn bench_aes128_ocb_tag_128_enc(b: &mut test::Bencher) {
 #[cfg(test)]
 #[bench]
 fn bench_aes_siv_cmac_256_enc(b: &mut test::Bencher) {
-    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let key = hex::decode("00000000000000000000000000000000\
+00000000000000000000000000000000").unwrap();
     let aad = [0u8; 0];
-    
+
     let cipher = AesSivCmac256::new(&key);
-    
+
     b.bytes = AesSivCmac256::BLOCK_LEN as u64;
     b.iter(|| {
         let mut plaintext_and_ciphertext = [1u8; AesSivCmac256::BLOCK_LEN + AesSivCmac256::TAG_LEN];
