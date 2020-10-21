@@ -162,7 +162,7 @@ fn reverse_mash(ek: &[u16; 64], r: &mut [u16; 4]) {
 }
 
 
-// RC2-KEYLEN128-BLOCKLEN128
+/// RC2, KEY-LEN 128-bits, BLOCK-LEN 128-bits
 #[derive(Clone)]
 pub struct Rc2FixedSize {
     inner: Rc2,
@@ -206,6 +206,8 @@ impl std::fmt::Debug for Rc2FixedSize {
 // A Description of the RC2(r) Encryption Algorithm (RC2 (also known as ARC2))
 // https://tools.ietf.org/html/rfc2268
 // https://en.wikipedia.org/wiki/RC2
+
+/// RC2 (also known as ARC2)
 #[derive(Clone)]
 pub struct Rc2 {
     ek: [u16; 64],

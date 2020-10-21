@@ -67,6 +67,7 @@ fn state_to_keystream(state: &[u32; 16], keystream: &mut [u8; Chacha20::BLOCK_LE
 //    bbbbbbbb  nnnnnnnn  nnnnnnnn  nnnnnnnn
 // 
 // c=constant k=key b=blockcount n=nonce
+/// ChaCha20 for IETF Protocols
 #[derive(Debug, Clone)]
 pub struct Chacha20 {
     // constants | key | counter | nonce
