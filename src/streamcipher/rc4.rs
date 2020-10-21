@@ -91,24 +91,6 @@ impl Rc4 {
 }
 
 
-#[cfg(test)]
-#[bench]
-fn bench_rc4(b: &mut test::Bencher) {
-    let key = hex::decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f").unwrap();
-
-    let mut cipher = Rc4::new(&key);
-
-    b.bytes = 16;
-    b.iter(|| {
-        let mut ciphertext = test::black_box([
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
-            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-        ]);
-        cipher.encrypt(&mut ciphertext);
-        ciphertext
-    })
-}
-
 #[test]
 fn test_rc4() {
     // Test vectors
