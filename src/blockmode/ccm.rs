@@ -54,7 +54,7 @@ macro_rules! impl_block_cipher_with_ccm_mode {
             // (the value L=1 is reserved).
             // ParameterL - 1
             pub const L: u8 = Self::Q - 1;
-            
+
 
             pub fn new(key: &[u8], iv: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
@@ -64,8 +64,7 @@ macro_rules! impl_block_cipher_with_ccm_mode {
 
                 let mut nonce = [0u8; Self::NONCE_LEN];
                 nonce.copy_from_slice(&iv[..Self::NONCE_LEN]);
-                // println!("Nonce: {:?}", hex::encode(&nonce) );
-
+                
                 Self { cipher, nonce, }
             }
             

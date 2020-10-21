@@ -543,8 +543,7 @@ fn test_example_vectors_aesni() {
         let plaintext = hex::decode("00112233445566778899aabbccddeeff").unwrap();
         
         let cipher = Aes192::new(&key);
-        println!("ek: {:?}", &cipher.ek);
-
+        
         let mut ciphertext = plaintext.clone();
         cipher.encrypt(&mut ciphertext);
         assert_eq!(&ciphertext[..],
