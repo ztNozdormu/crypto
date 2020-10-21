@@ -16,6 +16,7 @@ use crate::blockcipher::{
     Rc2FixedSize, Sm4,
     Aes128, Aes192, Aes256,
     Camellia128, Camellia192, Camellia256,
+    Aria128, Aria192, Aria256,
 };
 
 
@@ -93,17 +94,18 @@ macro_rules! impl_block_cipher_with_cbc_mode {
     }
 }
 
+
+impl_block_cipher_with_cbc_mode!(Rc2FixedSizeCbc, Rc2FixedSize);
+impl_block_cipher_with_cbc_mode!(Sm4Cbc, Sm4);
+impl_block_cipher_with_cbc_mode!(Aria128Cbc, Aria128);
+impl_block_cipher_with_cbc_mode!(Aria192Cbc, Aria192);
+impl_block_cipher_with_cbc_mode!(Aria256Cbc, Aria256);
 impl_block_cipher_with_cbc_mode!(Aes128Cbc, Aes128);
 impl_block_cipher_with_cbc_mode!(Aes192Cbc, Aes192);
 impl_block_cipher_with_cbc_mode!(Aes256Cbc, Aes256);
-
 impl_block_cipher_with_cbc_mode!(Camellia128Cbc, Camellia128);
 impl_block_cipher_with_cbc_mode!(Camellia192Cbc, Camellia192);
 impl_block_cipher_with_cbc_mode!(Camellia256Cbc, Camellia256);
-
-impl_block_cipher_with_cbc_mode!(Rc2FixedSizeCbc, Rc2FixedSize);
-
-impl_block_cipher_with_cbc_mode!(Sm4Cbc, Sm4);
 
 
 #[cfg(test)]

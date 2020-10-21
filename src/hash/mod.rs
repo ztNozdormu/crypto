@@ -3,14 +3,17 @@ mod md4;
 mod md5;
 mod sm3;
 mod sha1;
-pub mod sha2;
-
+mod sha2;
+// TODO: 暂未实现
+mod sha3;
 
 pub use self::md2::*;
 pub use self::md4::*;
 pub use self::md5::*;
 pub use self::sm3::*;
 pub use self::sha1::*;
+pub use self::sha2::*;
+pub use self::sha3::*;
 
 
 // NOTE: 等待 std::array::FixedSizeArray 稳定后，即可替换。
@@ -172,18 +175,96 @@ impl_build_crypto_hasher!(Md5);
 impl_build_crypto_hasher!(Sm3);
 impl_build_crypto_hasher!(Sha1);
 
-mod inner {
-    use crate::hash::CryptoHasher;
-    use crate::hash::BuildCryptoHasher;
+// SHA-2
+impl_crypto_hasher!(Sha256);
+impl_crypto_hasher!(Sha384);
+impl_crypto_hasher!(Sha512);
+impl_build_crypto_hasher!(Sha256);
+impl_build_crypto_hasher!(Sha384);
+impl_build_crypto_hasher!(Sha512);
 
-    use super::sha2::{Sha256, Sha384, Sha512};
-    
+// SHA-3
 
-    impl_crypto_hasher!(Sha256);
-    impl_crypto_hasher!(Sha384);
-    impl_crypto_hasher!(Sha512);
 
-    impl_build_crypto_hasher!(Sha256);
-    impl_build_crypto_hasher!(Sha384);
-    impl_build_crypto_hasher!(Sha512);
+
+#[cfg(test)]
+#[bench]
+fn bench_md2(b: &mut test::Bencher) {
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        md2(&data)
+    });
+}
+
+#[cfg(test)]
+#[bench]
+fn bench_md4(b: &mut test::Bencher) {
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        md4(&data)
+    });
+}
+
+#[cfg(test)]
+#[bench]
+fn bench_md5(b: &mut test::Bencher) {
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        md5(&data)
+    });
+}
+
+#[cfg(test)]
+#[bench]
+fn bench_sm3(b: &mut test::Bencher) {
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        sm3(&data)
+    });
+}
+
+#[cfg(test)]
+#[bench]
+fn bench_sha1(b: &mut test::Bencher) {
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        sha1(&data)
+    });
+}
+
+#[cfg(test)]
+#[bench]
+fn bench_sha256(b: &mut test::Bencher) {
+    use self::sha2::sha256;
+
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        sha256(&data)
+    });
+}
+#[cfg(test)]
+#[bench]
+fn bench_sha384(b: &mut test::Bencher) {
+    use self::sha2::sha384;
+
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        sha384(&data)
+    });
+}
+#[cfg(test)]
+#[bench]
+fn bench_sha512(b: &mut test::Bencher) {
+    let data = [1u8; 64];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        sha512(&data)
+    });
 }

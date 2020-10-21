@@ -8,7 +8,7 @@
 
 use crate::hmac::Hmac;
 use crate::hash::{Array, CryptoHasher, BuildCryptoHasher};
-use crate::hash::{Md2, Md4, Md5, Sm3, Sha1, sha2, };
+use crate::hash::{Md2, Md4, Md5, Sm3, Sha1, Sha256, Sha384, Sha512, };
 
 
 pub trait Hkdf: Hmac {
@@ -95,14 +95,12 @@ impl_hkdf!(Md5);
 impl_hkdf!(Sm3);
 impl_hkdf!(Sha1);
 
-mod inner {
-    use crate::hash::sha2::{Sha256, Sha384, Sha512};
-    use super::*;
+// SHA-2
+impl_hkdf!(Sha256);
+impl_hkdf!(Sha384);
+impl_hkdf!(Sha512);
 
-    impl_hkdf!(Sha256);
-    impl_hkdf!(Sha384);
-    impl_hkdf!(Sha512);
-}
+// SHA-3
 
 
 
@@ -127,11 +125,11 @@ fn test_hkdf() {
     assert_eq!(salt.len(), 13);
     assert_eq!(info.len(), 10);
 
-    let prk = sha2::Sha256::hkdf_extract(&salt, &ikm);
+    let prk = Sha256::hkdf_extract(&salt, &ikm);
     assert_eq!(prk.len(), 32);
     assert_eq!(&hex::encode(&prk), "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5");
 
-    let okm = sha2::Sha256::hkdf_expand(&prk, &info, len);
+    let okm = Sha256::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
     assert_eq!(&hex::encode(&okm), "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865");
 
@@ -156,11 +154,11 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff\
 ");
     let len = 82usize;
 
-    let prk = sha2::Sha256::hkdf_extract(&salt, &ikm);
+    let prk = Sha256::hkdf_extract(&salt, &ikm);
     assert_eq!(prk.len(), 32);
     assert_eq!(&hex::encode(&prk), "06a6b88c5853361a06104c9ceb35b45cef760014904671014a193f40c15fc244");
 
-    let okm = sha2::Sha256::hkdf_expand(&prk, &info, len);
+    let okm = Sha256::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
     assert_eq!(&hex::encode(&okm), "b11e398dc80327a1c8e7f78c596a4934\
 4f012eda2d4efad8a050cc4c19afa97c\
@@ -176,11 +174,11 @@ cc30c58179ec3e87c14c01d5c1f3434f\
     let info = [];
     let len = 42usize;
 
-    let prk = sha2::Sha256::hkdf_extract(&salt, &ikm);
+    let prk = Sha256::hkdf_extract(&salt, &ikm);
     assert_eq!(prk.len(), 32);
     assert_eq!(&hex::encode(&prk), "19ef24a32c717b167f33a91d6f648bdf96596776afdb6377ac434c1c293ccb04");
 
-    let okm = sha2::Sha256::hkdf_expand(&prk, &info, len);
+    let okm = Sha256::hkdf_expand(&prk, &info, len);
     assert_eq!(okm.len(), len);
     assert_eq!(&hex::encode(&okm), "8da4e775a563c18f715f802a063c5a31\
 b8a11f5c5ee1879ec3454e5f3c738d2d\

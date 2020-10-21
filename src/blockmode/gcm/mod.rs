@@ -4,7 +4,12 @@
 // Galois/Counter Mode:
 // https://en.wikipedia.org/wiki/Galois/Counter_Mode
 // 
-use crate::blockcipher::{Aes128, Aes256};
+use crate::blockcipher::{
+    Sm4,
+    Aes128, Aes256, 
+    Camellia128, Camellia256,
+    Aria128, Aria256,
+};
 
 use subtle;
 
@@ -300,6 +305,14 @@ impl_block_cipher_with_gcm_mode!(Aes128Gcm12, Aes128, 12); // TAG-LEN=12
 impl_block_cipher_with_gcm_mode!(Aes256Gcm,   Aes256, 16); // TAG-LEN=16
 impl_block_cipher_with_gcm_mode!(Aes256Gcm8,  Aes256,  8); // TAG-LEN= 8
 impl_block_cipher_with_gcm_mode!(Aes256Gcm12, Aes256, 12); // TAG-LEN=12
+
+
+impl_block_cipher_with_gcm_mode!(Sm4Gcm,         Sm4, 16);         // TAG-LEN=16
+impl_block_cipher_with_gcm_mode!(Camellia128Gcm, Camellia128, 16); // TAG-LEN=16
+impl_block_cipher_with_gcm_mode!(Aria128Gcm,     Aria128, 16);     // TAG-LEN=16
+
+impl_block_cipher_with_gcm_mode!(Camellia256Gcm, Camellia256, 16); // TAG-LEN=16
+impl_block_cipher_with_gcm_mode!(Aria256Gcm,     Aria256, 16);     // TAG-LEN=16
 
 
 #[test]

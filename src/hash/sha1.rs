@@ -17,10 +17,12 @@ const K4: u32 = 0xca62c1d6;
 const INITIAL_STATE: [u32; 5] = [ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0 ];
 
 
+/// SHA1
 pub fn sha1<T: AsRef<[u8]>>(data: T) -> [u8; Sha1::DIGEST_LEN] {
     Sha1::oneshot(data)
 }
 
+/// SHA1
 #[derive(Clone)]
 pub struct Sha1 {
     buffer: [u8; 64],
@@ -218,19 +220,6 @@ fn transform(state: &mut [u32; 5], block: &[u8]) {
 }
 
 
-
-
-#[cfg(test)]
-#[bench]
-fn bench_sha1_transform(b: &mut test::Bencher) {
-    let data = [0u8; Sha1::BLOCK_LEN];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = INITIAL_STATE;
-        transform(&mut state, &data[..]);
-        state
-    });
-}
 
 #[test]
 fn test_sha1_one_block_message() {

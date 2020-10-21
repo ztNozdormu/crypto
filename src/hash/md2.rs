@@ -132,18 +132,6 @@ impl Md2 {
 }
 
 
-#[cfg(test)]
-#[bench]
-fn bench_md2_transform(b: &mut test::Bencher) {
-    let data = [0u8; 16];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = [0u8; 64];
-        transform(&mut state, &data);
-        state
-    });
-}
-
 #[test]
 fn test_md2() {
     // A.5 Test suite

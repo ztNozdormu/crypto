@@ -453,16 +453,3 @@ fn test_md5_long_message() {
     let digest = [119, 7, 214, 174, 78, 2, 124, 112, 238, 162, 169, 53, 194, 41, 111, 33];
     assert_eq!(Md5::oneshot(&msg), digest);
 }
-
-
-#[cfg(test)]
-#[bench]
-fn bench_md5_transform(b: &mut test::Bencher) {
-    let data = [0u8; Md5::BLOCK_LEN];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = INITIAL_STATE;
-        transform(&mut state, &data[..]);
-        state
-    });
-}

@@ -219,17 +219,6 @@ fn transform(state: &mut [u32; 4], block: &[u8]) {
 }
 
 
-#[cfg(test)]
-#[bench]
-fn bench_md4_transform(b: &mut test::Bencher) {
-    let data = [0u8; 64];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = INITIAL_STATE;
-        transform(&mut state, &data[..]);
-        state
-    });
-}
 
 #[test]
 fn test_md4() {

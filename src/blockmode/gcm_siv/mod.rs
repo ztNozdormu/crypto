@@ -3,7 +3,12 @@
 // 
 // AES-GCM-SIV: Specification and Analysis
 // https://eprint.iacr.org/2017/168.pdf
-use crate::blockcipher::{Aes128, Aes256};
+use crate::blockcipher::{
+    Sm4,
+    Aes128, Aes256, 
+    Camellia128, Camellia256,
+    Aria128, Aria256,
+};
 
 use subtle;
 
@@ -252,6 +257,12 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
 
 impl_block_cipher_with_gcm_siv_mode!(Aes128GcmSiv, Aes128);
 impl_block_cipher_with_gcm_siv_mode!(Aes256GcmSiv, Aes256);
+
+impl_block_cipher_with_gcm_siv_mode!(Sm4GcmSiv, Sm4);
+impl_block_cipher_with_gcm_siv_mode!(Camellia128GcmSiv, Camellia128);
+impl_block_cipher_with_gcm_siv_mode!(Camellia256GcmSiv, Camellia256);
+impl_block_cipher_with_gcm_siv_mode!(Aria128GcmSiv, Aria128);
+impl_block_cipher_with_gcm_siv_mode!(Aria256GcmSiv, Aria256);
 
 
 #[test]

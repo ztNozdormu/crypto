@@ -5,7 +5,7 @@
 // https://github.com/python/cpython/blob/3.8/Lib/hmac.py
 // https://en.wikipedia.org/wiki/HMAC#Implementation
 use crate::hash::{Array, CryptoHasher, BuildCryptoHasher};
-use crate::hash::{Md2, Md4, Md5, Sm3, Sha1, sha2, };
+use crate::hash::{Md2, Md4, Md5, Sm3, Sha1, Sha256, Sha384, Sha512, };
 
 
 const IPAD: u8 = 0x36;
@@ -77,14 +77,12 @@ impl_hmac!(Md5);
 impl_hmac!(Sm3);
 impl_hmac!(Sha1);
 
-mod inner {
-    use crate::hash::sha2::{Sha256, Sha384, Sha512};
-    use super::*;
+// SHA-2
+impl_hmac!(Sha256);
+impl_hmac!(Sha384);
+impl_hmac!(Sha512);
 
-    impl_hmac!(Sha256);
-    impl_hmac!(Sha384);
-    impl_hmac!(Sha512);
-}
+// SHA-3
 
 
 // TODO: hmac-drbg
@@ -127,7 +125,7 @@ fn test_hmac_sha2_256() {
     let data = b"The quick brown fox jumps over the lazy dog";
     let result = "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8";
 
-    assert_eq!(&hex::encode(&sha2::Sha256::hmac(key, data)), result);
+    assert_eq!(&hex::encode(&Sha256::hmac(key, data)), result);
 }
 #[test]
 fn test_hmac_sha2_384() {
@@ -135,7 +133,7 @@ fn test_hmac_sha2_384() {
     let data = b"The quick brown fox jumps over the lazy dog";
     let result = "d7f4727e2c0b39ae0f1e40cc96f60242d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237";
 
-    assert_eq!(&hex::encode(&sha2::Sha384::hmac(key, data)), result);
+    assert_eq!(&hex::encode(&Sha384::hmac(key, data)), result);
 }
 #[test]
 fn test_hmac_sha2_512() {
@@ -143,5 +141,5 @@ fn test_hmac_sha2_512() {
     let data = b"The quick brown fox jumps over the lazy dog";
     let result = "b42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a";
 
-    assert_eq!(&hex::encode(&sha2::Sha512::hmac(key, data)), result);
+    assert_eq!(&hex::encode(&Sha512::hmac(key, data)), result);
 }

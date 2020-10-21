@@ -9,7 +9,12 @@
 // 
 // CBC-MAC
 // Cipher Block Chaining-Message Authentication Code 
-use crate::blockcipher::{Aes128, Aes256};
+use crate::blockcipher::{
+    Sm4,
+    Aes128, Aes256, 
+    Camellia128, Camellia256,
+    Aria128, Aria256,
+};
 
 use subtle;
 
@@ -367,7 +372,11 @@ impl_block_cipher_with_ccm_mode!(Aes256CcmShort12, Aes256, 11, 12, 3); // NONCE-
 impl_block_cipher_with_ccm_mode!(Aes256Ccm8, Aes256, 12, 8, 3);        // NONCE-LEN=12, TAG-LEN= 8, Q=3
 
 
-
+impl_block_cipher_with_ccm_mode!(Sm4Ccm, Sm4, 12, 16, 3);                 // NONCE-LEN=12, TAG-LEN=16, Q=3
+impl_block_cipher_with_ccm_mode!(Camellia128Ccm, Camellia128, 12, 16, 3); // NONCE-LEN=12, TAG-LEN=16, Q=3
+impl_block_cipher_with_ccm_mode!(Aria128Ccm, Aria128, 12, 16, 3);         // NONCE-LEN=12, TAG-LEN=16, Q=3
+impl_block_cipher_with_ccm_mode!(Camellia256Ccm, Camellia256, 12, 16, 3); // NONCE-LEN=12, TAG-LEN=16, Q=3
+impl_block_cipher_with_ccm_mode!(Aria256Ccm, Aria256, 12, 16, 3);         // NONCE-LEN=12, TAG-LEN=16, Q=3
 
 
 #[cfg(test)]

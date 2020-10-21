@@ -46,19 +46,23 @@ AArch64:
 *   ❌ BLAKE3
 *   ❌ RIPEMD
 *   ❌ Whirlpool
-*   ❌ GOST
+*   🚧 GOST
 
 分组对称加密算法
 --------------------------
+*   ❌ DES
+*   ❌ 3DES
 *   ✅ RC2 (又称：ARC2)
 *   🚧 RC5
 *   ❌ RC6
 *   ✅ AES
 *   ✅ SM4
 *   ✅ Camellia
-*   ✅ ARIA (Korean Standard Block Cipher Algorithm)
-*   🚧 Blowfish
-
+*   ✅ ARIA
+*   🚧 GOST（Magma、Kuznyechik）
+*   ❌ Blowfish
+*   ❌ Twofish
+*   ❌ Threefish
 
 序列对称加密算法（流密码）
 --------------------------
@@ -76,13 +80,25 @@ AArch64:
 
 认证加密算法（AE）
 --------------------------
-*   ✅ Chacha20Poly1305Ietf
+*   ✅ Chacha20Poly1305（IETF发布的版本）
 *   🚧 Chacha20Poly1305OpenSSH
 *   ✅ AES-CCM
 *   ✅ AES-OCB
-*   ✅ AES-SIV (AesSivCmac256、AesSivCmac384、AesSivCmac512)
 *   ✅ AES-GCM
 *   ✅ AES-GCM-SIV
+*   ✅ AES-SIV (AesSivCmac256、AesSivCmac384、AesSivCmac512)
+
+*   ✅ CAMELLIA-CCM
+*   ✅ CAMELLIA-GCM
+*   ✅ CAMELLIA-GCM-SIV
+
+*   ✅ ARIA-CCM
+*   ✅ ARIA-GCM
+*   ✅ ARIA-GCM-SIV
+
+*   ✅ SM4-CCM
+*   ✅ SM4-GCM
+*   ✅ SM4-GCM-SIV
 
 
 非认证加密算法
@@ -97,7 +113,6 @@ AArch64:
 *   ✅ AES-OFB
 *   ✅ AES-CTR
 
-*   ✅ CAMELLIA-ECB
 *   ✅ CAMELLIA-CBC
 *   ✅ CAMELLIA-CFB1
 *   ✅ CAMELLIA-CFB8
@@ -106,6 +121,7 @@ AArch64:
 *   ✅ CAMELLIA-OFB
 *   ✅ CAMELLIA-CTR
 
+*   ✅ ARIA-CBC
 *   ✅ ARIA-CFB1
 *   ✅ ARIA-CFB8
 *   ✅ ARIA-CFB64
@@ -113,6 +129,7 @@ AArch64:
 *   ✅ ARIA-OFB
 *   ✅ ARIA-CTR
 
+*   ✅ SM4-CBC
 *   ✅ SM4-CFB1
 *   ✅ SM4-CFB8
 *   ✅ SM4-CFB64

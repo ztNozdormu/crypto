@@ -2,8 +2,15 @@
 // 
 // The SHA-512 Secure Hash Standard was published by NIST in 2002.
 // http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
-// 
 use std::convert::TryFrom;
+
+
+// NOTE:
+//      1. AArch64 架构在 ARMv8.4-A 版本里面增加了对 SHA2-512 的支持。
+//      2. X86/X86_64 架构的 SHA-NI 目前并不包含 SHA2-512。 
+mod generic;
+#[cfg(target_arch = "aarch64")]
+mod aarch64;
 
 
 // Round constants
@@ -44,16 +51,93 @@ const SHA384_INITIAL_STATE: [u64; 8] = [
 ];
 
 
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn transform(state: &mut [u64; 8], block: &[u8]) {
+    // NOTE: 等待 Rust 的 `std_detect` 库支持 AArch64 v8.4-A。
+    // https://github.com/rust-lang/stdarch/blob/master/crates/std_detect/src/detect/arch/aarch64.rs#L13
+    
+    generic::transform(state, block)
 
-pub fn sha512<T: AsRef<[u8]>>(data: T) -> [u8; Sha512::DIGEST_LEN] {
-    Sha512::oneshot(data)
+    // if is_aarch64_feature_detected!("sha512") {
+    //     aarch64::transform(state, block)
+    // } else {
+    //     generic::transform(state, block)
+    // }
 }
 
+#[cfg(not(target_arch = "aarch64"))]
+#[inline]
+fn transform(state: &mut [u64; 8], block: &[u8]) {
+    generic::transform(state, block)
+}
+
+
+/// SHA2-384
 pub fn sha384<T: AsRef<[u8]>>(data: T) -> [u8; Sha384::DIGEST_LEN] {
     Sha384::oneshot(data)
 }
 
+/// SHA2-512
+pub fn sha512<T: AsRef<[u8]>>(data: T) -> [u8; Sha512::DIGEST_LEN] {
+    Sha512::oneshot(data)
+}
 
+
+/// SHA2-384
+#[derive(Clone)]
+pub struct Sha384 {
+    inner: Sha512,
+}
+
+impl Sha384 {
+    pub const BLOCK_LEN: usize  = 128;
+    pub const DIGEST_LEN: usize =  48;
+
+    pub fn new() -> Self {
+        let inner = Sha512 {
+            buffer: [0u8; 128],
+            state: SHA384_INITIAL_STATE,
+            len: 0,
+        };
+        Self { inner }
+    }
+    
+    pub fn update(&mut self, data: &[u8]) {
+        self.inner.update(data)
+    }
+
+    pub fn state(&self) -> &[u64; 8] {
+        &self.inner.state
+    }
+
+    pub fn finalize(&mut self) {
+        self.inner.finalize();
+    }
+
+    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
+        let mut output = [0u8; Self::DIGEST_LEN];
+        
+        output[ 0.. 8].copy_from_slice(&self.inner.state[0].to_be_bytes());
+        output[ 8..16].copy_from_slice(&self.inner.state[1].to_be_bytes());
+        output[16..24].copy_from_slice(&self.inner.state[2].to_be_bytes());
+        output[24..32].copy_from_slice(&self.inner.state[3].to_be_bytes());
+        output[32..40].copy_from_slice(&self.inner.state[4].to_be_bytes());
+        output[40..48].copy_from_slice(&self.inner.state[5].to_be_bytes());
+
+        output
+    }
+
+    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
+        let mut m = Self::new();
+        m.update(data.as_ref());
+        m.finalize();
+        m.output()
+    }
+}
+
+
+/// SHA2-512
 #[derive(Clone)]
 pub struct Sha512 {
     buffer: [u8; 128],
@@ -173,190 +257,6 @@ impl Sha512 {
     }
 }
 
-#[derive(Clone)]
-pub struct Sha384 {
-    inner: Sha512,
-}
-
-impl Sha384 {
-    pub const BLOCK_LEN: usize  = 128;
-    pub const DIGEST_LEN: usize =  48;
-
-    pub fn new() -> Self {
-        let inner = Sha512 {
-            buffer: [0u8; 128],
-            state: SHA384_INITIAL_STATE,
-            len: 0,
-        };
-        Self { inner }
-    }
-    
-    pub fn update(&mut self, data: &[u8]) {
-        self.inner.update(data)
-    }
-
-    pub fn state(&self) -> &[u64; 8] {
-        &self.inner.state
-    }
-
-    pub fn finalize(&mut self) {
-        self.inner.finalize();
-    }
-
-    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
-        let mut output = [0u8; Self::DIGEST_LEN];
-        
-        output[ 0.. 8].copy_from_slice(&self.inner.state[0].to_be_bytes());
-        output[ 8..16].copy_from_slice(&self.inner.state[1].to_be_bytes());
-        output[16..24].copy_from_slice(&self.inner.state[2].to_be_bytes());
-        output[24..32].copy_from_slice(&self.inner.state[3].to_be_bytes());
-        output[32..40].copy_from_slice(&self.inner.state[4].to_be_bytes());
-        output[40..48].copy_from_slice(&self.inner.state[5].to_be_bytes());
-
-        output
-    }
-
-    pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
-        let mut m = Self::new();
-        m.update(data.as_ref());
-        m.finalize();
-        m.output()
-    }
-}
-
-
-
-macro_rules! S0 {
-    ($v:expr) => (
-        $v.rotate_right(1) ^ $v.rotate_right(8) ^ ($v >> 7)
-    )
-}
-macro_rules! S1 {
-    ($v:expr) => (
-        $v.rotate_right(19) ^ $v.rotate_right(61) ^ ($v >> 6)
-    )
-}
-macro_rules! S2 {
-    ($v:expr) => (
-        $v.rotate_right(28) ^ $v.rotate_right(34) ^ $v.rotate_right(39)
-    )
-}
-macro_rules! S3 {
-    ($v:expr) => (
-        $v.rotate_right(14) ^ $v.rotate_right(18) ^ $v.rotate_right(41)
-    )
-}
-
-macro_rules! F0 {
-    ($x:expr, $y:expr, $z:expr) => (
-        ( ($x) & ($y) ) | ( ($z) & ( ($x) | ($y) ) )
-    )
-}
-macro_rules! F1 {
-    ($x:expr, $y:expr, $z:expr) => (
-        ( ($z) ^ ( ($x) & ( ($y) ^ ($z) ) ) )
-    )
-}
-
-macro_rules! CH {
-    ($x:expr, $y:expr, $z:expr) => (
-        ( ($x) & ($y) ) ^ ( !($x) & ($z) )
-    )
-}
-macro_rules! MAJ {
-    ($x:expr, $y:expr, $z:expr) => (
-        ( ($x) & ($y) ) ^ ( ($x) & ($z) ) ^ ( ($y) & ($z) )
-    )
-}
-macro_rules! EP0 {
-    ($v:expr) => (
-        $v.rotate_right(28) ^ $v.rotate_right(34) ^ $v.rotate_right(39)
-    )
-}
-macro_rules! EP1 {
-    ($v:expr) => (
-        $v.rotate_right(14) ^ $v.rotate_right(18) ^ $v.rotate_right(41)
-    )
-}
-macro_rules! SIG0 {
-    ($v:expr) => (
-        $v.rotate_right(1) ^ $v.rotate_right(8) ^ ($v >> 7)
-    )
-}
-macro_rules! SIG1 {
-    ($v:expr) => (
-        $v.rotate_right(19) ^ $v.rotate_right(61) ^ ($v >> 6)
-    )
-}
-
-#[inline]
-fn transform(state: &mut [u64; 8], block: &[u8]) {
-    debug_assert_eq!(state.len(), 8);
-    debug_assert_eq!(block.len(), Sha512::BLOCK_LEN);
-    
-    let mut w = [0u64; 80];
-    for i in 0..16 {
-        w[i] = u64::from_be_bytes([
-            block[i*8 + 0], block[i*8 + 1],
-            block[i*8 + 2], block[i*8 + 3],
-            block[i*8 + 4], block[i*8 + 5],
-            block[i*8 + 6], block[i*8 + 7],
-        ]);
-    }
-
-    for i in 16..80 {
-        w[i] = S1!(w[i -  2])
-                .wrapping_add(w[i -  7])
-                .wrapping_add(S0!(w[i - 15]))
-                .wrapping_add(w[i - 16]);
-    }
-
-    let mut a = state[0];
-    let mut b = state[1];
-    let mut c = state[2];
-    let mut d = state[3];
-    let mut e = state[4];
-    let mut f = state[5];
-    let mut g = state[6];
-    let mut h = state[7];
-    
-    for i in 0..80 {
-        let t1 = h.wrapping_add(EP1!(e))
-                .wrapping_add(CH!(e, f, g))
-                .wrapping_add(K64[i])
-                .wrapping_add(w[i]);
-        let t2 = EP0!(a).wrapping_add(MAJ!(a, b, c));
-        h = g;
-        g = f;
-        f = e;
-        e = d.wrapping_add(t1);
-        d = c;
-        c = b;
-        b = a;
-        a = t1.wrapping_add(t2);
-    }
-
-    state[0] = state[0].wrapping_add(a);
-    state[1] = state[1].wrapping_add(b);
-    state[2] = state[2].wrapping_add(c);
-    state[3] = state[3].wrapping_add(d);
-    state[4] = state[4].wrapping_add(e);
-    state[5] = state[5].wrapping_add(f);
-    state[6] = state[6].wrapping_add(g);
-    state[7] = state[7].wrapping_add(h);
-}
-
-#[cfg(test)]
-#[bench]
-fn bench_sha512_transform(b: &mut test::Bencher) {
-    let data = [0u8; 128];
-    b.bytes = data.len() as u64;
-    b.iter(|| {
-        let mut state = SHA512_INITIAL_STATE;
-        transform(&mut state, &data[..]);
-        state
-    });
-}
 
 #[test]
 fn test_sha512_one_block_message() {

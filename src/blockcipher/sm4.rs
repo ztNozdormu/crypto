@@ -1,10 +1,14 @@
-// 代码参考:
-// https://github.com/citahub/libsm/blob/master/src/sm4/cipher.rs
+// GM/T 0002-2012 SM4分组密码算法标准（中文版本）
+// https://github.com/guanzhi/GM-Standards/blob/master/GMT%E6%AD%A3%E5%BC%8F%E6%A0%87%E5%87%86/GMT%200002-2012%20SM4%E5%88%86%E7%BB%84%E5%AF%86%E7%A0%81%E7%AE%97%E6%B3%95.pdf
 // 
-// TODO:
-//      硬件加速代码参考:
-//          https://github.com/mjosaarinen/sm4ni
-
+// GM/T 0002-2012 SM4 Block Cipher Algorithm （English Version）
+// http://www.gmbz.org.cn/upload/2018-04-04/1522788048733065051.pdf
+// http://sca.hainan.gov.cn/xxgk/bzhgf/201804/W020180409400793061524.pdf
+// 
+// NOTE: 
+//      1. 硬件加速方面的思路和代码可以参考项目: https://github.com/mjosaarinen/sm4ni
+//      2. 代码参考自 https://github.com/citahub/libsm/blob/master/src/sm4/cipher.rs
+// 
 
 const FK: [u32; 4]  = [ 0xa3b1_bac6, 0x56aa_3350, 0x677d_9197, 0xb270_22dc ];
 const CK: [u32; 32] = [
@@ -66,6 +70,7 @@ fn t_prime_trans(input: u32) -> u32 {
 }
 
 
+/// GM/T 0002-2012 SM4分组密码算法
 #[derive(Debug, Clone)]
 pub struct Sm4 {
     // round key
@@ -152,7 +157,7 @@ impl Sm4 {
 
 // Tests below
 #[test]
-fn setup_cipher() {
+fn test_sm4_setup_cipher() {
     let key: [u8; Sm4::KEY_LEN] = [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 
@@ -165,7 +170,7 @@ fn setup_cipher() {
 }
 
 #[test]
-fn enc_and_dec() {
+fn test_sm4_enc_and_dec() {
     let key: [u8; Sm4::KEY_LEN] = [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 

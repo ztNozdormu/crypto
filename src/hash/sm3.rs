@@ -1,5 +1,9 @@
-// 代码参考:
-// https://github.com/citahub/libsm/blob/master/src/sm3/hash.rs
+// GM/T 0004-2012 SM3密码杂凑算法标准 （中文版本）
+// https://sca.gov.cn/sca/xwdt/2010-12/17/1002389/files/302a3ada057c4a73830536d03e683110.pdf
+// 
+// GM/T 0004-2012 SM3 Cryptographic Hash Algorithm （English Version）
+// http://www.gmbz.org.cn/upload/2018-07-24/1532401392982079739.pdf
+
 
 const INITIAL_STATE: [u32; 8] = [
     0x7380_166f, 0x4914_b2b9, 0x1724_42d7, 0xda8a_0600, 
@@ -7,11 +11,12 @@ const INITIAL_STATE: [u32; 8] = [
 ];
 
 
+/// GM/T 0004-2012 SM3密码杂凑算法标准
 pub fn sm3<T: AsRef<[u8]>>(data: T) -> [u8; Sm3::DIGEST_LEN] {
     Sm3::oneshot(data)
 }
 
-
+/// GM/T 0004-2012 SM3密码杂凑算法标准
 #[derive(Debug, Clone)]
 pub struct Sm3 {
     buffer: [u8; Self::BLOCK_LEN],
@@ -228,15 +233,10 @@ fn transform(state: &mut [u32; 8], block: &[u8; Sm3::BLOCK_LEN]) {
 }
 
 
-// Sample 1
-// Input:"abc"
-// Output:66c7f0f4 62eeedd9 d1f2d46b dc10e4e2 4167c487 5cf2f7a2 297da02b 8f4ba8e0
-
-// Sample 2
-// Input:"abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd"
-// Outpuf:debe9ff9 2275b8a1 38604889 c18e5a4d 6fdb70e5 387e5765 293dcba3 9c0c5732
 #[test]
-fn lets_hash_1() {
+fn test_sm3() {
+    // A.1 示例1
+    // https://sca.gov.cn/sca/xwdt/2010-12/17/1002389/files/302a3ada057c4a73830536d03e683110.pdf
     let digest = sm3(b"abc");
     
     assert_eq!(&digest[..], &[
@@ -245,14 +245,9 @@ fn lets_hash_1() {
         0x41, 0x67, 0xc4, 0x87, 0x5c, 0xf2, 0xf7, 0xa2, 
         0x29, 0x7d, 0xa0, 0x2b, 0x8f, 0x4b, 0xa8, 0xe0, 
     ]);
-}
 
-#[test]
-fn lets_hash_2() {
-    // let mut sm3 = Sm3::new(b"abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
-    // let digest = sm3.get_hash();
+    // A.1 示例2
     let digest = sm3(b"abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
-
     assert_eq!(&digest[..], &[
         0xde, 0xbe, 0x9f, 0xf9, 0x22, 0x75, 0xb8, 0xa1, 
         0x38, 0x60, 0x48, 0x89, 0xc1, 0x8e, 0x5a, 0x4d, 
