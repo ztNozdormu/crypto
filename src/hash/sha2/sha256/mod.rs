@@ -38,6 +38,8 @@ pub fn sha256<T: AsRef<[u8]>>(data: T) -> [u8; Sha256::DIGEST_LEN] {
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline]
 fn transform(state: &mut [u32; 8], block: &[u8]) {
+    // NOTE: 这种采用 Runtime 判断环境的方式，对性能有非常大的损失。
+    //       后面需要重新考虑怎么编译最合适。
     if is_x86_feature_detected!("sha") {
         x86::transform(state, block)
     } else {
