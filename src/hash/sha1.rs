@@ -11,6 +11,11 @@ use std::convert::TryFrom;
 // NOTE: 虽然在 X86 和 AArch64 架构上，有很多款芯片都支持对 SHA1 加速，
 //       但是考虑到 SHA1 已经被证实存在弱点，所以这里不再对 SHA1 的代码
 //       做任何性能方面的改进，以减轻代码维护工作。
+// 
+// 如果你需要更好的性能，建议参考 `noloader/SHA-Intrinsics` 的代码自行实现：
+//      https://github.com/noloader/SHA-Intrinsics/blob/master/sha1-arm.c
+//      https://github.com/noloader/SHA-Intrinsics/blob/master/sha1-x86.c
+// 
 const K1: u32 = 0x5a827999;
 const K2: u32 = 0x6ed9eba1;
 const K3: u32 = 0x8f1bbcdc;
