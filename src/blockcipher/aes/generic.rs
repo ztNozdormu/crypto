@@ -620,44 +620,6 @@ pub fn decrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
 }
 
 
-
-// =============================== Bench ==================================
-#[cfg(test)]
-#[bench]
-fn bench_aes128_enc(b: &mut test::Bencher) {
-    let key = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-
-    let cipher = Aes128::new(&key);
-
-    b.bytes = Aes128::BLOCK_LEN as u64;
-    b.iter(|| {
-        let mut ciphertext = test::black_box([
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
-            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-        ]);
-        cipher.encrypt(&mut ciphertext);
-        ciphertext
-    })
-}
-#[cfg(test)]
-#[bench]
-fn bench_aes128_dec(b: &mut test::Bencher) {
-    let key = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-    
-    let cipher = Aes128::new(&key);
-    
-    b.bytes = Aes128::BLOCK_LEN as u64;
-    b.iter(|| {
-        let mut cleartext = test::black_box([
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
-            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-        ]);
-        cipher.decrypt(&mut cleartext);
-        cleartext
-    })
-}
-
-
 // =============================== Test Key Expansion ================================
 #[test]
 fn test_key_expansion_128() {

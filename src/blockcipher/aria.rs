@@ -578,25 +578,6 @@ impl Aria256 {
 }
 
 
-#[cfg(test)]
-#[bench]
-fn bench_aria128_enc(b: &mut test::Bencher) {
-    let key = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-
-    let cipher = Aria128::new(&key);
-
-    b.bytes = Aria128::BLOCK_LEN as u64;
-    b.iter(|| {
-        let mut ciphertext = test::black_box([
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
-            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-        ]);
-        cipher.encrypt(&mut ciphertext);
-        ciphertext
-    })
-}
-
-
 #[test]
 fn test_aria128() {
     // A.1.  128-Bit Key

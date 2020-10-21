@@ -150,24 +150,6 @@ impl Sm4 {
 }
 
 
-#[cfg(test)]
-#[bench]
-fn bench_sm4_enc(b: &mut test::Bencher) {
-    let key = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-
-    let cipher = Sm4::new(&key);
-
-    b.bytes = Sm4::BLOCK_LEN as u64;
-    b.iter(|| {
-        let mut ciphertext = test::black_box([
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
-            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-        ]);
-        cipher.encrypt(&mut ciphertext);
-        ciphertext
-    })
-}
-
 // Tests below
 #[test]
 fn setup_cipher() {
