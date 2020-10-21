@@ -83,7 +83,7 @@ impl_block_cipher_with_ofb_mode!(Aria256Ofb, Aria256);
 
 #[cfg(test)]
 #[bench]
-fn bench_aes128_ofb(b: &mut test::Bencher) {
+fn bench_aes128_ofb_enc(b: &mut test::Bencher) {
     let key = hex::decode("00000000000000000000000000000000").unwrap();
     let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
     

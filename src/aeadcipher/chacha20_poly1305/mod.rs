@@ -159,6 +159,27 @@ impl Chacha20Poly1305 {
 // }
 
 
+#[cfg(test)]
+#[bench]
+fn bench_chacha20_poly1305_enc(b: &mut test::Bencher) {
+    let key   = [1u8; Chacha20Poly1305::KEY_LEN];
+    let nonce = [2u8; Chacha20Poly1305::NONCE_LEN];
+    let aad   = [3u8; Chacha20Poly1305::BLOCK_LEN];
+
+    let mut cipher = Chacha20Poly1305::new(&key, &nonce);
+
+    b.bytes = Chacha20Poly1305::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut ciphertext = test::black_box([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
+            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        ]);
+        cipher.aead_encrypt(&aad, &mut ciphertext);
+        ciphertext
+    })
+}
+
+
 #[test]
 fn test_poly1305_key_generation() {
     // 2.6.2.  Poly1305 Key Generation Test Vector

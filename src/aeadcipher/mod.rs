@@ -256,3 +256,85 @@ impl_aead_cipher!(Aes256OcbTag128, AEAD_AES_256_OCB_TAGLEN128);
 
 // Chacha20Poly1305
 impl_aead_cipher!(Chacha20Poly1305,  AEAD_CHACHA20_POLY1305);
+
+
+
+#[cfg(test)]
+#[bench]
+fn bench_aes128_gcm_enc(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let iv = hex::decode("000000000000000000000000").unwrap();
+    let aad = [0u8; 0];
+
+    let mut cipher = Aes128Gcm::new(&key, &iv);
+
+    b.bytes = Aes128Gcm::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut plaintext_and_ciphertext = [1u8; Aes128Gcm::BLOCK_LEN + Aes128Gcm::TAG_LEN];
+        cipher.aead_encrypt(&aad, &mut plaintext_and_ciphertext);
+        plaintext_and_ciphertext
+    })
+}
+#[cfg(test)]
+#[bench]
+fn bench_aes128_gcm_siv_enc(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let iv = hex::decode("000000000000000000000000").unwrap();
+    let aad = [0u8; 0];
+
+    let mut cipher = Aes128GcmSiv::new(&key, &iv);
+
+    b.bytes = Aes128GcmSiv::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut plaintext_and_ciphertext = [1u8; 64 + Aes128GcmSiv::TAG_LEN];
+        cipher.aead_encrypt(&aad, &mut plaintext_and_ciphertext);
+        plaintext_and_ciphertext
+    })
+}
+#[cfg(test)]
+#[bench]
+fn bench_aes128_ccm_enc(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let iv = hex::decode("000000000000000000000000").unwrap();
+    let aad = [0u8; 0];
+
+    let mut cipher = Aes128Ccm::new(&key, &iv);
+
+    b.bytes = Aes128Ccm::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut plaintext_and_ciphertext = [1u8; 64 + Aes128Ccm::TAG_LEN];
+        cipher.aead_encrypt(&aad, &mut plaintext_and_ciphertext);
+        plaintext_and_ciphertext
+    })
+}
+#[cfg(test)]
+#[bench]
+fn bench_aes128_ocb_tag_128_enc(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let iv = hex::decode("000000000000000000000000").unwrap();
+    let aad = [0u8; 0];
+
+    let mut cipher = Aes128OcbTag128::new(&key, &iv);
+
+    b.bytes = Aes128OcbTag128::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut plaintext_and_ciphertext = [1u8; 64 + Aes128OcbTag128::TAG_LEN];
+        cipher.aead_encrypt(&aad, &mut plaintext_and_ciphertext);
+        plaintext_and_ciphertext
+    })
+}
+#[cfg(test)]
+#[bench]
+fn bench_aes_siv_cmac_256_enc(b: &mut test::Bencher) {
+    let key = hex::decode("00000000000000000000000000000000").unwrap();
+    let aad = [0u8; 0];
+    
+    let cipher = AesSivCmac256::new(&key);
+    
+    b.bytes = AesSivCmac256::BLOCK_LEN as u64;
+    b.iter(|| {
+        let mut plaintext_and_ciphertext = [1u8; 64 + AesSivCmac256::TAG_LEN];
+        cipher.aead_encrypt(&[&aad], &mut plaintext_and_ciphertext);
+        plaintext_and_ciphertext
+    })
+}

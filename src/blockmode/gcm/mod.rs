@@ -302,57 +302,6 @@ impl_block_cipher_with_gcm_mode!(Aes256Gcm8,  Aes256,  8); // TAG-LEN= 8
 impl_block_cipher_with_gcm_mode!(Aes256Gcm12, Aes256, 12); // TAG-LEN=12
 
 
-
-#[cfg(test)]
-#[bench]
-fn bench_aes128_gcm_with_16_bytes(b: &mut test::Bencher) {
-    let key = hex::decode("00000000000000000000000000000000").unwrap();
-    let iv = hex::decode("000000000000000000000000").unwrap();
-    let aad = [0u8; 0];
-
-    let mut cipher = Aes128Gcm::new(&key, &iv);
-
-    b.bytes = Aes128Gcm::BLOCK_LEN as u64;
-    b.iter(|| {
-        let mut plaintext_and_ciphertext = [1u8; Aes128Gcm::BLOCK_LEN + Aes128Gcm::TAG_LEN];
-        cipher.aead_encrypt(&aad, &mut plaintext_and_ciphertext);
-        plaintext_and_ciphertext
-    })
-}
-#[cfg(test)]
-#[bench]
-fn bench_aes128_gcm_with_64_bytes(b: &mut test::Bencher) {
-    let key = hex::decode("00000000000000000000000000000000").unwrap();
-    let iv = hex::decode("000000000000000000000000").unwrap();
-    let aad = [0u8; 0];
-
-    let mut cipher = Aes128Gcm::new(&key, &iv);
-
-    b.bytes = 64;
-    b.iter(|| {
-        let mut plaintext_and_ciphertext = [1u8; 64 + Aes128Gcm::TAG_LEN];
-        cipher.aead_encrypt(&aad, &mut plaintext_and_ciphertext);
-        plaintext_and_ciphertext
-    })
-}
-#[cfg(test)]
-#[bench]
-fn bench_aes128_gcm_with_1024_bytes(b: &mut test::Bencher) {
-    let key = hex::decode("00000000000000000000000000000000").unwrap();
-    let iv = hex::decode("000000000000000000000000").unwrap();
-    let aad = [0u8; 0];
-
-    let mut cipher = Aes128Gcm::new(&key, &iv);
-
-    b.bytes = 1024;
-    b.iter(|| {
-        let mut plaintext_and_ciphertext = [1u8; 1024 + Aes128Gcm::TAG_LEN];
-        cipher.aead_encrypt(&aad, &mut plaintext_and_ciphertext);
-        plaintext_and_ciphertext
-    })
-}
-
-
 #[test]
 fn test_aes128_gcm() {
     // B   AES Test Vectors, (Page-29)
