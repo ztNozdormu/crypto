@@ -4,6 +4,7 @@ use crate::blockcipher::{
     Sm4,
     Aes128, Aes192, Aes256,
     Camellia128, Camellia192, Camellia256,
+    Aria128, Aria192, Aria256,
 };
 
 
@@ -110,13 +111,16 @@ macro_rules! impl_block_cipher_with_ctr_mode {
     }
 }
 
+impl_block_cipher_with_ctr_mode!(Sm4Ctr, Sm4);
 impl_block_cipher_with_ctr_mode!(Aes128Ctr, Aes128);
 impl_block_cipher_with_ctr_mode!(Aes192Ctr, Aes192);
 impl_block_cipher_with_ctr_mode!(Aes256Ctr, Aes256);
 impl_block_cipher_with_ctr_mode!(Camellia128Ctr, Camellia128);
 impl_block_cipher_with_ctr_mode!(Camellia192Ctr, Camellia192);
 impl_block_cipher_with_ctr_mode!(Camellia256Ctr, Camellia256);
-impl_block_cipher_with_ctr_mode!(Sm4Ctr, Sm4);
+impl_block_cipher_with_ctr_mode!(Aria128Ctr, Aria128);
+impl_block_cipher_with_ctr_mode!(Aria192Ctr, Aria192);
+impl_block_cipher_with_ctr_mode!(Aria256Ctr, Aria256);
 
 
 #[test]

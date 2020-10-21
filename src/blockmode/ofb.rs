@@ -5,6 +5,7 @@ use crate::blockcipher::{
     Rc2FixedSize, Sm4,
     Aes128, Aes192, Aes256,
     Camellia128, Camellia192, Camellia256,
+    Aria128, Aria192, Aria256,
 };
 
 
@@ -66,14 +67,18 @@ macro_rules! impl_block_cipher_with_ofb_mode {
     }
 }
 
+
+impl_block_cipher_with_ofb_mode!(Sm4Ofb, Sm4);
+impl_block_cipher_with_ofb_mode!(Rc2FixedSizeOfb, Rc2FixedSize);
 impl_block_cipher_with_ofb_mode!(Aes128Ofb, Aes128);
 impl_block_cipher_with_ofb_mode!(Aes192Ofb, Aes192);
 impl_block_cipher_with_ofb_mode!(Aes256Ofb, Aes256);
 impl_block_cipher_with_ofb_mode!(Camellia128Ofb, Camellia128);
 impl_block_cipher_with_ofb_mode!(Camellia192Ofb, Camellia192);
 impl_block_cipher_with_ofb_mode!(Camellia256Ofb, Camellia256);
-impl_block_cipher_with_ofb_mode!(Rc2FixedSizeOfb, Rc2FixedSize);
-impl_block_cipher_with_ofb_mode!(Sm4Ofb, Sm4);
+impl_block_cipher_with_ofb_mode!(Aria128Ofb, Aria128);
+impl_block_cipher_with_ofb_mode!(Aria192Ofb, Aria192);
+impl_block_cipher_with_ofb_mode!(Aria256Ofb, Aria256);
 
 
 #[cfg(test)]

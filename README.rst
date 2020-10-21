@@ -56,7 +56,7 @@ AArch64:
 *   ✅ AES
 *   ✅ SM4
 *   ✅ Camellia
-*   ❌ ARIA (Korean Standard Block Cipher Algorithm)
+*   ✅ ARIA (Korean Standard Block Cipher Algorithm)
 *   🚧 Blowfish
 
 
@@ -106,12 +106,12 @@ AArch64:
 *   ✅ CAMELLIA-OFB
 *   ✅ CAMELLIA-CTR
 
-*   🚧 ARIA-CFB1
-*   🚧 ARIA-CFB8
-*   🚧 ARIA-CFB64
-*   🚧 ARIA-CFB128
-*   🚧 ARIA-OFB
-*   🚧 ARIA-CTR
+*   ✅ ARIA-CFB1
+*   ✅ ARIA-CFB8
+*   ✅ ARIA-CFB64
+*   ✅ ARIA-CFB128
+*   ✅ ARIA-OFB
+*   ✅ ARIA-CTR
 
 *   ✅ SM4-CFB1
 *   ✅ SM4-CFB8

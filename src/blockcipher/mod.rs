@@ -88,3 +88,6 @@ impl_block_cipher!(Aes256, AES256);
 impl_block_cipher!(Camellia128, CAMELLIA128);
 impl_block_cipher!(Camellia192, CAMELLIA192);
 impl_block_cipher!(Camellia256, CAMELLIA256);
+impl_block_cipher!(Aria128, ARIA128);
+impl_block_cipher!(Aria192, ARIA192);
+impl_block_cipher!(Aria256, ARIA256);
