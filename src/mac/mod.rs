@@ -37,7 +37,7 @@ fn bench_polyval(b: &mut test::Bencher) {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 
         0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 
     ];
-    let message = [128u8; Polyval::BLOCK_LEN];
+    let mut message = [128u8; Polyval::BLOCK_LEN];
 
     let polyval = Polyval::new(&key);
     
@@ -45,7 +45,8 @@ fn bench_polyval(b: &mut test::Bencher) {
     b.iter(|| {
         let mut mac = polyval.clone();
         mac.update(&message);
-        test::black_box(mac.finalize())
+        message = mac.finalize();
+        message
     })
 }
 
@@ -59,12 +60,11 @@ fn bench_ghash(b: &mut test::Bencher) {
     let message = [1u8; GHash::BLOCK_LEN];
     
     let ghash = GHash::new(&key);
-    
+    let mut tag = [128u8; GHash::BLOCK_LEN];
+
     b.bytes = GHash::BLOCK_LEN as u64;
     b.iter(|| {
-        let mac = ghash.clone();
-        let mut tag = [128u8; GHash::BLOCK_LEN];
-        mac.ghash(&mut tag);
+        ghash.ghash(&mut tag);
         test::black_box(tag)
     })
 }
