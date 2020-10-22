@@ -11,6 +11,8 @@
 // Block Cipher Techniques
 // https://csrc.nist.gov/projects/block-cipher-techniques/bcm/modes-development
 use super::dbl;
+use crate::util::xor_si128_inplace;
+use crate::util::and_si128_inplace;
 use crate::blockcipher::{Aes128, Aes192, Aes256};
 
 use subtle;
@@ -84,9 +86,7 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     padding_block[..m.len()].copy_from_slice(&m);
                     padding_block[m.len()] = 0x80;
 
-                    for i in 0..Self::BLOCK_LEN {
-                        padding_block[i] ^= self.cmac_k2[i];
-                    }
+                    xor_si128_inplace(&mut padding_block, &self.cmac_k2);
 
                     self.cmac_cipher.encrypt(&mut padding_block);
                     return padding_block;
@@ -94,9 +94,8 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
 
                 if len == Self::BLOCK_LEN {
                     let mut block = self.cmac_k1.clone();
-                    for i in 0..Self::BLOCK_LEN {
-                        block[i] ^= m[i];
-                    }
+
+                    xor_si128_inplace(&mut block, &m);
 
                     self.cmac_cipher.encrypt(&mut block);
                     return block;
@@ -114,10 +113,8 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     let block = &m[start..end];
                     debug_assert_eq!(block.len(), Self::BLOCK_LEN);
 
-                    for i2 in 0..Self::BLOCK_LEN {
-                        x[i2] ^= block[i2];
-                    }
-                    
+                    xor_si128_inplace(&mut x, &block);
+
                     self.cmac_cipher.encrypt(&mut x);
                 }
 
@@ -127,17 +124,16 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
 
                 if last_block_len == Self::BLOCK_LEN {
                     let block = last_block;
-                    for i in 0..Self::BLOCK_LEN {
-                        x[i] ^= block[i] ^ self.cmac_k1[i];
-                    }
+
+                    xor_si128_inplace(&mut x, &block);
+                    xor_si128_inplace(&mut x, &self.cmac_k1);
                 } else {
                     let mut block = padding_block;
                     block[..last_block_len].copy_from_slice(&last_block);
                     block[last_block_len] = 0x80;
 
-                    for i in 0..Self::BLOCK_LEN {
-                        x[i] ^= block[i] ^ self.cmac_k2[i];
-                    }
+                    xor_si128_inplace(&mut x, &block);
+                    xor_si128_inplace(&mut x, &self.cmac_k2);
                 }
 
                 self.cmac_cipher.encrypt(&mut x);
@@ -164,12 +160,10 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
 
                 let mut d = self.cmac(&Self::BLOCK_ZERO);
                 for aad in components.iter() {
-                    let d1 = dbl(u128::from_be_bytes(d.clone())).to_be_bytes();
+                    d = dbl(u128::from_be_bytes(d)).to_be_bytes();
                     let d2 = self.cmac(aad);
 
-                    for i in 0..Self::BLOCK_LEN {
-                        d[i] = d1[i] ^ d2[i];
-                    }
+                    xor_si128_inplace(&mut d, &d2);
                 }
 
                 let plen = payload.len();
@@ -179,9 +173,7 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     let mut data = payload.to_vec();
                     let block = &mut data[n..];
 
-                    for i in 0..Self::BLOCK_LEN {
-                        block[i] ^= d[i];
-                    }
+                    xor_si128_inplace(block, &d);
 
                     return self.cmac(&data);
                 } else {
@@ -218,20 +210,33 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                 let v = self.siv(components, &plaintext);
                 // Q = V bitand (1^64 || 0^1 || 1^31 || 0^1 || 1^31)
                 let mut q = v.clone();
-                for i in 0..Self::BLOCK_LEN {
-                    q[i] &= Self::V1[i];
-                }
+                and_si128_inplace(&mut q, &Self::V1);
 
                 // CTR Counter
                 let mut counter = u128::from_be_bytes(q);
 
-                // m = (len(P) + 127)/128
-                for chunk in plaintext.chunks_mut(Self::BLOCK_LEN) {
-                    let mut keystream_block = counter.clone().to_be_bytes();
 
+                let n = plen / Self::BLOCK_LEN;
+                for i in 0..n {
+                    let chunk = &mut plaintext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+
+                    let mut keystream_block = counter.clone().to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
-                    for i in 0..chunk.len() {
-                        chunk[i] ^= keystream_block[i];
+
+                    xor_si128_inplace(chunk, &keystream_block);
+
+                    counter = counter.wrapping_add(1);
+                }
+
+                if plen % Self::BLOCK_LEN != 0 {
+                    let rem = &mut plaintext[n * Self::BLOCK_LEN..];
+                    let rlen = rem.len();
+
+                    let mut keystream_block = counter.clone().to_be_bytes();
+                    self.cipher.encrypt(&mut keystream_block);
+
+                    for i in 0..rem.len() {
+                        rem[i] ^= keystream_block[i];
                     }
 
                     counter = counter.wrapping_add(1);
@@ -255,18 +260,33 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                 let ciphertext = &mut ciphertext_and_plaintext[Self::TAG_LEN..];
 
                 let mut q = input_iv.clone();
-                for i in 0..Self::BLOCK_LEN {
-                    q[i] &= Self::V1[i];
-                }
+                and_si128_inplace(&mut q, &Self::V1);
 
                 // CTR Counter
                 let mut counter = u128::from_be_bytes(q);
 
-                for chunk in ciphertext.chunks_mut(Self::BLOCK_LEN) {
-                    let mut output_block = counter.clone().to_be_bytes();
-                    self.cipher.encrypt(&mut output_block);
-                    for i in 0..chunk.len() {
-                        chunk[i] ^= output_block[i];
+
+                let n = clen / Self::BLOCK_LEN;
+                for i in 0..n {
+                    let chunk = &mut ciphertext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+
+                    let mut keystream_block = counter.clone().to_be_bytes();
+                    self.cipher.encrypt(&mut keystream_block);
+
+                    xor_si128_inplace(chunk, &keystream_block);
+
+                    counter = counter.wrapping_add(1);
+                }
+
+                if clen % Self::BLOCK_LEN != 0 {
+                    let rem = &mut ciphertext[n * Self::BLOCK_LEN..];
+                    let rlen = rem.len();
+
+                    let mut keystream_block = counter.clone().to_be_bytes();
+                    self.cipher.encrypt(&mut keystream_block);
+
+                    for i in 0..rem.len() {
+                        rem[i] ^= keystream_block[i];
                     }
 
                     counter = counter.wrapping_add(1);

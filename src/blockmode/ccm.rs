@@ -9,6 +9,7 @@
 // 
 // CBC-MAC
 // Cipher Block Chaining-Message Authentication Code 
+use crate::util::xor_si128_inplace;
 use crate::blockcipher::{
     Sm4,
     Aes128, Aes256, 
@@ -114,7 +115,7 @@ macro_rules! impl_block_cipher_with_ccm_mode {
                 let mut tag = b0;
                 self.cipher.encrypt(&mut tag);
 
-                let mut block  = [0u8; Self::BLOCK_LEN];
+                let mut block = [0u8; Self::BLOCK_LEN];
                 
                 // Associated Data
                 if alen > 0 {
@@ -145,33 +146,53 @@ macro_rules! impl_block_cipher_with_ccm_mode {
                     if r >= alen {
                         block[n..n + alen].copy_from_slice(aad);
 
-                        for i in 0..Self::BLOCK_LEN {
-                            tag[i] ^= block[i];
-                        }
+                        xor_si128_inplace(&mut tag, &block);
+
                         self.cipher.encrypt(&mut tag);
                     } else {
                         block[n..].copy_from_slice(&aad[..Self::BLOCK_LEN - n]);
 
-                        for i in 0..Self::BLOCK_LEN {
-                            tag[i] ^= block[i];
-                        }
+                        xor_si128_inplace(&mut tag, &block);
                         self.cipher.encrypt(&mut tag);
 
                         let aad = &aad[r..];
-                        for chunk in aad.chunks(Self::BLOCK_LEN) {
-                            for i in 0..chunk.len() {
-                                tag[i] ^= chunk[i];
-                            }
+                        let n = aad.len() / Self::BLOCK_LEN;
+                        for i in 0..n {
+                            let chunk = &aad[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+                            xor_si128_inplace(&mut tag, chunk);
+                            self.cipher.encrypt(&mut tag);
+                        }
+
+                        if aad.len() % Self::BLOCK_LEN != 0 {
+                            let rem = &aad[n * Self::BLOCK_LEN..];
+                            let rlen = rem.len();
+
+                            let mut last_block = [0u8; Self::BLOCK_LEN];
+                            last_block[..rlen].copy_from_slice(rem);
+                            
+                            xor_si128_inplace(&mut tag, &last_block);
                             self.cipher.encrypt(&mut tag);
                         }
                     }
                 }
 
                 // Payload
-                for chunk in m.chunks(Self::BLOCK_LEN) {
-                    for i in 0..chunk.len() {
-                        tag[i] ^= chunk[i];
-                    }
+                let mlen = m.len();
+                let n = mlen / Self::BLOCK_LEN;
+                for i in 0..n {
+                    let chunk = &m[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+                    xor_si128_inplace(&mut tag, chunk);
+                    self.cipher.encrypt(&mut tag);
+                }
+
+                if mlen % Self::BLOCK_LEN != 0 {
+                    let rem = &m[n * Self::BLOCK_LEN..];
+                    let rlen = rem.len();
+
+                    let mut last_block = [0u8; Self::BLOCK_LEN];
+                    last_block[..rlen].copy_from_slice(rem);
+
+                    xor_si128_inplace(&mut tag, &last_block);
                     self.cipher.encrypt(&mut tag);
                 }
 
@@ -213,19 +234,32 @@ macro_rules! impl_block_cipher_with_ccm_mode {
 
                 self.ctr(&mut counter_block, 0);
                 self.cipher.encrypt(&mut counter_block);
-                for i in 0..Self::BLOCK_LEN {
-                    tag[i] ^= counter_block[i];
-                }
+                xor_si128_inplace(&mut tag, &counter_block);
 
                 let mut block_idx = 1usize;
                 let plaintext = &mut plaintext_and_ciphertext[..plen];
-                for chunk in plaintext.chunks_mut(Self::BLOCK_LEN) {
+
+                let n = plen / Self::BLOCK_LEN;
+                for i in 0..n {
+                    let chunk = &mut plaintext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+
                     self.ctr(&mut counter_block, block_idx);
                     self.cipher.encrypt(&mut counter_block);
-                    for i in 0..chunk.len() {
-                        chunk[i] ^= counter_block[i];
-                    }
 
+                    xor_si128_inplace(chunk, &counter_block);
+                    block_idx += 1;
+                }
+
+                if plen % Self::BLOCK_LEN != 0 {
+                    let rem = &mut plaintext[n * Self::BLOCK_LEN..];
+                    let rlen = rem.len();
+
+                    self.ctr(&mut counter_block, block_idx);
+                    self.cipher.encrypt(&mut counter_block);
+
+                    for i in 0..rlen {
+                        rem[i] ^= counter_block[i];
+                    }
                     block_idx += 1;
                 }
 
@@ -246,20 +280,35 @@ macro_rules! impl_block_cipher_with_ccm_mode {
 
                 let mut block_idx = 1usize;
                 let ciphertext = &mut ciphertext_and_plaintext[..clen];
-                for chunk in ciphertext.chunks_mut(Self::BLOCK_LEN) {
+                
+                let n = clen / Self::BLOCK_LEN;
+                for i in 0..n {
+                    let chunk = &mut ciphertext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+
                     self.ctr(&mut counter_block, block_idx);
                     self.cipher.encrypt(&mut counter_block);
-                    for i in 0..chunk.len() {
-                        chunk[i] ^= counter_block[i];
+
+                    xor_si128_inplace(chunk, &counter_block);
+                    block_idx += 1;
+                }
+
+                if clen % Self::BLOCK_LEN != 0 {
+                    let rem = &mut ciphertext[n * Self::BLOCK_LEN..];
+                    let rlen = rem.len();
+
+                    self.ctr(&mut counter_block, block_idx);
+                    self.cipher.encrypt(&mut counter_block);
+
+                    for i in 0..rlen {
+                        rem[i] ^= counter_block[i];
                     }
                     block_idx += 1;
                 }
 
                 let plaintext = &ciphertext_and_plaintext[..clen];
+
                 let mut mac = self.cbc_mac(aad, &plaintext);
-                for i in 0..Self::BLOCK_LEN {
-                    mac[i] ^= b0[i];
-                }
+                xor_si128_inplace(&mut mac, &b0);
 
                 let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
                 let tag = &mac[..Self::TAG_LEN];
@@ -383,6 +432,26 @@ impl_block_cipher_with_ccm_mode!(Aria256Ccm, Aria256, 12, 16, 3);         // NON
 fn hex_decode<T: AsRef<str>>(s: T) -> Vec<u8> {
     let h = s.as_ref().replace(" ", "").replace("\n", "").replace("\r", "");
     hex::decode(&h).unwrap()
+}
+
+#[test]
+fn test_aes128_ccm_nlen_13_taglen_8_dec() {
+    let key       = hex_decode("C0 C1 C2 C3  C4 C5 C6 C7  C8 C9 CA CB  CC CD CE CF");
+    let nonce     = hex_decode("00 00 00 03  02 01 00 A0  A1 A2 A3 A4  A5");
+    let aad       = hex_decode("00 01 02 03 04 05 06 07");
+    let plaintext = hex_decode("08 09 0A 0B  0C 0D 0E 0F
+    10 11 12 13  14 15 16 17  18 19 1A 1B  1C 1D 1E");
+    let plen = plaintext.len();
+    let mut ciphertext_and_tag = plaintext.clone();
+    ciphertext_and_tag.resize(plen + Aes128CcmNLen13TagLen8::TAG_LEN, 0);
+    let mut cipher = Aes128CcmNLen13TagLen8::new(&key, &nonce);
+    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    assert_eq!(&ciphertext_and_tag[..], &hex_decode("58 8C 97 9A  61 C6 63 D2
+    F0 66 D0 C2  C0 F9 89 80  6D 5F 6B 61  DA C3 84 17
+    E8 D1 2C FD  F9 26 E0")[..]);
+
+    cipher.aead_decrypt(&aad, &mut ciphertext_and_tag);
+    assert_eq!(&ciphertext_and_tag[..plen], &plaintext[..]);
 }
 
 #[test]
