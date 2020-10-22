@@ -51,6 +51,10 @@ pub use crate::blockmode::{
     Aes256OcbTag64, Aes256OcbTag96, Aes256OcbTag128,
 
     AesSivCmac256, AesSivCmac384, AesSivCmac512,
+    
+    Aria128Ccm, Aria256Ccm, 
+    Aria128Gcm, Aria256Gcm, 
+    Aria128GcmSiv, Aria256GcmSiv
 };
 
 

@@ -1,22 +1,27 @@
-use crate::blockmode::{
+pub use crate::blockmode::{
     Sm4Ctr,
     Aes128Ctr, Aes192Ctr, Aes256Ctr,
+    Aria128Ctr, Aria192Ctr, Aria256Ctr,
     Camellia128Ctr, Camellia192Ctr, Camellia256Ctr,
 
     Sm4Ofb,
     Aes128Ofb, Aes192Ofb, Aes256Ofb,
+    Aria128Ofb, Aria192Ofb, Aria256Ofb,
     Camellia128Ofb, Camellia192Ofb, Camellia256Ofb,
 
     Sm4Cfb1,
     Aes128Cfb1, Aes192Cfb1, Aes256Cfb1,
+    Aria128Cfb1, Aria192Cfb1, Aria256Cfb1,
     Camellia128Cfb1, Camellia192Cfb1, Camellia256Cfb1,
 
     Sm4Cfb8,
     Aes128Cfb8, Aes192Cfb8, Aes256Cfb8,
+    Aria128Cfb8, Aria192Cfb8, Aria256Cfb8,
     Camellia128Cfb8, Camellia192Cfb8, Camellia256Cfb8,
 
     Sm4Cfb128,
     Aes128Cfb128, Aes192Cfb128, Aes256Cfb128,
+    Aria128Cfb128, Aria192Cfb128, Aria256Cfb128,
     Camellia128Cfb128, Camellia192Cfb128, Camellia256Cfb128,
 };
 

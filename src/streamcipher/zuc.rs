@@ -1,4 +1,4 @@
-// 祖冲之序列密码算法（ZUCstreamcipheralgorithm）
+// 祖冲之序列密码算法（ZUC stream cipher algorithm）
 // http://tca.iscas.ac.cn/userfiles/file/ZUC.pdf
 
 // GMT 0001.1-2012 祖冲之序列密码算法第1部分：算法描述
