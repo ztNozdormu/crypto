@@ -3,6 +3,7 @@
 // 
 // AES-GCM-SIV: Specification and Analysis
 // https://eprint.iacr.org/2017/168.pdf
+use crate::mac::Polyval;
 use crate::blockcipher::{
     Sm4,
     Aes128, Aes256, 
@@ -11,10 +12,6 @@ use crate::blockcipher::{
 };
 
 use subtle;
-
-
-mod polyval;
-use self::polyval::Polyval;
 
 
 const GCM_SIV_BLOCK_LEN: usize = 16;
@@ -56,7 +53,11 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
 
 
             pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+                // NOTE: 只支持 128-bits 和 256-bits 的 Key。
+                //       这意味着 Aes192、Aria192、Camellia192 这些 Cipher 都无法和 GCM-SIV 组合。
+                assert!(Self::KEY_LEN == 16 || Self::KEY_LEN == 32);
                 assert_eq!(key.len(), Self::KEY_LEN);
+                
                 assert_eq!(nonce.len(), Self::NONCE_LEN); // 96-Bits
                 assert_eq!(Self::BLOCK_LEN, GCM_SIV_BLOCK_LEN);
                 assert_eq!(Self::BLOCK_LEN, Polyval::BLOCK_LEN);
@@ -146,20 +147,19 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
                 bit_len_block[0.. 8].copy_from_slice(&aad_bit_len_octets);
                 bit_len_block[8..16].copy_from_slice(&plaintext_bit_len_octets);
 
-                self.polyval.reset();
-
-                self.polyval.polyval(aad);
-                self.polyval.polyval(plaintext);
-                self.polyval.polyval(&bit_len_block);
+                let mut polyval = self.polyval.clone();
+                polyval.update(aad);
+                polyval.update(plaintext);
+                polyval.update(&bit_len_block);
+                
+                let mut tag = polyval.finalize();
 
                 for i in 0..Self::NONCE_LEN {
-                    self.polyval.h[i] ^= self.nonce[i];
+                    tag[i] ^= self.nonce[i];
                 }
-
-                self.polyval.h[15] &= 0x7f;
+                tag[15] &= 0x7f;
 
                 // tag = AES(key = message_encryption_key, block = S_s)
-                let mut tag = self.polyval.h.clone();
                 self.cipher.encrypt(&mut tag);
 
                 // u32 (Counter) || u96 (Nonce)
@@ -219,21 +219,22 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
                 bit_len_block[0.. 8].copy_from_slice(&aad_bit_len_octets);
                 bit_len_block[8..16].copy_from_slice(&ciphertext_bit_len_octets);
 
-                self.polyval.reset();
 
-                self.polyval.polyval(aad);
-                self.polyval.polyval(cleartext);
-                self.polyval.polyval(&bit_len_block);
+                let mut polyval = self.polyval.clone();
+                polyval.update(aad);
+                polyval.update(cleartext);
+                polyval.update(&bit_len_block);
+
+                let mut tag = polyval.finalize();
 
                 for i in 0..Self::NONCE_LEN {
-                    self.polyval.h[i] ^= self.nonce[i];
+                    tag[i] ^= self.nonce[i];
                 }
-                self.polyval.h[15] &= 0x7f;
-
+                tag[15] &= 0x7f;
+                
                 // Expected TAG
-                let mut tag = self.polyval.h.clone();
                 self.cipher.encrypt(&mut tag);
-
+                
                 // Verify
                 let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
                 // TODO: 使用 Result 类型抛出 `TagMisMatch` 错误？

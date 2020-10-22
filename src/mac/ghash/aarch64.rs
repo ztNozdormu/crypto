@@ -6,14 +6,14 @@ use core::mem::transmute;
 
 // 参考: https://github.com/noloader/AES-Intrinsics/blob/master/clmul-arm.c
 
-pub unsafe fn pmull(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+unsafe fn pmull(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
     // Low
     let a: poly64_t = transmute(vgetq_lane_u64(vreinterpretq_u64_u8(a), 0));
     let b: poly64_t = transmute(vgetq_lane_u64(vreinterpretq_u64_u8(b), 0));
     transmute(vmull_p64(a, b))
 }
 
-pub unsafe fn pmull2(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+unsafe fn pmull2(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
     // High
     let a: poly64_t = transmute(vgetq_lane_u64(vreinterpretq_u64_u8(a), 1));
     let b: poly64_t = transmute(vgetq_lane_u64(vreinterpretq_u64_u8(b), 1));
@@ -84,8 +84,10 @@ pub struct GHash {
 }
 
 impl GHash {
+    pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
 
+    
     pub fn new(h: &[u8; Self::BLOCK_LEN]) -> Self {
         let mut h = h.clone();
         h.reverse();

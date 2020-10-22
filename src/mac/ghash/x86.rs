@@ -6,16 +6,17 @@ use core::arch::x86_64::*;
 // 参考:
 // https://www.intel.cn/content/dam/www/public/us/en/documents/white-papers/carry-less-multiplication-instruction-in-gcm-mode-paper.pdf
 
-
 #[derive(Debug, Clone)]
 pub struct GHash {
     h: __m128i,
 }
 
 impl GHash {
+    pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
+    
 
-    pub fn new(h: &[u8; Self::BLOCK_LEN]) -> Self {
+    pub fn new(h: &[u8; Self::KEY_LEN]) -> Self {
         let mut h = h.clone();
         h.reverse();
         

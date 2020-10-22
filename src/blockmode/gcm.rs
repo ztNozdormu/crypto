@@ -3,7 +3,7 @@
 // 
 // Galois/Counter Mode:
 // https://en.wikipedia.org/wiki/Galois/Counter_Mode
-// 
+use crate::mac::GHash;
 use crate::blockcipher::{
     Sm4,
     Aes128, Aes256, 
@@ -13,9 +13,6 @@ use crate::blockcipher::{
 
 use subtle;
 
-
-mod ghash;
-use self::ghash::GHash;
 
 
 // NOTE: 

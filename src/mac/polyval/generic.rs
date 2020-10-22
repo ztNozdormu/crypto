@@ -21,20 +21,23 @@ fn cl_mul(a: u64, b: u64, dst: &mut [u64; 2]) {
     }
 }
 
+
 #[derive(Debug, Clone)]
 pub struct Polyval {
-    key: [u8; 16],
-    pub(crate) h: [u8; 16],
+    key: [u8; Self::KEY_LEN],
+    h: [u8; Self::BLOCK_LEN],
 }
 
 impl Polyval {
     pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
+    pub const TAG_LEN: usize   = 16;
 
+    
     pub fn new(k: &[u8]) -> Self {
         assert_eq!(k.len(), Self::KEY_LEN);
 
-        let h = [0u8; Self::BLOCK_LEN];
+        let h = [0u8; Self::TAG_LEN];
 
         let mut key = [0u8; Self::KEY_LEN];
         key.copy_from_slice(&k[..Self::KEY_LEN]);
@@ -43,10 +46,6 @@ impl Polyval {
     }
 
     #[inline]
-    pub fn reset(&mut self) {
-        self.h = [0u8; 16];
-    }
-
     fn gf_mul(&mut self) {
         // a: h
         // b: key
@@ -135,13 +134,17 @@ impl Polyval {
         self.h[0.. 8].copy_from_slice(&tmp4[0].to_le_bytes());
         self.h[8..16].copy_from_slice(&tmp4[1].to_le_bytes());
     }
-
-    pub fn polyval(&mut self, data: &[u8]) {
-        for chunk in data.chunks(16) {
+    
+    pub fn update(&mut self, m: &[u8]) {
+        for chunk in m.chunks(Self::BLOCK_LEN) {
             for i in 0..chunk.len() {
                 self.h[i] ^= chunk[i];
             }
             self.gf_mul();
         }
+    }
+
+    pub fn finalize(self) -> [u8; Self::TAG_LEN] {
+        self.h
     }
 }

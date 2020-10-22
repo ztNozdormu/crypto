@@ -7,8 +7,10 @@ pub struct GHash {
 }
 
 impl GHash {
+    pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
 
+    
     pub fn new(h: &[u8; Self::BLOCK_LEN]) -> Self {
         // pack h as two 64-bits ints, big-endian
         let mut vh = u64::from_be_bytes([

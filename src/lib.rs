@@ -21,6 +21,8 @@ pub mod hmac;
 // Key derivation function (KDF)
 pub mod hkdf;
 
+pub mod mac;
+
 
 pub mod cipher;
 pub mod blockmode;
