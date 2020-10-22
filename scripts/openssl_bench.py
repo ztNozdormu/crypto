@@ -43,6 +43,8 @@ def main():
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-gcm"],
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-ccm"],
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-ocb"],
+        [OPENSSL, "speed", "-bytes", "64", "-evp", "chacha20"],
+        [OPENSSL, "speed", "-bytes", "64", "-evp", "chacha20-poly1305"],
         [OPENSSL, "speed", "-bytes", "64", "-evp", "sha256"],
     ]
     res = []
