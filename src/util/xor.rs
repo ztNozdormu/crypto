@@ -32,5 +32,8 @@ pub fn xor_si128_inplace(a: &mut [u8], b: &[u8]) {
 
 #[cfg(target_arch = "aarch64")]
 pub fn xor_si128_inplace(a: &mut [u8], b: &[u8]) {
-    unimplemented!()
+    for i in 0..16 {
+        a[i] ^= b[i]
+    }
+    // unimplemented!()
 }
