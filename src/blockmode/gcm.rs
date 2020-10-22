@@ -3,6 +3,7 @@
 // 
 // Galois/Counter Mode:
 // https://en.wikipedia.org/wiki/Galois/Counter_Mode
+use crate::util::xor_si128_inplace;
 use crate::mac::GHash;
 use crate::blockcipher::{
     Sm4,
@@ -30,7 +31,8 @@ macro_rules! impl_block_cipher_with_gcm_mode {
         pub struct $name {
             cipher: $cipher,
             ghash: GHash,
-            nonce: [u8; Self::BLOCK_LEN],
+            counter_block: [u8; Self::BLOCK_LEN],
+            base_ectr: [u8; Self::BLOCK_LEN],
         }
 
         // 6.  AES GCM Algorithms for Secure Shell
@@ -58,11 +60,14 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 //       BlockCounter 不接受用户的输入，如果输入了直接忽略。
                 assert_eq!(iv.len(), Self::NONCE_LEN);
 
-                let mut nonce = [0u8; Self::BLOCK_LEN];
-                nonce[..Self::NONCE_LEN].copy_from_slice(&iv[..Self::NONCE_LEN]);
-                nonce[15] = 1; // 初始化计数器
+                let mut counter_block = [0u8; Self::BLOCK_LEN];
+                counter_block[..Self::NONCE_LEN].copy_from_slice(&iv[..Self::NONCE_LEN]);
+                counter_block[15] = 1; // 初始化计数器
 
                 let cipher = $cipher::new(key);
+
+                let mut base_ectr = counter_block.clone();
+                cipher.encrypt(&mut base_ectr);
 
                 // NOTE: 计算 Ghash 初始状态。
                 let mut h = [0u8; Self::BLOCK_LEN];
@@ -70,7 +75,7 @@ macro_rules! impl_block_cipher_with_gcm_mode {
 
                 let ghash = GHash::new(&h);
 
-                Self { cipher, ghash, nonce }
+                Self { cipher, ghash, counter_block, base_ectr }
             }
 
             #[inline]
@@ -82,7 +87,7 @@ macro_rules! impl_block_cipher_with_gcm_mode {
             pub fn ae_decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) -> bool {
                 self.aead_decrypt(&[], ciphertext_and_plaintext)
             }
-
+            
             #[inline]
             fn block_num_inc(nonce: &mut [u8; Self::BLOCK_LEN]) {
                 // Counter inc
@@ -93,21 +98,7 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                     }
                 }
             }
-
-            #[inline]
-            fn hash_aad(&self, aad: &[u8], buf: &mut [u8; Self::BLOCK_LEN] ) {
-                if aad.is_empty() {
-                    return ();
-                }
-
-                for chunk in aad.chunks(Self::BLOCK_LEN) {
-                    for i in 0..chunk.len() {
-                        buf[i] ^= chunk[i];
-                    }
-                    self.ghash.ghash(buf);
-                }
-            }
-
+            
             pub fn aead_encrypt(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8]) {
                 debug_assert!(aad.len() < Self::A_MAX);
                 debug_assert!(plaintext_and_ciphertext.len() < Self::P_MAX + Self::TAG_LEN);
@@ -117,33 +108,38 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
                 let plaintext = &mut plaintext_and_ciphertext[..plen];
 
-                let mut counter_block = self.nonce.clone();
-                // NOTE: 初始化 BlockCounter 计数器
-                counter_block[12] = 0;
-                counter_block[13] = 0;
-                counter_block[14] = 0;
-                counter_block[15] = 1;
-
-                let mut base_ectr = counter_block.clone();
-                self.cipher.encrypt(&mut base_ectr);
-
-                let mut buf = [0u8; 16];
-
-                self.hash_aad(aad, &mut buf);
+                let mut mac = self.ghash.clone();
+                let mut counter_block = self.counter_block.clone();
+                
+                mac.update(aad);
 
                 //////// Update ////////
-                for (block_index, chunk) in plaintext.chunks_mut(Self::BLOCK_LEN).enumerate() {
+                let n = plen / Self::BLOCK_LEN;
+                for i in 0..n {
                     Self::block_num_inc(&mut counter_block);
-
+                    
                     let mut ectr = counter_block.clone();
                     self.cipher.encrypt(&mut ectr);
 
-                    for i in 0..chunk.len() {
-                        chunk[i] = ectr[i] ^ chunk[i];
-                        buf[i] ^= chunk[i];
+                    let block = &mut plaintext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+                    
+                    xor_si128_inplace(block, &ectr);
+
+                    mac.update(&block);
+                }
+
+                if plen % Self::BLOCK_LEN != 0 {
+                    Self::block_num_inc(&mut counter_block);
+                    
+                    let mut ectr = counter_block.clone();
+                    self.cipher.encrypt(&mut ectr);
+
+                    let rem = &mut plaintext[n * Self::BLOCK_LEN..];
+                    for i in 0..rem.len() {
+                        rem[i] ^= ectr[i];
                     }
 
-                    self.ghash.ghash(&mut buf);
+                    mac.update(&rem);
                 }
 
                 // Finalize
@@ -152,19 +148,20 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 
                 let mut octets = [0u8; 16];
                 let mut tag = [0u8; Self::TAG_LEN];
-                tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
+                tag[..Self::TAG_LEN].copy_from_slice(&self.base_ectr[..Self::TAG_LEN]);
 
                 octets[0.. 8].copy_from_slice(&alen_bits.to_be_bytes());
                 octets[8..16].copy_from_slice(&plen_bits.to_be_bytes());
 
-                for i in 0..Self::BLOCK_LEN {
-                    buf[i] ^= octets[i];
-                }
+                mac.update(&octets);
 
-                self.ghash.ghash(&mut buf);
-
-                for i in 0..Self::TAG_LEN {
-                    tag[i] ^= buf[i];
+                let buf = mac.finalize();
+                if Self::TAG_LEN == 16 {
+                    xor_si128_inplace(&mut tag, &buf);
+                } else {
+                    for i in 0..Self::TAG_LEN {
+                        tag[i] ^= buf[i];
+                    }
                 }
 
                 let tag_out = &mut plaintext_and_ciphertext[plen..plen + Self::TAG_LEN];
@@ -181,33 +178,39 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 let clen = ciphertext_and_plaintext.len() - Self::TAG_LEN;
                 let ciphertext = &mut ciphertext_and_plaintext[..clen];
 
-                let mut counter_block = self.nonce.clone();
-                // NOTE: 初始化 BlockCounter 计数器
-                counter_block[12] = 0;
-                counter_block[13] = 0;
-                counter_block[14] = 0;
-                counter_block[15] = 1;
+                let mut mac = self.ghash.clone();
+                let mut counter_block = self.counter_block.clone();
 
-                let mut base_ectr = counter_block.clone();
-                self.cipher.encrypt(&mut base_ectr);
-
-                let mut buf = [0u8; 16];
-
-                self.hash_aad(aad, &mut buf);
+                mac.update(&aad);
 
                 //////////// Update ///////////////
-                for (block_index, chunk) in ciphertext.chunks_mut(Self::BLOCK_LEN).enumerate() {
+                let n = clen / Self::BLOCK_LEN;
+                for i in 0..n {
                     Self::block_num_inc(&mut counter_block);
-
+                    
                     let mut ectr = counter_block.clone();
                     self.cipher.encrypt(&mut ectr);
 
-                    for i in 0..chunk.len() {
-                        buf[i] ^= chunk[i];
-                        chunk[i] = ectr[i] ^ chunk[i];
-                    }
+                    let block = &mut ciphertext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+                    
+                    mac.update(&block);
 
-                    self.ghash.ghash(&mut buf);
+                    xor_si128_inplace(block, &ectr);
+                }
+
+                if clen % Self::BLOCK_LEN != 0 {
+                    Self::block_num_inc(&mut counter_block);
+                    
+                    let mut ectr = counter_block.clone();
+                    self.cipher.encrypt(&mut ectr);
+
+                    let rem = &mut ciphertext[n * Self::BLOCK_LEN..];
+
+                    mac.update(&rem);
+
+                    for i in 0..rem.len() {
+                        rem[i] ^= ectr[i];
+                    }
                 }
 
                 // Finalize
@@ -216,19 +219,20 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 
                 let mut octets = [0u8; 16];
                 let mut tag = [0u8; Self::TAG_LEN];
-                tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
+                tag[..Self::TAG_LEN].copy_from_slice(&self.base_ectr[..Self::TAG_LEN]);
 
                 octets[0.. 8].copy_from_slice(&clen_bits.to_le_bytes());
                 octets[8..16].copy_from_slice(&alen_bits.to_le_bytes());
 
-                for i in 0..Self::BLOCK_LEN {
-                    buf[i] ^= octets[i];
-                }
+                mac.update(&octets);
+                let buf = mac.finalize();
 
-                self.ghash.ghash(&mut buf);
-
-                for i in 0..Self::TAG_LEN {
-                    tag[i] ^= buf[i];
+                if Self::TAG_LEN == 16 {
+                    xor_si128_inplace(&mut tag, &buf);
+                } else {
+                    for i in 0..Self::TAG_LEN {
+                        tag[i] ^= buf[i];
+                    }
                 }
 
                 // Verify

@@ -14,6 +14,7 @@ extern crate hex;
 
 pub mod error;
 
+
 // cryptographic hash function (CHF)
 pub mod hash;
 
@@ -21,7 +22,9 @@ pub mod hmac;
 // Key derivation function (KDF)
 pub mod hkdf;
 
-pub mod mac;
+
+mod util;
+mod mac;
 
 
 pub mod cipher;

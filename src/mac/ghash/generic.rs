@@ -4,11 +4,13 @@
 pub struct GHash {
     hh: [u64; Self::BLOCK_LEN],
     hl: [u64; Self::BLOCK_LEN],
+    buf: [u8; Self::BLOCK_LEN],
 }
 
 impl GHash {
     pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
+    pub const TAG_LEN: usize   = 16;
 
     
     pub fn new(h: &[u8; Self::BLOCK_LEN]) -> Self {
@@ -54,12 +56,14 @@ impl GHash {
             i *= 2;
         }
 
-        Self { hh, hl }
+        let buf = [0u8; 16];
+
+        Self { hh, hl, buf }
     }
     
     // Multiplication operation in GF(2^128)
     #[inline]
-    fn gf_mul(&self, x: &mut [u8; Self::BLOCK_LEN]) {
+    fn gf_mul(&mut self, x: &[u8]) {
         // Reduction table
         // 
         // Shoup's method for multiplication use this table with
@@ -74,6 +78,11 @@ impl GHash {
 
         let hh = &self.hh;
         let hl = &self.hl;
+
+        for i in 0..16 {
+            self.buf[i] ^= x[i];
+        }
+        let x = &mut self.buf;
 
         let mut lo: u8  = x[15] & 0xf;
         let mut hi: u8  = 0;
@@ -110,7 +119,30 @@ impl GHash {
         x[8..16].copy_from_slice(&b);
     }
 
-    pub fn ghash(&self, data: &mut [u8; Self::BLOCK_LEN]) {
-        self.gf_mul(data);
+    pub fn update(&mut self, m: &[u8]) {
+        let mlen = m.len();
+
+        if mlen == 0 {
+            return ();
+        }
+
+        let n = mlen / Self::BLOCK_LEN;
+        for i in 0..n {
+            let chunk = &m[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+            self.gf_mul(chunk);
+        }
+
+        if mlen % Self::BLOCK_LEN != 0 {
+            let rem = &m[n * Self::BLOCK_LEN..];
+            let rlen = rem.len();
+
+            let mut last_block = [0u8; Self::BLOCK_LEN];
+            last_block[..rlen].copy_from_slice(rem);
+            self.gf_mul(&last_block);
+        }
+    }
+
+    pub fn finalize(self) -> [u8; Self::TAG_LEN] {
+        self.buf
     }
 }
