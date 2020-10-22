@@ -4,6 +4,7 @@
 // OCB: A Block-Cipher Mode of Operation for Efficient Authenticated Encryption
 // https://csrc.nist.gov/CSRC/media/Projects/Block-Cipher-Techniques/documents/BCM/proposed-modes/ocb/ocb-spec.pdf
 use super::dbl;
+use crate::util::xor_si128_inplace;
 use crate::blockcipher::{Aes128, Aes192, Aes256};
 
 
@@ -31,9 +32,9 @@ macro_rules! impl_block_cipher_with_ocb_mode {
         pub struct $name {
             cipher: $cipher,
             offset_0: [u8; Self::BLOCK_LEN],
-            double: [u8; Self::BLOCK_LEN],
+            table: [[u8; Self::BLOCK_LEN]; 32],
         }
-
+        
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
@@ -49,6 +50,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
 
             const STRETCH_LEN: usize = Self::BLOCK_LEN + 8;
 
+
             pub fn new(key: &[u8], in_nonce: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
                 assert_eq!(Self::BLOCK_LEN, 16);
@@ -56,14 +58,16 @@ macro_rules! impl_block_cipher_with_ocb_mode {
 
                 let cipher = $cipher::new(key);
 
-                // L_*
-                let mut double_z1 = [0u8; Self::BLOCK_LEN];
-                cipher.encrypt(&mut double_z1);
+                // L_*, L_$, L_0, L_1, L_2, ..., L_29
+                let mut table = [[0u8; Self::BLOCK_LEN]; 32];
+                let mut double = [0u8; Self::BLOCK_LEN];
+                cipher.encrypt(&mut double);
 
-                // L_$
-                let double_z2 = dbl(u128::from_be_bytes(double_z1));
-                // L_0
-                let double = dbl(double_z2).to_be_bytes();
+                table[0] = double;
+                for i in 1..32 {
+                    double = dbl(u128::from_be_bytes(double)).to_be_bytes();
+                    table[i] = double;
+                }
 
                 let nlen = in_nonce.len();
                 let nlen_bits = nlen * 8;
@@ -126,7 +130,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 Self {
                     cipher,
                     offset_0,
-                    double,
+                    table,
                 }
             }
 
@@ -135,52 +139,29 @@ macro_rules! impl_block_cipher_with_ocb_mode {
             fn hash(&mut self, aad: &[u8]) -> [u8; Self::BLOCK_LEN] {
                 let alen = aad.len();
 
-                // L_*
-                let mut double_z1 = [0u8; Self::BLOCK_LEN];
-                self.cipher.encrypt(&mut double_z1);
-                // L_$
-                let double_z2 = dbl(u128::from_be_bytes(double_z1));
-                // L_0
-                let double = dbl(double_z2).to_be_bytes();
-
-                // Sum_0 = zeros(128)
-                // Offset_0 = zeros(128)
                 let mut sum = [0u8; Self::BLOCK_LEN];
                 let mut offset = [0u8; Self::BLOCK_LEN];
                 let mut block_idx = 1usize;
                 for chunk in aad.chunks_exact(Self::BLOCK_LEN) {
-                    let mut double = self.double.clone();
-                    let ntz = block_idx.trailing_zeros();
-                    // if ntz > 0 {
-                    //     // TODO: 这个 double 序列的计算后面可以考虑使用缓存表。
-                    //     //       10万个 Blocks 当中，只需要 
-                    //     //       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 64] 
-                    //     //       个 17 个 u128 的存储空间。
-                    //     for i in 1..ntz + 1 {
-                    //         double = dbl(u128::from_be_bytes(double.clone())).to_be_bytes();
-                    //     }
-                    // }
-                    if ntz > 0 {
-                        for _ in 0..ntz {
-                            double = dbl(u128::from_be_bytes(double.clone())).to_be_bytes();
+                    let ntz = block_idx.trailing_zeros() as usize;
+                    let double;
+                    if ntz > 30 {
+                        let mut tmp = self.table[31];
+                        for _ in 30..ntz {
+                            tmp = dbl(u128::from_be_bytes(tmp)).to_be_bytes();
                         }
+                        double = tmp;
+                    } else {
+                        double = self.table[ntz + 2];
                     }
 
-                    // Offset_i = Offset_{i-1} xor L_{ntz(i)}
-                    for i in 0..Self::BLOCK_LEN {
-                        offset[i] ^= double[i];
-                    }
-                    
-                    // Sum_i = Sum_{i-1} xor ENCIPHER(K, A_i xor Offset_i)
+                    xor_si128_inplace(&mut offset, &double);
+
                     let mut block = offset.clone();
-                    for i in 0..Self::BLOCK_LEN {
-                        block[i] = chunk[i] ^ offset[i];
-                    }
-                    self.cipher.encrypt(&mut block);
+                    xor_si128_inplace(&mut block, chunk);
 
-                    for i in 0..Self::BLOCK_LEN {
-                        sum[i] ^= block[i];
-                    }
+                    self.cipher.encrypt(&mut block);
+                    xor_si128_inplace(&mut sum, &block);
 
                     block_idx += 1;
                 }
@@ -193,26 +174,18 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                     // Last Block
                     let remainder = &aad[block_idx * Self::BLOCK_LEN..];
 
-                    // Offset_* = Offset_m xor L_*
-                    for i in 0..Self::BLOCK_LEN {
-                        offset[i] ^= double_z1[i];
-                    }
+                    let double_z1 = self.table[0];
+                    xor_si128_inplace(&mut offset, &double_z1);
 
-                    // CipherInput = (A_* || 1 || zeros(127-bitlen(A_*))) xor Offset_*
                     let mut block = [0u8; Self::BLOCK_LEN];
                     block[..remainder.len()].copy_from_slice(remainder);
                     block[remainder.len()] = 0x80;
 
-                    for i in 0..Self::BLOCK_LEN {
-                        block[i] ^= offset[i];
-                    }
+                    xor_si128_inplace(&mut block, &offset);
 
-                    // Sum = Sum_m xor ENCIPHER(K, CipherInput)
                     self.cipher.encrypt(&mut block);
 
-                    for i in 0..Self::BLOCK_LEN {
-                        sum[i] ^= block[i];
-                    }
+                    xor_si128_inplace(&mut sum, &block);
                 } else {
                     // Process any final partial block; compute final hash value
 
@@ -244,62 +217,39 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 // Nonce-dependent and per-encryption variables
                 let plaintext = &mut plaintext_and_ciphertext[..plen];
 
-                // Offset_0 = Stretch[1+bottom..128+bottom]
                 let mut offset = self.offset_0.clone();
-
-                // Checksum_0 = zeros(128)
                 let mut checksum = [0u8; Self::BLOCK_LEN];
 
                 // Process any whole blocks
                 let mut block_idx = 1usize;
                 for chunk in plaintext.chunks_exact_mut(Self::BLOCK_LEN) {
-                    // L_i = double(L_{i-1}) for every integer i > 0
-                    // 
-                    // Offset_0 = Stretch[1+bottom..128+bottom]
-                    // Checksum_0 = zeros(128)
-                    // Offset_i = Offset_{i-1} xor L_{ntz(i)}
-                    let mut double = self.double.clone(); // L_0
-                    let ntz = block_idx.trailing_zeros();
-                    // if ntz > 0 {
-                    //     // TODO: 这个 double 序列的计算后面可以考虑使用缓存表。
-                    //     //       10万个 Blocks 当中，只需要 
-                    //     //       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 64] 
-                    //     //       个 17 个 u128 的存储空间。
-                    //     for i in 1..ntz + 1 {
-                    //         double = dbl(u128::from_be_bytes(double.clone())).to_be_bytes();
-                    //         println!("L_{}: {:?}", i, hex::encode(&double) );
-                    //     }
-                    // }
-                    if ntz > 0 {
-                        for _ in 0..ntz {
-                            double = dbl(u128::from_be_bytes(double.clone())).to_be_bytes();
+                    let ntz = block_idx.trailing_zeros() as usize;
+                    let double;
+                    if ntz > 30 {
+                        let mut tmp = self.table[31];
+                        for _ in 30..ntz {
+                            tmp = dbl(u128::from_be_bytes(tmp)).to_be_bytes();
                         }
+                        double = tmp;
+                    } else {
+                        double = self.table[ntz + 2];
                     }
 
-                    for i in 0..Self::BLOCK_LEN {
-                        offset[i] ^= double[i];
-                    }
+                    xor_si128_inplace(&mut offset, &double);
 
-                    // C_i = Offset_i xor ENCIPHER(K, P_i xor Offset_i)
                     let mut block = offset.clone();
-                    for i in 0..Self::BLOCK_LEN {
-                        block[i] = chunk[i] ^ offset[i];
-                    }
+                    xor_si128_inplace(&mut block, chunk);
+
                     self.cipher.encrypt(&mut block);
 
-                    for i in 0..Self::BLOCK_LEN {
-                        checksum[i] ^= chunk[i];
-                        chunk[i] = block[i] ^ offset[i];
-                    }
+                    xor_si128_inplace(&mut checksum, chunk);
+                    xor_si128_inplace(&mut block, &offset);
+                    chunk.copy_from_slice(&block);
 
                     block_idx += 1;
                 }
 
                 block_idx -= 1;
-
-                let mut double_z1 = [0u8; Self::BLOCK_LEN]; // L_*
-                self.cipher.encrypt(&mut double_z1);
-                let double_z2 = dbl(u128::from_be_bytes(double_z1)).to_be_bytes(); // L_$
 
                 if plen % Self::BLOCK_LEN > 0 {
                     // Process any final partial block and compute raw tag
@@ -307,12 +257,9 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                     // Last Block
                     let remainder = &mut plaintext[block_idx * Self::BLOCK_LEN..];
 
-                    // Offset_* = Offset_m xor L_*
-                    for i in 0..Self::BLOCK_LEN {
-                        offset[i] ^= double_z1[i];
-                    }
+                    let double_z1 = self.table[0];
+                    xor_si128_inplace(&mut offset, &double_z1);
 
-                    // Pad = ENCIPHER(K, Offset_*)
                     let mut pad = offset.clone();
                     self.cipher.encrypt(&mut pad);
 
@@ -327,19 +274,17 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                     checksum[remainder.len()] ^= 0x80;
                 }
 
-                // Tag = ENCIPHER(K, Checksum_* xor Offset_* xor L_$) xor HASH(K,A)
-                // Tag = ENCIPHER(K, Checksum_m xor Offset_m xor L_$) xor HASH(K,A)
-                let mut tag_block = [0u8; Self::BLOCK_LEN];
-                for i in 0..Self::BLOCK_LEN {
-                    tag_block[i] = checksum[i] ^ offset[i] ^ double_z2[i];
-                }
+                let double_z2 = self.table[1];
+                xor_si128_inplace(&mut checksum, &offset);
+                xor_si128_inplace(&mut checksum, &double_z2);
+
+                let mut tag_block = checksum;
+
                 self.cipher.encrypt(&mut tag_block);
 
                 let aad_hash = self.hash(aad);
-                for i in 0..Self::BLOCK_LEN {
-                    tag_block[i] ^= aad_hash[i];
-                }
-                
+                xor_si128_inplace(&mut tag_block, &aad_hash);
+
                 // save TAG
                 let tag = &mut plaintext_and_ciphertext[plen..plen + Self::TAG_LEN];
                 tag.copy_from_slice(&tag_block[..Self::TAG_LEN]);
@@ -355,45 +300,32 @@ macro_rules! impl_block_cipher_with_ocb_mode {
 
                 let ciphertext = &mut ciphertext_and_plaintext[..clen];
 
-                let mut double_z1 = [0u8; Self::BLOCK_LEN]; // L_*
-                self.cipher.encrypt(&mut double_z1);
-                let double_z2 = dbl(u128::from_be_bytes(double_z1)).to_be_bytes(); // L_$
-
-
-                // Offset_0 = Stretch[1+bottom..128+bottom]
                 let mut offset = self.offset_0.clone();
-
-                // Checksum_0 = zeros(128)
                 let mut checksum = [0u8; Self::BLOCK_LEN];
 
-                // Process any whole blocks
                 let mut block_idx = 1usize;
                 for chunk in ciphertext.chunks_exact_mut(Self::BLOCK_LEN) {
-                    let mut double = self.double.clone(); // L_0
-
-                    // Offset_i = Offset_{i-1} xor L_{ntz(i)}
-                    let ntz = block_idx.trailing_zeros();
-                    if ntz > 0 {
-                        for _ in 0..ntz {
-                            double = dbl(u128::from_be_bytes(double.clone())).to_be_bytes();
+                    // Process any whole blocks
+                    let ntz = block_idx.trailing_zeros() as usize;
+                    let double;
+                    if ntz > 30 {
+                        let mut tmp = self.table[31];
+                        for _ in 30..ntz {
+                            tmp = dbl(u128::from_be_bytes(tmp)).to_be_bytes();
                         }
-                    }
-                    for i in 0..Self::BLOCK_LEN {
-                        offset[i] ^= double[i];
+                        double = tmp;
+                    } else {
+                        double = self.table[ntz + 2];
                     }
 
-                    // P_i = Offset_i xor DECIPHER(K, C_i xor Offset_i)
-                    for i in 0..Self::BLOCK_LEN {
-                        chunk[i] ^= offset[i];
-                    }
+                    xor_si128_inplace(&mut offset, &double);
+                    xor_si128_inplace(chunk, &offset);
+
                     self.cipher.decrypt(chunk);
-                    for i in 0..Self::BLOCK_LEN {
-                        chunk[i] ^= offset[i];
-                    }
 
-                    for i in 0..Self::BLOCK_LEN {
-                        checksum[i] ^= chunk[i];
-                    }
+                    xor_si128_inplace(chunk, &offset);
+
+                    xor_si128_inplace(&mut checksum, &chunk);
 
                     block_idx += 1;
                 }
@@ -406,41 +338,32 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                     // Last Block
                     let remainder = &mut ciphertext[block_idx * Self::BLOCK_LEN..];
 
-                    // Offset_* = Offset_m xor L_*
-                    for i in 0..Self::BLOCK_LEN {
-                        offset[i] ^= double_z1[i];
-                    }
+                    let double_z1 = self.table[0];
+                    xor_si128_inplace(&mut offset, &double_z1);
 
-                    // Pad = ENCIPHER(K, Offset_*)
                     let mut pad = offset.clone();
                     self.cipher.encrypt(&mut pad);
 
-                    // Checksum_* = Checksum_m xor (P_* || 1 || zeros(127-bitlen(P_*)))
                     for i in 0..remainder.len() {
                         remainder[i] ^= pad[i];
                         checksum[i] ^= remainder[i];
-                        // remainder[i] = pad[i];
                     }
                     checksum[remainder.len()] ^= 0x80;
                 }
 
-                // Tag = ENCIPHER(K, Checksum_* xor Offset_* xor L_$) xor HASH(K,A)
-                // Tag = ENCIPHER(K, Checksum_m xor Offset_m xor L_$) xor HASH(K,A)
-                let mut tag_block = [0u8; Self::BLOCK_LEN];
-                for i in 0..Self::BLOCK_LEN {
-                    tag_block[i] = checksum[i] ^ offset[i] ^ double_z2[i];
-                }
+                xor_si128_inplace(&mut checksum, &offset);
+                xor_si128_inplace(&mut checksum, &self.table[1]);
+                
+                let mut tag_block = checksum;
+
                 self.cipher.encrypt(&mut tag_block);
 
                 let aad_hash = self.hash(aad);
-                for i in 0..Self::BLOCK_LEN {
-                    tag_block[i] ^= aad_hash[i];
-                }
-                
-                // Verify
+                xor_si128_inplace(&mut tag_block, &aad_hash);
 
-                // Input TAG
+                // Verify
                 let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
+                
                 bool::from(subtle::ConstantTimeEq::ct_eq(input_tag, &tag_block[..]))
             }
         }
