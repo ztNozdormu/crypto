@@ -519,7 +519,7 @@ impl_block_cipher_with_cfb1_mode!(Aria256Cfb128, Aria256);
 
 #[cfg(test)]
 #[bench]
-fn bench_aes128_cfb128(b: &mut test::Bencher) {
+fn bench_aes128_cfb128_enc(b: &mut test::Bencher) {
     let key = hex::decode("00000000000000000000000000000000").unwrap();
     let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
     

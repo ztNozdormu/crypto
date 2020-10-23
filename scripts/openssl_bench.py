@@ -42,8 +42,8 @@ def main():
     cmd_list = [
         # ECB 分组相对于直接使用 Block Cipher 本身，这样可以测试 Aes128/Sm4 这些 BlockCipher 的性能。
         [OPENSSL, "speed", "-bytes", "16", "-evp", "sm4-ecb"],
-        [OPENSSL, "speed", "-bytes", "16", "-evp", "aria-ecb"],
-        [OPENSSL, "speed", "-bytes", "16", "-evp", "camellia-ecb"],
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "aria-128-ecb"],
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "camellia-128-ecb"],
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-ecb"],
 
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-gcm"],
@@ -71,8 +71,8 @@ def main():
         tmp = line.split(" ")
         cipher = tmp[0]
         report = int(float(tmp[-1].replace("k", ""))) // 1024 # MB
-        print("%s    %d MB/s" % (cipher.ljust(15, " "), report))
-        
+        print("%s    %s mb/s" % (cipher.ljust(18, " "),  str(report).rjust(5, " ")))
+
 
 if __name__ == '__main__':
     main()
