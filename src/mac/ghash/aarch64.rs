@@ -6,6 +6,7 @@ use core::mem::transmute;
 
 // 参考: https://github.com/noloader/AES-Intrinsics/blob/master/clmul-arm.c
 
+#[inline]
 unsafe fn pmull(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
     // Low
     let a: poly64_t = transmute(vgetq_lane_u64(vreinterpretq_u64_u8(a), 0));
@@ -13,6 +14,7 @@ unsafe fn pmull(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
     transmute(vmull_p64(a, b))
 }
 
+#[inline]
 unsafe fn pmull2(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
     // High
     let a: poly64_t = transmute(vgetq_lane_u64(vreinterpretq_u64_u8(a), 1));
@@ -21,11 +23,14 @@ unsafe fn pmull2(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
 }
 
 // Perform the multiplication and reduction in GF(2^128)
+#[inline]
 unsafe fn gf_mul(h: uint8x16_t, x: &mut [u8; 16]) {
     // NOTE: 在传入之前 确保 h 的端序。
     let a8 = h;
+    
     // 转换端序（vrbitq_u8）
     x.reverse();
+    
     // vld1q_u8
     let b8 = transmute(x.clone());
 
@@ -80,22 +85,56 @@ unsafe fn gf_mul(h: uint8x16_t, x: &mut [u8; 16]) {
 
 #[derive(Debug, Clone)]
 pub struct GHash {
-    h: uint8x16_t,
+    key: uint8x16_t,
+    tag: uint8x16_t,
 }
 
 impl GHash {
     pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
-
+    pub const TAG_LEN: usize   = 16;
     
-    pub fn new(h: &[u8; Self::BLOCK_LEN]) -> Self {
+
+    pub fn new(h: &[u8; Self::KEY_LEN]) -> Self {
         let mut h = h.clone();
         h.reverse();
 
-        Self { h: transmute(h) }
+        let tag = [0u8; Self::TAG_LEN];
+
+        unsafe {
+            Self {
+                key: transmute(h),
+                tag: transmute(tag),
+            }
+        }
     }
     
-    pub fn ghash(&self, data: &mut [u8; Self::BLOCK_LEN]) {
-        gf_mul(self.h, data)
+    pub fn update(&mut self, m: &[u8]) {
+        let mlen = m.len();
+
+        if mlen == 0 {
+            return ();
+        }
+
+        let n = mlen / Self::BLOCK_LEN;
+        for i in 0..n {
+            let chunk = &m[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
+            gf_mul(self.key, chunk);
+        }
+
+        if mlen % Self::BLOCK_LEN != 0 {
+            let rem = &m[n * Self::BLOCK_LEN..];
+            let rlen = rem.len();
+
+            let mut last_block = [0u8; Self::BLOCK_LEN];
+            last_block[..rlen].copy_from_slice(rem);
+            gf_mul(self.key, &last_block);
+        }
+    }
+
+    pub fn finalize(self) -> [u8; Self::TAG_LEN] {
+        unsafe {
+            transmute(self.tag)
+        }
     }
 }
