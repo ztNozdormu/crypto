@@ -40,11 +40,22 @@ def shell(cmd):
 
 def main():
     cmd_list = [
+        # ECB 分组相对于直接使用 Block Cipher 本身，这样可以测试 Aes128/Sm4 这些 BlockCipher 的性能。
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "sm4-ecb"],
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "aria-ecb"],
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "camellia-ecb"],
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-ecb"],
+
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-gcm"],
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-ccm"],
         [OPENSSL, "speed", "-bytes", "16", "-evp", "aes-128-ocb"],
+        
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "aria-128-gcm"],
+        [OPENSSL, "speed", "-bytes", "16", "-evp", "aria-128-ccm"],
+
         [OPENSSL, "speed", "-bytes", "64", "-evp", "chacha20"],
         [OPENSSL, "speed", "-bytes", "64", "-evp", "chacha20-poly1305"],
+        
         [OPENSSL, "speed", "-bytes", "64", "-evp", "sha256"],
     ]
     res = []
