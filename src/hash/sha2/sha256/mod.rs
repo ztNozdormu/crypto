@@ -35,11 +35,18 @@ pub fn sha256<T: AsRef<[u8]>>(data: T) -> [u8; Sha256::DIGEST_LEN] {
 }
 
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+// NOTE: 直接使用 SHA-NI 来加速。
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sha"))]
 #[inline]
 fn transform(state: &mut [u32; 8], block: &[u8]) {
-    // NOTE: 这种采用 Runtime 判断环境的方式，对性能有非常大的损失。
-    //       后面需要重新考虑怎么编译最合适。
+    x86::transform(state, block)
+}
+
+// NOTE: 当编译时，没有开启 `+sha` 指令时，通过 Runtime 来判断
+//       这样，会有性能损失。后面需要考虑是否有更好的方式。
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), not(target_feature = "sha")))]
+#[inline]
+fn transform(state: &mut [u32; 8], block: &[u8]) {
     if is_x86_feature_detected!("sha") {
         x86::transform(state, block)
     } else {
@@ -47,22 +54,23 @@ fn transform(state: &mut [u32; 8], block: &[u8]) {
     }
 }
 
-#[cfg(target_arch = "aarch64")]
+
+#[cfg(all(target_arch = "aarch64", target_feature = "crypto"))]
 #[inline]
 fn transform(state: &mut [u32; 8], block: &[u8]) {
-    // NOTE:
-    //      Crypto: AES + PMULL + SHA1 + SHA2
-    //      https://github.com/rust-lang/stdarch/blob/master/crates/std_detect/src/detect/arch/aarch64.rs#L26
-    if is_aarch64_feature_detected!("crypto") {
-        aarch64::transform(state, block)
-    } else {
-        generic::transform(state, block)
-    }
+    aarch64::transform(state, block)
+}
+#[cfg(all(target_arch = "aarch64", not(target_feature = "crypto")))]
+#[inline]
+fn transform(state: &mut [u32; 8], block: &[u8]) {
+    generic::transform(state, block)
 }
 
-#[cfg(not(any(
+
+// Other platform (e.g: MIPS)
+#[cfg(not(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
     target_arch = "aarch64",
-    any(target_arch = "x86", target_arch = "x86_64")
 )))]
 #[inline]
 fn transform(state: &mut [u32; 8], block: &[u8]) {

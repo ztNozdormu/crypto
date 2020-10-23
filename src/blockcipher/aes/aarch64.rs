@@ -1,7 +1,7 @@
-use crate::aes::generic;
-
 #[cfg(target_arch = "aarch64")]
 use core::arch::aarch64::*;
+
+use super::generic;
 
 
 #[inline]
@@ -77,6 +77,7 @@ impl Aes128 {
     pub const KEY_LEN: usize   = 16;
     pub const NR: usize        = 10;
 
+
     pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
         let ek = generic::Aes128::new(key).ek;
@@ -108,6 +109,7 @@ impl Aes192 {
     pub const KEY_LEN: usize   = 16;
     pub const NR: usize        = 12;
 
+
     pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
         let ek = generic::Aes192::new(key).ek;
@@ -137,6 +139,7 @@ impl Aes256 {
     pub const BLOCK_LEN: usize = 16;
     pub const KEY_LEN: usize   = 16;
     pub const NR: usize        = 14;
+
 
     pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);

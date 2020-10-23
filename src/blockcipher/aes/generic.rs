@@ -23,28 +23,24 @@
 // 
 // The Rijndael Animation
 // http://www.formaestudio.com/rijndaelinspector/
-// 
 
-#[cfg(test)]
-use hex;
+const WORD_SIZE: usize      =  4; // Word(u32) size in bytes
 
-pub const WORD_SIZE: usize      =  4; // Word(u32) size in bytes
+const AES_BLOCK_LEN: usize  = 16; // Block Size (bytes)
+const AES_NB: usize         = AES_BLOCK_LEN  / WORD_SIZE; //  4, Block Size (Nb words)
 
-pub const AES_BLOCK_LEN: usize  = 16; // Block Size (bytes)
-pub const AES_NB: usize         = AES_BLOCK_LEN  / WORD_SIZE; //  4, Block Size (Nb words)
+const AES128_KEY_LEN: usize = 16; // Key Length (bytes)
+const AES192_KEY_LEN: usize = 24;
+const AES256_KEY_LEN: usize = 32;
 
-pub const AES128_KEY_LEN: usize = 16; // Key Length (bytes)
-pub const AES192_KEY_LEN: usize = 24;
-pub const AES256_KEY_LEN: usize = 32;
+const AES128_NK: usize  = AES128_KEY_LEN / WORD_SIZE; //  4, Key Length (Nk words)
+const AES128_NR: usize  = 10;                         // 10, Number of Rounds (Nr) 
 
-pub const AES128_NK: usize  = AES128_KEY_LEN / WORD_SIZE; //  4, Key Length (Nk words)
-pub const AES128_NR: usize  = 10;                         // 10, Number of Rounds (Nr) 
+const AES192_NK: usize  = AES192_KEY_LEN / WORD_SIZE; //  6, Key Length (Nk words)
+const AES192_NR: usize  = 12;                         // 12, Number of Rounds (Nr) 
 
-pub const AES192_NK: usize  = AES192_KEY_LEN / WORD_SIZE; //  6, Key Length (Nk words)
-pub const AES192_NR: usize  = 12;                         // 12, Number of Rounds (Nr) 
-
-pub const AES256_NK: usize  = AES256_KEY_LEN / WORD_SIZE; //  8, Key Length (Nk words)
-pub const AES256_NR: usize  = 14;                         // 14, Number of Rounds (Nr) 
+const AES256_NK: usize  = AES256_KEY_LEN / WORD_SIZE; //  8, Key Length (Nk words)
+const AES256_NR: usize  = 14;                         // 14, Number of Rounds (Nr) 
 
 
 macro_rules! impl_aes {
@@ -58,14 +54,9 @@ macro_rules! impl_aes {
             pub const KEY_LEN: usize   = $nk * WORD_SIZE;
             pub const BLOCK_LEN: usize = AES_BLOCK_LEN;
             
+            
             pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
-                let mut ek = [0u8; ($nr + 1) * AES_BLOCK_LEN];
-                key_expansion(key, &mut ek);
-                Self { ek }
-            }
-            
-            pub fn new_unchecked(key: &[u8]) -> Self {
                 let mut ek = [0u8; ($nr + 1) * AES_BLOCK_LEN];
                 key_expansion(key, &mut ek);
                 Self { ek }
@@ -99,11 +90,11 @@ impl_aes!(Aes256, AES256_NR, AES256_NK, "Aes256");
 
 
 // The round constant word array. 
-pub const RCON: [u32; 10] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+const RCON: [u32; 10] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
 
 // aes sbox and invert-sbox
 // Forward S-Box
-pub const FORWARD_S_BOX: [u8; 256] = [
+const FORWARD_S_BOX: [u8; 256] = [
     // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -124,7 +115,7 @@ pub const FORWARD_S_BOX: [u8; 256] = [
 ];
 
 // Reverse S-Box
-pub const REVERSE_S_BOX: [u8; 256] = [
+const REVERSE_S_BOX: [u8; 256] = [
     // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
     0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
     0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
@@ -144,7 +135,7 @@ pub const REVERSE_S_BOX: [u8; 256] = [
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d,
 ];
 
-pub const GF_MUL2: [u8; 256] = [
+const GF_MUL2: [u8; 256] = [
     0x00, 0x02, 0x04, 0x06, 0x08, 0x0a, 0x0c, 0x0e, 0x10, 0x12, 0x14, 0x16, 0x18, 0x1a, 0x1c, 0x1e, 
     0x20, 0x22, 0x24, 0x26, 0x28, 0x2a, 0x2c, 0x2e, 0x30, 0x32, 0x34, 0x36, 0x38, 0x3a, 0x3c, 0x3e, 
     0x40, 0x42, 0x44, 0x46, 0x48, 0x4a, 0x4c, 0x4e, 0x50, 0x52, 0x54, 0x56, 0x58, 0x5a, 0x5c, 0x5e, 
@@ -162,7 +153,7 @@ pub const GF_MUL2: [u8; 256] = [
     0xdb, 0xd9, 0xdf, 0xdd, 0xd3, 0xd1, 0xd7, 0xd5, 0xcb, 0xc9, 0xcf, 0xcd, 0xc3, 0xc1, 0xc7, 0xc5, 
     0xfb, 0xf9, 0xff, 0xfd, 0xf3, 0xf1, 0xf7, 0xf5, 0xeb, 0xe9, 0xef, 0xed, 0xe3, 0xe1, 0xe7, 0xe5, 
 ];
-pub const GF_MUL3: [u8; 256] = [
+const GF_MUL3: [u8; 256] = [
     0x00, 0x03, 0x06, 0x05, 0x0c, 0x0f, 0x0a, 0x09, 0x18, 0x1b, 0x1e, 0x1d, 0x14, 0x17, 0x12, 0x11, 
     0x30, 0x33, 0x36, 0x35, 0x3c, 0x3f, 0x3a, 0x39, 0x28, 0x2b, 0x2e, 0x2d, 0x24, 0x27, 0x22, 0x21, 
     0x60, 0x63, 0x66, 0x65, 0x6c, 0x6f, 0x6a, 0x69, 0x78, 0x7b, 0x7e, 0x7d, 0x74, 0x77, 0x72, 0x71, 
@@ -181,7 +172,7 @@ pub const GF_MUL3: [u8; 256] = [
     0x0b, 0x08, 0x0d, 0x0e, 0x07, 0x04, 0x01, 0x02, 0x13, 0x10, 0x15, 0x16, 0x1f, 0x1c, 0x19, 0x1a, 
 ];
 
-pub const GF_MUL9: [u8; 256] = [
+const GF_MUL9: [u8; 256] = [
     0x00, 0x09, 0x12, 0x1b, 0x24, 0x2d, 0x36, 0x3f, 0x48, 0x41, 0x5a, 0x53, 0x6c, 0x65, 0x7e, 0x77,
     0x90, 0x99, 0x82, 0x8b, 0xb4, 0xbd, 0xa6, 0xaf, 0xd8, 0xd1, 0xca, 0xc3, 0xfc, 0xf5, 0xee, 0xe7,
     0x3b, 0x32, 0x29, 0x20, 0x1f, 0x16, 0x0d, 0x04, 0x73, 0x7a, 0x61, 0x68, 0x57, 0x5e, 0x45, 0x4c,
@@ -199,7 +190,7 @@ pub const GF_MUL9: [u8; 256] = [
     0xa1, 0xa8, 0xb3, 0xba, 0x85, 0x8c, 0x97, 0x9e, 0xe9, 0xe0, 0xfb, 0xf2, 0xcd, 0xc4, 0xdf, 0xd6,
     0x31, 0x38, 0x23, 0x2a, 0x15, 0x1c, 0x07, 0x0e, 0x79, 0x70, 0x6b, 0x62, 0x5d, 0x54, 0x4f, 0x46,
 ];
-pub const GF_MUL11: [u8; 256] = [
+const GF_MUL11: [u8; 256] = [
     0x00, 0x0b, 0x16, 0x1d, 0x2c, 0x27, 0x3a, 0x31, 0x58, 0x53, 0x4e, 0x45, 0x74, 0x7f, 0x62, 0x69,
     0xb0, 0xbb, 0xa6, 0xad, 0x9c, 0x97, 0x8a, 0x81, 0xe8, 0xe3, 0xfe, 0xf5, 0xc4, 0xcf, 0xd2, 0xd9,
     0x7b, 0x70, 0x6d, 0x66, 0x57, 0x5c, 0x41, 0x4a, 0x23, 0x28, 0x35, 0x3e, 0x0f, 0x04, 0x19, 0x12,
@@ -217,7 +208,7 @@ pub const GF_MUL11: [u8; 256] = [
     0x7a, 0x71, 0x6c, 0x67, 0x56, 0x5d, 0x40, 0x4b, 0x22, 0x29, 0x34, 0x3f, 0x0e, 0x05, 0x18, 0x13,
     0xca, 0xc1, 0xdc, 0xd7, 0xe6, 0xed, 0xf0, 0xfb, 0x92, 0x99, 0x84, 0x8f, 0xbe, 0xb5, 0xa8, 0xa3,
 ];
-pub const GF_MUL13: [u8; 256] = [
+const GF_MUL13: [u8; 256] = [
     0x00, 0x0d, 0x1a, 0x17, 0x34, 0x39, 0x2e, 0x23, 0x68, 0x65, 0x72, 0x7f, 0x5c, 0x51, 0x46, 0x4b,
     0xd0, 0xdd, 0xca, 0xc7, 0xe4, 0xe9, 0xfe, 0xf3, 0xb8, 0xb5, 0xa2, 0xaf, 0x8c, 0x81, 0x96, 0x9b,
     0xbb, 0xb6, 0xa1, 0xac, 0x8f, 0x82, 0x95, 0x98, 0xd3, 0xde, 0xc9, 0xc4, 0xe7, 0xea, 0xfd, 0xf0,
@@ -235,7 +226,7 @@ pub const GF_MUL13: [u8; 256] = [
     0x0c, 0x01, 0x16, 0x1b, 0x38, 0x35, 0x22, 0x2f, 0x64, 0x69, 0x7e, 0x73, 0x50, 0x5d, 0x4a, 0x47,
     0xdc, 0xd1, 0xc6, 0xcb, 0xe8, 0xe5, 0xf2, 0xff, 0xb4, 0xb9, 0xae, 0xa3, 0x80, 0x8d, 0x9a, 0x97,
 ];
-pub const GF_MUL14: [u8; 256] = [
+const GF_MUL14: [u8; 256] = [
     0x00, 0x0e, 0x1c, 0x12, 0x38, 0x36, 0x24, 0x2a, 0x70, 0x7e, 0x6c, 0x62, 0x48, 0x46, 0x54, 0x5a,
     0xe0, 0xee, 0xfc, 0xf2, 0xd8, 0xd6, 0xc4, 0xca, 0x90, 0x9e, 0x8c, 0x82, 0xa8, 0xa6, 0xb4, 0xba,
     0xdb, 0xd5, 0xc7, 0xc9, 0xe3, 0xed, 0xff, 0xf1, 0xab, 0xa5, 0xb7, 0xb9, 0x93, 0x9d, 0x8f, 0x81,
@@ -256,19 +247,19 @@ pub const GF_MUL14: [u8; 256] = [
 
 
 #[inline]
-pub const fn sub_byte(x: u8) -> u8 {
+const fn sub_byte(x: u8) -> u8 {
     FORWARD_S_BOX[x as usize]
 }
 
 #[inline]
-pub fn rot_word(x: u32) -> u32 {
+fn rot_word(x: u32) -> u32 {
     // RotWord([b0, b1, b2, b3]) = [b1, b2, b3, b0]
     let [a, b, c, d] = x.to_le_bytes();
     u32::from_le_bytes([b, c, d, a])
 }
 
 #[inline]
-pub fn sub_word(x: u32) -> u32 {
+fn sub_word(x: u32) -> u32 {
     // SubWord([b0, b1, b2, b3]) = [ SubByte(b0), SubByte(b1), SubByte(b2), SubByte(b3) ]
     let mut bytes = x.to_le_bytes();
     bytes[0] = FORWARD_S_BOX[bytes[0] as usize];
@@ -279,7 +270,7 @@ pub fn sub_word(x: u32) -> u32 {
 }
 
 #[inline]
-pub fn sub_bytes(state: &mut [u8]) {
+fn sub_bytes(state: &mut [u8]) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
 
     state[0]  = FORWARD_S_BOX[state[0] as usize];
@@ -301,7 +292,7 @@ pub fn sub_bytes(state: &mut [u8]) {
 }
 
 #[inline]
-pub fn shift_rows(state: &mut [u8]) {
+fn shift_rows(state: &mut [u8]) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     // Example:
     // 00 11 22 33 
@@ -349,33 +340,33 @@ pub fn shift_rows(state: &mut [u8]) {
 }
 
 #[inline]
-pub const fn gf_mul2(v: u8) -> u8 {
+const fn gf_mul2(v: u8) -> u8 {
     GF_MUL2[v as usize]
 }
 #[inline]
-pub const fn gf_mul3(v: u8) -> u8 {
+const fn gf_mul3(v: u8) -> u8 {
     GF_MUL3[v as usize]
 }
 #[inline]
-pub const fn gf_mul9(v: u8) -> u8 {
+const fn gf_mul9(v: u8) -> u8 {
     GF_MUL9[v as usize]
 }
 #[inline]
-pub const fn gf_mul11(v: u8) -> u8 {
+const fn gf_mul11(v: u8) -> u8 {
     GF_MUL11[v as usize]
 }
 #[inline]
-pub const fn gf_mul13(v: u8) -> u8 {
+const fn gf_mul13(v: u8) -> u8 {
     GF_MUL13[v as usize]
 }
 #[inline]
-pub const fn gf_mul14(v: u8) -> u8 {
+const fn gf_mul14(v: u8) -> u8 {
     GF_MUL14[v as usize]
 }
 
 
 #[inline]
-pub fn mix_columns(state: &mut [u8]) {
+fn mix_columns(state: &mut [u8]) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
 
     let mut c = [0u8; 16];
@@ -404,7 +395,7 @@ pub fn mix_columns(state: &mut [u8]) {
 
 
 #[inline]
-pub fn inv_sub_bytes(state: &mut [u8]) {
+fn inv_sub_bytes(state: &mut [u8]) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
 
     // InvSubBytes
@@ -429,7 +420,7 @@ pub fn inv_sub_bytes(state: &mut [u8]) {
 
 
 #[inline]
-pub fn inv_shift_rows(state: &mut [u8]) {
+fn inv_shift_rows(state: &mut [u8]) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
 
     // Example:
@@ -478,7 +469,7 @@ pub fn inv_shift_rows(state: &mut [u8]) {
 }
 
 #[inline]
-pub fn inv_mix_columns(state: &mut [u8]) {
+fn inv_mix_columns(state: &mut [u8]) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
 
     let mut c = [0u8; 16];
@@ -506,7 +497,7 @@ pub fn inv_mix_columns(state: &mut [u8]) {
 }
 
 #[inline]
-pub fn key_expansion(key: &[u8], expanded_key: &mut [u8]) {
+fn key_expansion(key: &[u8], expanded_key: &mut [u8]) {
     assert!(key.len() == AES128_KEY_LEN || key.len() == AES192_KEY_LEN || key.len() == AES256_KEY_LEN);
     
     // Nk
@@ -572,7 +563,7 @@ pub fn key_expansion(key: &[u8], expanded_key: &mut [u8]) {
 }
 
 #[inline]
-pub fn add_round_key(state: &mut [u8], rounds_key: &[u8], round: usize) {
+fn add_round_key(state: &mut [u8], rounds_key: &[u8], round: usize) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     debug_assert!(rounds_key.len() >= round * AES_BLOCK_LEN);
 
@@ -582,7 +573,7 @@ pub fn add_round_key(state: &mut [u8], rounds_key: &[u8], round: usize) {
 }
 
 #[inline]
-pub fn encrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
+fn encrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     debug_assert!(nr == AES128_NR || nr == AES192_NR || nr == AES256_NR);
 
@@ -601,7 +592,7 @@ pub fn encrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
 }
 
 #[inline]
-pub fn decrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
+fn decrypt(state: &mut [u8], expanded_key: &[u8], nr: usize) {
     debug_assert_eq!(state.len(), AES_BLOCK_LEN);
     debug_assert!(nr == AES128_NR || nr == AES192_NR || nr == AES256_NR);
 
