@@ -68,10 +68,10 @@ fn transform(state: &mut [u32; 8], block: &[u8]) {
 
 
 // Other platform (e.g: MIPS)
-#[cfg(not(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    target_arch = "aarch64",
-)))]
+#[cfg(all(
+    not(any(target_arch = "x86", target_arch = "x86_64")),
+    not(target_arch = "aarch64"),
+))]
 #[inline]
 fn transform(state: &mut [u32; 8], block: &[u8]) {
     generic::transform(state, block)
