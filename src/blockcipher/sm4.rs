@@ -51,8 +51,7 @@ fn l_rotate(x: u32, i: u32) -> u32 {
     (x << (i % 32)) | (x >> (32 - (i % 32)))
 }
 #[inline]
-fn l_trans(input: u32) -> u32 {
-    let b = input;
+fn l_trans(b: u32) -> u32 {
     b ^ l_rotate(b, 2) ^ l_rotate(b, 10) ^ l_rotate(b, 18) ^ l_rotate(b, 24)
 }
 #[inline]
@@ -60,8 +59,7 @@ fn t_trans(input: u32) -> u32 {
     l_trans(tau_trans(input))
 }
 #[inline]
-fn l_prime_trans(input: u32) -> u32 {
-    let b = input;
+fn l_prime_trans(b: u32) -> u32 {
     b ^ l_rotate(b, 13) ^ l_rotate(b, 23)
 }
 #[inline]

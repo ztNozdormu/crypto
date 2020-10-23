@@ -1,8 +1,9 @@
-
 #[cfg(target_arch = "x86")]
 use core::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
+#[cfg(target_arch = "aarch64")]
+use core::arch::aarch64::*;
 
 
 #[cfg(not(any(
@@ -33,8 +34,10 @@ pub fn and_si128_inplace(a: &mut [u8], b: &[u8]) {
 
 #[cfg(target_arch = "aarch64")]
 pub fn and_si128_inplace(a: &mut [u8], b: &[u8]) {
-    for i in 0..16 {
-        a[i] &= b[i]
-    }
-    // unimplemented!()
+    use core::mem::transmute;
+
+    let a: &mut uint8x16_t = transmute(a);
+    let b: uint8x16_t = transmute(b);
+    
+    *a = vandq_u8(a.clone(), b);
 }
