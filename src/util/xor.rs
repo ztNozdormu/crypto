@@ -35,9 +35,11 @@ pub fn xor_si128_inplace(a: &mut [u8], b: &[u8]) {
 #[cfg(target_arch = "aarch64")]
 pub fn xor_si128_inplace(a: &mut [u8], b: &[u8]) {
     use core::mem::transmute;
-
-    let a: &mut uint8x16_t = transmute(a);
-    let b: uint8x16_t = transmute(b);
-
-    *a = veorq_u8(a.clone(), b);
+    
+    unsafe {
+        let c: *mut uint8x16_t = a.as_mut_ptr() as *mut uint8x16_t;
+        let d: uint8x16_t = *(b.as_ptr() as *const uint8x16_t);
+        
+        *c = veorq_u8(*c, d);
+    }
 }

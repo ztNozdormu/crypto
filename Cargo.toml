@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-subtle      = { version = "2.3", default-features = false }
+subtle = { version = "2.3", default-features = false }
 
 [dev-dependencies]
 hex = "0.4"
@@ -16,6 +16,16 @@ hex = "0.4"
 default = [
     "subtle/i128",
 ]
+
+tls    = [ "tls1_1", "tls1_2", "tls1_3" ]
+
+ssl    = [ ]
+tls1_1 = [ ]
+tls1_2 = [ ]
+tls1_3 = [ ]
+
+shadowsocks = []
+
 std     = [
     "subtle/std",
 ]

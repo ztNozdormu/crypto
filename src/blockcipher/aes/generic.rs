@@ -47,7 +47,7 @@ macro_rules! impl_aes {
     ($name:ident, $nr:ident, $nk:ident, $name_s:tt) => {
         #[derive(Clone)]
         pub struct $name {
-            ek: [u8; ($nr + 1) * AES_BLOCK_LEN],
+            pub(crate) ek: [u8; ($nr + 1) * AES_BLOCK_LEN],
         }
         
         impl $name {

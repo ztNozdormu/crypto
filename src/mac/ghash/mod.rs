@@ -1,3 +1,5 @@
+// https://github.com/randombit/botan/blob/master/src/lib/utils/ghash/ghash_vperm/ghash_vperm.cpp
+
 #[cfg(all(
     any(target_arch = "x86", target_arch = "x86_64"),
     all(target_feature = "sse2", target_feature = "pclmulqdq"),

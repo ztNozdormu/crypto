@@ -18,9 +18,17 @@ rustflags = [
     "-C", "target-cpu=native",
 ]
 
+
+# NOTE:
+#      Crypto: AES + PMULL + SHA1 + SHA2
+#      https://github.com/rust-lang/stdarch/blob/master/crates/std_detect/src/detect/arch/aarch64.rs#L26
+# 
+# AArch64 CPU Flags: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma dcpop asimddp asimdfhm
+# 
+# env RUSTFLAGS="--print native-static-libs -C target-cpu=native -C target-feature=+aes,+sha2" cargo bench
 [target.'cfg(target_arch = "aarch64")']
 rustflags = [
     # "--print", "native-static-libs",
     "-C", "target-cpu=native",
-    "-C", "target-feature=+aes,+crypto,+neon,+sha",
+    "-C", "target-feature=+aes,+crypto,+neon",
 ]

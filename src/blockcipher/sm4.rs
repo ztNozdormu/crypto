@@ -9,6 +9,7 @@
 //      1. 硬件加速方面的思路和代码可以参考项目: https://github.com/mjosaarinen/sm4ni
 //      2. 代码参考自 https://github.com/citahub/libsm/blob/master/src/sm4/cipher.rs
 // 
+//          https://github.com/randombit/botan/blob/master/src/lib/block/sm4/sm4_armv8/sm4_armv8.cpp
 
 const FK: [u32; 4]  = [ 0xa3b1_bac6, 0x56aa_3350, 0x677d_9197, 0xb270_22dc ];
 const CK: [u32; 32] = [
