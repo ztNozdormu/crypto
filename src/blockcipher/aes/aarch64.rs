@@ -4,6 +4,9 @@ use core::arch::aarch64::*;
 use super::generic;
 
 
+// Emulating x86 AES Intrinsics on ARMv8-A
+// https://blog.michaelbrase.com/2018/05/08/emulating-x86-aes-intrinsics-on-armv8-a/
+
 #[inline]
 fn encrypt_aarch64(expanded_key: &[u8], nr: isize, plaintext: &mut [u8]) {
     debug_assert_eq!(plaintext.len(), 16);
@@ -32,7 +35,7 @@ fn decrypt_aarch64(expanded_key: &[u8], nr: isize, ciphertext: &mut [u8]) {
         let mut state: uint8x16_t = vld1q_u8(ciphertext.as_ptr());
 
         state = veorq_u8(state, vld1q_u8( expanded_key.as_ptr().offset( nr * 16 ) ));
-        
+
         let z = vdupq_n_u8(0);
         for i in 1..nr {
             // TODO: DK 需要在 EK 的基础上做一次 `vaesimcq_u8` 运算，这个步骤可以在 `Aes::new()` 
@@ -40,10 +43,10 @@ fn decrypt_aarch64(expanded_key: &[u8], nr: isize, ciphertext: &mut [u8]) {
             let dk = vaesimcq_u8(vld1q_u8( expanded_key.as_ptr().offset( (nr - i) * 16 ) ));
             state = veorq_u8(vaesimcq_u8(vaesdq_u8(state, z)), dk);
         }
-        
+
         let dk = vld1q_u8( expanded_key.as_ptr() );
         state = veorq_u8(vaesdq_u8(state, z), dk);
-        
+
         // vst1q_u8(output, block);
         let block: [u8; 16] = core::mem::transmute(state);
         ciphertext[0..16].copy_from_slice(&block);

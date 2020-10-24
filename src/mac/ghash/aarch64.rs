@@ -5,6 +5,9 @@ use core::mem::transmute;
 
 
 // 参考: https://github.com/noloader/AES-Intrinsics/blob/master/clmul-arm.c
+// 
+// Convert _mm_clmulepi64_si128 to vmull_{high}_p64
+// https://stackoverflow.com/questions/38553881/convert-mm-clmulepi64-si128-to-vmull-high-p64
 
 #[inline]
 unsafe fn pmull(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
@@ -75,11 +78,11 @@ impl GHash {
 
     pub fn new(h: &[u8; Self::KEY_LEN]) -> Self {
         let mut h = h.clone();
-        
+
         for i in 0..Self::KEY_LEN {
             h[i] = h[i].reverse_bits();
         }
-        
+
         unsafe {
             let key = transmute(h);
 
@@ -122,7 +125,7 @@ impl GHash {
                 last_block[i] = last_block[i].reverse_bits();
             }
             // block.reverse();
-            
+
             unsafe {
                 gf_mul(self.key, &last_block, &mut self.tag);
             }
