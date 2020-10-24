@@ -15,7 +15,7 @@ X86_64 架构
 :处理器: 2.2 GHz 四核Intel Core i7
 
 
-OpenSSL 性能:
+OpenSSL 性能::
 
     sm4-ecb                  92 mb/s
     aria-128-ecb            127 mb/s
@@ -34,7 +34,7 @@ OpenSSL 性能:
     sm3                      68 mb/s
 
 
-Rust Crypto:
+Rust Crypto::
     
     test blockcipher::bench_aes128_enc            ... bench:           3 ns/iter (+/- 0) = 5333 MB/s
     test blockcipher::bench_aes256_enc            ... bench:           6 ns/iter (+/- 1) = 2666 MB/s
@@ -64,7 +64,8 @@ AArch64 架构
 :CPU: Huawei Kunpeng 920 2.6GHz
 :OS: Debian 10.2.0 64bit with ARM
 
-OpenSSL:
+
+OpenSSL::
 
     sm4-ecb                  73 mb/s
     aria-128-ecb             87 mb/s
@@ -81,7 +82,7 @@ OpenSSL:
     sha256                  190 mb/s
 
 
-Rust Crypto:
+Rust Crypto::
 
     test aeadcipher::bench_aes128_ccm_enc         ... bench:           0 ns/iter (+/- 0) = 16000 MB/s
     test aeadcipher::bench_aes128_gcm_enc         ... bench:          93 ns/iter (+/- 0) = 172 MB/s
