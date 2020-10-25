@@ -24,7 +24,7 @@ fn bench_poly1305(b: &mut test::Bencher) {
     
     b.bytes = Poly1305::BLOCK_LEN as u64;
     b.iter(|| {
-        poly1305.update(&message);
+        test::black_box(poly1305.update(&message))
     })
 }
 
@@ -41,7 +41,7 @@ fn bench_polyval(b: &mut test::Bencher) {
     
     b.bytes = Polyval::BLOCK_LEN as u64;
     b.iter(|| {
-        polyval.update(&message);
+        test::black_box(polyval.update(&message))
     })
 }
 
@@ -58,6 +58,6 @@ fn bench_ghash(b: &mut test::Bencher) {
 
     b.bytes = GHash::BLOCK_LEN as u64;
     b.iter(|| {
-        ghash.update(&message);
+        test::black_box(ghash.update(&message))
     })
 }

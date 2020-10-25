@@ -85,10 +85,10 @@ OpenSSL::
 Rust Crypto::
 
     test aeadcipher::bench_aes128_ccm_enc         ... bench:           0 ns/iter (+/- 0) = 16000 MB/s
-    test aeadcipher::bench_aes128_gcm_enc         ... bench:          93 ns/iter (+/- 0) = 172 MB/s
-    test aeadcipher::bench_aes128_gcm_siv_enc     ... bench:         898 ns/iter (+/- 32) = 17 MB/s
+    test aeadcipher::bench_aes128_gcm_enc         ... bench:          27 ns/iter (+/- 0) = 592 MB/s
+    test aeadcipher::bench_aes128_gcm_siv_enc     ... bench:          79 ns/iter (+/- 0) = 202 MB/s
     test aeadcipher::bench_aes128_ocb_tag_128_enc ... bench:          21 ns/iter (+/- 0) = 761 MB/s
-    test aeadcipher::bench_aes_siv_cmac_256_enc   ... bench:          63 ns/iter (+/- 0) = 253 MB/s
+    test aeadcipher::bench_aes_siv_cmac_256_enc   ... bench:          63 ns/iter (+/- 0) = 262 MB/s
     test aeadcipher::bench_chacha20_poly1305_enc  ... bench:         436 ns/iter (+/- 7) = 146 MB/s
     test blockcipher::bench_aes128_enc            ... bench:           6 ns/iter (+/- 0) = 2666 MB/s
     test blockcipher::bench_aes256_enc            ... bench:          10 ns/iter (+/- 0) = 1600 MB/s
@@ -107,7 +107,7 @@ Rust Crypto::
 
     test mac::bench_ghash                         ... bench:           0 ns/iter (+/- 0) = 16000 MB/s
     test mac::bench_poly1305                      ... bench:          21 ns/iter (+/- 0) = 761 MB/s
-    test mac::bench_polyval                       ... bench:         417 ns/iter (+/- 8) = 38 MB/s
+    test mac::bench_polyval                       ... bench:           0 ns/iter (+/- 8) = 16000 MB/s
 
     test streamcipher::bench_chacha20             ... bench:         320 ns/iter (+/- 6) = 200 MB/s
 

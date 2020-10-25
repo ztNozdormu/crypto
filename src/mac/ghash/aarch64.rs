@@ -25,11 +25,25 @@ unsafe fn pmull2(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
     transmute(vmull_p64(a, b))
 }
 
+// reverse bits in each byte to convert from gcm format to little-little endian
+unsafe fn vrbitq_u8(a: uint8x16_t) -> uint8x16_t {
+    let result: uint8x16_t;
+
+    // rbit v0.16b, v0.16b
+    llvm_asm!("rbit v0.16b, v0.16b"
+        : "=w" (result)
+        : "w"(a)
+        :
+        );
+
+    result
+}
+
 
 // Perform the multiplication and reduction in GF(2^128)
 #[inline]
 unsafe fn gf_mul(key: uint8x16_t, m: &[u8], tag: &mut uint8x16_t) {
-    let m = *(m.as_ptr() as *const uint8x16_t);
+    let m = vrbitq_u8(*(m.as_ptr() as *const uint8x16_t));
 
     let a_p = key;
     let b_p = veorq_u8(m, *tag);
@@ -77,17 +91,11 @@ impl GHash {
     
 
     pub fn new(h: &[u8; Self::KEY_LEN]) -> Self {
-        let mut h = h.clone();
-
-        for i in 0..Self::KEY_LEN {
-            h[i] = h[i].reverse_bits();
-        }
-
         unsafe {
-            let key = transmute(h);
-
+            let key: uint8x16_t = transmute(h.clone());
+            
             Self {
-                key,
+                key: vrbitq_u8(key),
                 tag: vdupq_n_u8(0),
             }
         }
@@ -104,10 +112,6 @@ impl GHash {
             let chunk = &m[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
             let mut block = [0u8; Self::BLOCK_LEN];
             block.copy_from_slice(chunk);
-            for i in 0..Self::KEY_LEN {
-                block[i] = block[i].reverse_bits();
-            }
-            // block.reverse();
 
             unsafe {
                 gf_mul(self.key, &block, &mut self.tag);
@@ -121,11 +125,6 @@ impl GHash {
             let mut last_block = [0u8; Self::BLOCK_LEN];
             last_block[..rlen].copy_from_slice(rem);
 
-            for i in 0..Self::KEY_LEN {
-                last_block[i] = last_block[i].reverse_bits();
-            }
-            // block.reverse();
-
             unsafe {
                 gf_mul(self.key, &last_block, &mut self.tag);
             }
@@ -133,14 +132,8 @@ impl GHash {
     }
 
     pub fn finalize(self) -> [u8; Self::TAG_LEN] {
-
         unsafe {
-            let mut out: [u8; Self::TAG_LEN] = transmute(self.tag);
-            for i in 0..Self::KEY_LEN {
-                out[i] = out[i].reverse_bits();
-            }
-            // out.reverse();
-            out
+            transmute(vrbitq_u8(self.tag))
         }
     }
 }
