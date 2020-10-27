@@ -123,21 +123,19 @@ pub trait AeadCipher: Sized {
     // type AeadDecryptor: AeadStreamCipherDecryptor;
 
     // fn new(key: &[u8], nonce: &[u8]) -> Self;
-
-    fn aead_encrypt_slice_oneshot(key: &[u8], nonce: &[u8], aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
-        // let mut cipher = Self::new(key, nonce);
-        // cipher.aead_encrypt_slice(aad, plaintext_in_and_ciphertext_out);
-        todo!()
+    
+    fn ae_encrypt_slice(&mut self, plaintext_in_and_ciphertext_out: &mut [u8]) {
+        self.aead_encrypt_slice(&[], plaintext_in_and_ciphertext_out)
     }
-
-    fn aead_decrypt_slice_oneshot(key: &[u8], nonce: &[u8], aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> bool {
-        // let mut cipher = Self::new(key, nonce);
-        // cipher.aead_decrypt_slice(aad, ciphertext_in_and_plaintext_out)
-        todo!()
+    fn ae_decrypt_slice(&mut self, ciphertext_in_and_plaintext_out: &mut [u8]) -> bool {
+        self.aead_decrypt_slice(&[], ciphertext_in_and_plaintext_out)
     }
 
     fn aead_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]);
     fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> bool;
+
+    fn aead_encrypt_slice_detached(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]);
+    fn aead_decrypt_slice_detached(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool;
 
     // fn aead_encrypt_stream(&self) -> Self::AeadEncryptor;
     // fn aead_decrypt_stream(&self) -> Self::AeadDecryptor;
@@ -163,13 +161,19 @@ macro_rules! impl_aead_cipher {
             // fn new(key: &[u8], nonce: &[u8]) -> Self {
             //     Self::new(key, nonce)
             // }
-
             fn aead_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
-                self.aead_encrypt(aad, plaintext_in_and_ciphertext_out)
+                self.encrypt_slice(aad, plaintext_in_and_ciphertext_out)
             }
 
             fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> bool {
-                self.aead_decrypt(aad, ciphertext_in_and_plaintext_out)
+                self.decrypt_slice(aad, ciphertext_in_and_plaintext_out)
+            }
+
+            fn aead_encrypt_slice_detached(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
+                self.encrypt_slice_detached(aad, plaintext_and_ciphertext, tag_out)
+            }
+            fn aead_decrypt_slice_detached(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
+                self.decrypt_slice_detached(aad, ciphertext_and_plaintext, tag_in)
             }
         }
     }
@@ -197,17 +201,32 @@ macro_rules! impl_aead_cipher_with_siv_cmac {
 
             fn aead_encrypt_slice(&mut self, aad: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {
                 if aad.is_empty() { 
-                    self.aead_encrypt(&[], plaintext_in_and_ciphertext_out)
+                    self.encrypt_slice(&[], plaintext_in_and_ciphertext_out)
                 } else {
-                    self.aead_encrypt(&[aad], plaintext_in_and_ciphertext_out)
+                    self.encrypt_slice(&[aad], plaintext_in_and_ciphertext_out)
                 }
             }
 
             fn aead_decrypt_slice(&mut self, aad: &[u8], ciphertext_in_and_plaintext_out: &mut [u8]) -> bool {
                 if aad.is_empty() {
-                    self.aead_decrypt(&[], ciphertext_in_and_plaintext_out)
+                    self.decrypt_slice(&[], ciphertext_in_and_plaintext_out)
                 } else {
-                    self.aead_decrypt(&[aad], ciphertext_in_and_plaintext_out)
+                    self.decrypt_slice(&[aad], ciphertext_in_and_plaintext_out)
+                }
+            }
+
+            fn aead_encrypt_slice_detached(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
+                if aad.is_empty() { 
+                    self.encrypt_slice_detached(&[], plaintext_and_ciphertext, tag_out)
+                } else {
+                    self.encrypt_slice_detached(&[aad], plaintext_and_ciphertext, tag_out)
+                }
+            }
+            fn aead_decrypt_slice_detached(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
+                if aad.is_empty() {
+                    self.decrypt_slice_detached(&[], ciphertext_and_plaintext, tag_in)
+                } else {
+                    self.decrypt_slice_detached(&[aad], ciphertext_and_plaintext, tag_in)
                 }
             }
         }
@@ -215,51 +234,51 @@ macro_rules! impl_aead_cipher_with_siv_cmac {
 }
 
 
-// // AES-GCM
-// impl_aead_cipher!(Aes128Gcm,   AEAD_AES_128_GCM);
-// impl_aead_cipher!(Aes128Gcm8,  AEAD_AES_128_GCM_8);
-// impl_aead_cipher!(Aes128Gcm12, AEAD_AES_128_GCM_12);
-// impl_aead_cipher!(Aes256Gcm,   AEAD_AES_256_GCM);
-// impl_aead_cipher!(Aes256Gcm8,  AEAD_AES_256_GCM_8);
-// impl_aead_cipher!(Aes256Gcm12, AEAD_AES_256_GCM_12);
+// AES-GCM
+impl_aead_cipher!(Aes128Gcm,   AEAD_AES_128_GCM);
+impl_aead_cipher!(Aes128Gcm8,  AEAD_AES_128_GCM_8);
+impl_aead_cipher!(Aes128Gcm12, AEAD_AES_128_GCM_12);
+impl_aead_cipher!(Aes256Gcm,   AEAD_AES_256_GCM);
+impl_aead_cipher!(Aes256Gcm8,  AEAD_AES_256_GCM_8);
+impl_aead_cipher!(Aes256Gcm12, AEAD_AES_256_GCM_12);
 
-// // AES-GCM-SIV
-// impl_aead_cipher!(Aes128GcmSiv, AEAD_AES_128_GCM_SIV);
-// impl_aead_cipher!(Aes256GcmSiv, AEAD_AES_256_GCM_SIV);
+// AES-GCM-SIV
+impl_aead_cipher!(Aes128GcmSiv, AEAD_AES_128_GCM_SIV);
+impl_aead_cipher!(Aes256GcmSiv, AEAD_AES_256_GCM_SIV);
 
-// // AES-CCM
-// impl_aead_cipher!(Aes128Ccm,        AEAD_AES_128_CCM);
-// impl_aead_cipher!(Aes128CcmShort,   AEAD_AES_128_CCM_SHORT);
-// impl_aead_cipher!(Aes128CcmShort8,  AEAD_AES_128_CCM_SHORT_8);
-// impl_aead_cipher!(Aes128CcmShort12, AEAD_AES_128_CCM_SHORT_12);
-// impl_aead_cipher!(Aes128Ccm8,       AEAD_AES_128_CCM_8);
+// AES-CCM
+impl_aead_cipher!(Aes128Ccm,        AEAD_AES_128_CCM);
+impl_aead_cipher!(Aes128CcmShort,   AEAD_AES_128_CCM_SHORT);
+impl_aead_cipher!(Aes128CcmShort8,  AEAD_AES_128_CCM_SHORT_8);
+impl_aead_cipher!(Aes128CcmShort12, AEAD_AES_128_CCM_SHORT_12);
+impl_aead_cipher!(Aes128Ccm8,       AEAD_AES_128_CCM_8);
 
-// impl_aead_cipher!(Aes256Ccm,        AEAD_AES_256_CCM);
-// impl_aead_cipher!(Aes256CcmShort,   AEAD_AES_256_CCM_SHORT);
-// impl_aead_cipher!(Aes256CcmShort8,  AEAD_AES_256_CCM_SHORT_8);
-// impl_aead_cipher!(Aes256CcmShort12, AEAD_AES_256_CCM_SHORT_12);
-// impl_aead_cipher!(Aes256Ccm8,       AEAD_AES_256_CCM_8);
+impl_aead_cipher!(Aes256Ccm,        AEAD_AES_256_CCM);
+impl_aead_cipher!(Aes256CcmShort,   AEAD_AES_256_CCM_SHORT);
+impl_aead_cipher!(Aes256CcmShort8,  AEAD_AES_256_CCM_SHORT_8);
+impl_aead_cipher!(Aes256CcmShort12, AEAD_AES_256_CCM_SHORT_12);
+impl_aead_cipher!(Aes256Ccm8,       AEAD_AES_256_CCM_8);
 
-// // AES-SIV-CMAC
-// impl_aead_cipher_with_siv_cmac!(AesSivCmac256, AEAD_AES_SIV_CMAC_256);
-// impl_aead_cipher_with_siv_cmac!(AesSivCmac384, AEAD_AES_SIV_CMAC_384);
-// impl_aead_cipher_with_siv_cmac!(AesSivCmac512, AEAD_AES_SIV_CMAC_512);
+// AES-SIV-CMAC
+impl_aead_cipher_with_siv_cmac!(AesSivCmac256, AEAD_AES_SIV_CMAC_256);
+impl_aead_cipher_with_siv_cmac!(AesSivCmac384, AEAD_AES_SIV_CMAC_384);
+impl_aead_cipher_with_siv_cmac!(AesSivCmac512, AEAD_AES_SIV_CMAC_512);
 
-// // AES-OCB
-// impl_aead_cipher!(Aes128OcbTag64,  AEAD_AES_128_OCB_TAGLEN64);
-// impl_aead_cipher!(Aes128OcbTag96,  AEAD_AES_128_OCB_TAGLEN96);
-// impl_aead_cipher!(Aes128OcbTag128, AEAD_AES_128_OCB_TAGLEN128);
+// AES-OCB
+impl_aead_cipher!(Aes128OcbTag64,  AEAD_AES_128_OCB_TAGLEN64);
+impl_aead_cipher!(Aes128OcbTag96,  AEAD_AES_128_OCB_TAGLEN96);
+impl_aead_cipher!(Aes128OcbTag128, AEAD_AES_128_OCB_TAGLEN128);
 
-// impl_aead_cipher!(Aes192OcbTag64,  AEAD_AES_192_OCB_TAGLEN64);
-// impl_aead_cipher!(Aes192OcbTag96,  AEAD_AES_192_OCB_TAGLEN96);
-// impl_aead_cipher!(Aes192OcbTag128, AEAD_AES_192_OCB_TAGLEN128);
+impl_aead_cipher!(Aes192OcbTag64,  AEAD_AES_192_OCB_TAGLEN64);
+impl_aead_cipher!(Aes192OcbTag96,  AEAD_AES_192_OCB_TAGLEN96);
+impl_aead_cipher!(Aes192OcbTag128, AEAD_AES_192_OCB_TAGLEN128);
 
-// impl_aead_cipher!(Aes256OcbTag64,  AEAD_AES_256_OCB_TAGLEN64);
-// impl_aead_cipher!(Aes256OcbTag96,  AEAD_AES_256_OCB_TAGLEN96);
-// impl_aead_cipher!(Aes256OcbTag128, AEAD_AES_256_OCB_TAGLEN128);
+impl_aead_cipher!(Aes256OcbTag64,  AEAD_AES_256_OCB_TAGLEN64);
+impl_aead_cipher!(Aes256OcbTag96,  AEAD_AES_256_OCB_TAGLEN96);
+impl_aead_cipher!(Aes256OcbTag128, AEAD_AES_256_OCB_TAGLEN128);
 
-// // Chacha20Poly1305
-// impl_aead_cipher!(Chacha20Poly1305,  AEAD_CHACHA20_POLY1305);
+// Chacha20Poly1305
+impl_aead_cipher!(Chacha20Poly1305,  AEAD_CHACHA20_POLY1305);
 
 
 #[cfg(test)]
@@ -342,7 +361,7 @@ fn bench_aes128_ocb_tag_128_enc(b: &mut test::Bencher) {
     let key = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
     let iv = hex::decode("cafebabefacedbaddecaf888").unwrap();
     let aad = [0u8; 0];
-    
+
     let cipher = Aes128OcbTag128::new(&key, &iv);
 
     b.bytes = Aes128OcbTag128::BLOCK_LEN as u64;
