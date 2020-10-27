@@ -72,7 +72,6 @@ pub fn md2<T: AsRef<[u8]>>(data: T) -> [u8; Md2::DIGEST_LEN] {
 pub struct Md2 {
     buffer: [u8; Self::BLOCK_LEN],
     state: [u8; 64],
-    // len: usize,      // in bytes.
     offset: usize,
 }
 
@@ -106,7 +105,7 @@ impl Md2 {
         }
     }
 
-    pub fn finalize(&mut self) {
+    pub fn finalize(mut self) -> [u8; Self::DIGEST_LEN] {
         let data = &self.buffer[..self.offset];
 
         let block = last_block(data);
@@ -115,9 +114,7 @@ impl Md2 {
         let mut block = [0u8; 16];
         block.copy_from_slice(&self.state[48..]);
         transform(&mut self.state, &block);
-    }
 
-    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
         let mut output = [0u8; Self::DIGEST_LEN];
         output.copy_from_slice(&self.state[..Self::DIGEST_LEN]);
         output
@@ -126,8 +123,7 @@ impl Md2 {
     pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
         let mut m = Self::new();
         m.update(data.as_ref());
-        m.finalize();
-        m.output()
+        m.finalize()
     }
 }
 

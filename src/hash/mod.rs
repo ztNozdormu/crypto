@@ -140,9 +140,8 @@ macro_rules! impl_crypto_hasher {
                 self.update(bytes.as_ref());
             }
 
-            fn digest(mut self) -> Self::Output {
-                self.finalize();
-                self.output()
+            fn digest(self) -> Self::Output {
+                self.finalize()
             }
 
             fn oneshot<T: AsRef<[u8]>>(data: T) -> Self::Output {

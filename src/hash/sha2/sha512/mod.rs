@@ -107,23 +107,11 @@ impl Sha384 {
         self.inner.update(data)
     }
 
-    pub fn state(&self) -> &[u64; 8] {
-        &self.inner.state
-    }
+    pub fn finalize(self) -> [u8; Self::DIGEST_LEN] {
+        let h = self.inner.finalize();
 
-    pub fn finalize(&mut self) {
-        self.inner.finalize();
-    }
-
-    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
         let mut output = [0u8; Self::DIGEST_LEN];
-        
-        output[ 0.. 8].copy_from_slice(&self.inner.state[0].to_be_bytes());
-        output[ 8..16].copy_from_slice(&self.inner.state[1].to_be_bytes());
-        output[16..24].copy_from_slice(&self.inner.state[2].to_be_bytes());
-        output[24..32].copy_from_slice(&self.inner.state[3].to_be_bytes());
-        output[32..40].copy_from_slice(&self.inner.state[4].to_be_bytes());
-        output[40..48].copy_from_slice(&self.inner.state[5].to_be_bytes());
+        output.copy_from_slice(&h[..Self::DIGEST_LEN]);
 
         output
     }
@@ -131,8 +119,7 @@ impl Sha384 {
     pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
         let mut m = Self::new();
         m.update(data.as_ref());
-        m.finalize();
-        m.output()
+        m.finalize()
     }
 }
 
@@ -205,7 +192,7 @@ impl Sha512 {
         }
     }
 
-    pub fn finalize(&mut self) {
+    pub fn finalize(mut self) -> [u8; Self::DIGEST_LEN] {
         let len_bits: u128 = self.len * 8;
         let n = usize::try_from(self.len % Self::BLOCK_LEN as u128).unwrap();
         if n == 0 {
@@ -228,13 +215,7 @@ impl Sha512 {
                 transform(&mut self.state, &block);
             }
         }
-    }
-    
-    pub fn state(&self) -> &[u64; 8] {
-        &self.state
-    }
 
-    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
         let mut output = [0u8; Self::DIGEST_LEN];
 
         output[ 0.. 8].copy_from_slice(&self.state[0].to_be_bytes());
@@ -248,12 +229,11 @@ impl Sha512 {
 
         output
     }
-
+    
     pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
         let mut m = Self::new();
         m.update(data.as_ref());
-        m.finalize();
-        m.output()
+        m.finalize()
     }
 }
 

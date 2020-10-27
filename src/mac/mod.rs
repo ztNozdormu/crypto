@@ -1,8 +1,9 @@
-
+mod hmac;
 mod ghash;
 mod polyval;
 mod poly1305;
 
+pub use self::hmac::*;
 pub use self::ghash::GHash;
 pub use self::polyval::Polyval;
 pub use self::poly1305::Poly1305;

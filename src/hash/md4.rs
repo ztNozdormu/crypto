@@ -22,6 +22,7 @@ impl Md4 {
     pub const BLOCK_LEN: usize  = 64;
     pub const DIGEST_LEN: usize = 16;
 
+    
     pub fn new() -> Self {
         Self {
             buffer: [0u8; 64],
@@ -85,7 +86,7 @@ impl Md4 {
         }
     }
 
-    pub fn finalize(&mut self) {
+    pub fn finalize(mut self) -> [u8; Self::DIGEST_LEN] {
         // last_block
         let len_bits = u64::try_from(self.len).unwrap() * 8;
         let n = self.len % Self::BLOCK_LEN;
@@ -109,13 +110,7 @@ impl Md4 {
                 transform(&mut self.state, &block);
             }
         }
-    }
 
-    pub fn state(&self) -> &[u32; 4] {
-        &self.state
-    }
-
-    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
         let mut output = [0u8; Self::DIGEST_LEN];
         output[ 0.. 4].copy_from_slice(&self.state[0].to_le_bytes());
         output[ 4.. 8].copy_from_slice(&self.state[1].to_le_bytes());
@@ -128,8 +123,7 @@ impl Md4 {
     pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
         let mut m = Self::new();
         m.update(data.as_ref());
-        m.finalize();
-        m.output()
+        m.finalize()
     }
 }
 

@@ -29,6 +29,7 @@ impl Sm3 {
     pub const BLOCK_LEN: usize  = 64;
     pub const DIGEST_LEN: usize = 32;
     
+
     pub fn new() -> Self {
         Self {
             buffer: [0u8; Self::BLOCK_LEN],
@@ -57,7 +58,7 @@ impl Sm3 {
         }
     }
 
-    pub fn finalize(&mut self) {
+    pub fn finalize(mut self) -> [u8; Self::DIGEST_LEN] {
         self.buffer[self.offset] = 0x80;
         self.offset += 1;
 
@@ -76,9 +77,7 @@ impl Sm3 {
             last_block[56..64].copy_from_slice(&len_bits.to_be_bytes());
             transform(&mut self.state, &self.buffer);
         }
-    }
 
-    pub fn output(self) -> [u8; Self::DIGEST_LEN] {
         let mut output = [0u8; Self::DIGEST_LEN];
 
         output[ 0.. 4].copy_from_slice(&self.state[0].to_be_bytes());
@@ -92,12 +91,11 @@ impl Sm3 {
 
         output
     }
-
+    
     pub fn oneshot<T: AsRef<[u8]>>(data: T) -> [u8; Self::DIGEST_LEN] {
         let mut m = Self::new();
         m.update(data.as_ref());
-        m.finalize();
-        m.output()
+        m.finalize()
     }
 }
 

@@ -12,20 +12,17 @@ extern crate subtle;
 #[cfg(test)]
 extern crate hex;
 
-pub mod error;
 
+mod util;
+pub mod error;
 
 // cryptographic hash function (CHF)
 pub mod hash;
 
-pub mod hmac;
 // Key derivation function (KDF)
-pub mod hkdf;
+pub mod kdf;
 
-
-mod util;
-mod mac;
-
+pub mod mac;
 
 pub mod cipher;
 pub mod blockmode;
