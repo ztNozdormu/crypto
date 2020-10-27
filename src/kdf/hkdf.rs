@@ -50,9 +50,9 @@ macro_rules! impl_hkdf_with_hmac {
                 let r = okm.len() % Self::TAG_LEN;
 
                 if r > 0 {
-                    assert!(n + 1 <= std::u8::MAX as usize);
+                    assert!(n + 1 <= core::u8::MAX as usize);
                 } else {
-                    assert!(n <= std::u8::MAX as usize);
+                    assert!(n <= core::u8::MAX as usize);
                 }
 
                 let mut hmac = $hmac::new(&self.prk);

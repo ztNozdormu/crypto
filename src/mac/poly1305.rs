@@ -149,7 +149,7 @@ impl Poly1305 {
         let mut m = data;
 
         if self.leftover > 0 {
-            let want = std::cmp::min(16 - self.leftover, m.len());
+            let want = core::cmp::min(16 - self.leftover, m.len());
             for i in 0..want {
                 self.buffer[self.leftover+i] = m[i];
             }

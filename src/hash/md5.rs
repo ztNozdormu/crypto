@@ -5,8 +5,7 @@
 // 
 // ❗️ MD5算法在1996年后被证实存在弱点，可以被加以破解。
 // ‼️ MD5算法在2004年被证实无法防止碰撞攻击，因此不适用于安全性认证。
-// 
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 
 // Use binary integer part of the sines of integers (Radians) as constants:
 //    for i from 0 to 63 do

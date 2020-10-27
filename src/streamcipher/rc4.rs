@@ -32,8 +32,8 @@ pub struct Rc4 {
     state: [u8; 256],
 }
 
-impl std::fmt::Debug for Rc4 {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for Rc4 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let state = &self.state[..];
         f.debug_struct("Rc4")
             .field("x", &self.x)

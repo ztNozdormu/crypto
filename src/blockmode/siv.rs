@@ -74,20 +74,27 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                 Self { cipher, cmac_cipher, cmac_k1, cmac_k2 }
             }
 
+            // The AES-CMAC Algorithm
+            // https://tools.ietf.org/html/rfc4493
             #[inline]
-            fn cmac(&self, m: &[u8]) -> [u8; Self::BLOCK_LEN] {
+            fn cmac(&self, m: &[u8], last_block: Option<&[u8; Self::BLOCK_LEN]>) -> [u8; Self::BLOCK_LEN] {
                 // 2.4.  MAC Generation Algorithm
                 // https://tools.ietf.org/html/rfc4493#section-2.4
-                let len = m.len();
-                
+                if cfg!(debug_assertions) {
+                    if last_block.is_some() {
+                        assert!(m.len() >= Self::BLOCK_LEN);
+                    }
+                }
+                let mlen = if last_block.is_some() { m.len() + Self::BLOCK_LEN } else { m.len() };
+
                 let mut padding_block = [
                     0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 ];
                 
-                if len < Self::BLOCK_LEN {
-                    padding_block[..m.len()].copy_from_slice(&m);
-                    padding_block[m.len()] = 0x80;
+                if mlen < Self::BLOCK_LEN {
+                    padding_block[..mlen].copy_from_slice(&m);
+                    padding_block[mlen] = 0x80;
 
                     xor_si128_inplace(&mut padding_block, &self.cmac_k2);
 
@@ -95,48 +102,93 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     return padding_block;
                 }
 
-                if len == Self::BLOCK_LEN {
-                    let mut block = self.cmac_k1.clone();
+                if mlen == Self::BLOCK_LEN {
+                    let data = match last_block {
+                        Some(data) => &data[..],
+                        None => &m[..],
+                    };
 
-                    xor_si128_inplace(&mut block, &m);
+                    let mut block = self.cmac_k1.clone();
+                    xor_si128_inplace(&mut block, data);
 
                     self.cmac_cipher.encrypt(&mut block);
                     return block;
                 }
 
-                let n = len / Self::BLOCK_LEN;
-                let r = len % Self::BLOCK_LEN;
+                // process M_i
+                let n = mlen / Self::BLOCK_LEN;
+                let r = mlen % Self::BLOCK_LEN;
 
-                let mn = if r == 0 { n - 1 } else { n };
                 let mut x = [0u8; Self::BLOCK_LEN];
 
-                for i in 0..mn {
-                    let start = i * Self::BLOCK_LEN;
-                    let end   = start + Self::BLOCK_LEN;
-                    let block = &m[start..end];
-                    debug_assert_eq!(block.len(), Self::BLOCK_LEN);
+                match last_block {
+                    Some(last_block) => {
+                        let chunks = m.chunks_exact(Self::BLOCK_LEN);
+                        let rem = chunks.remainder();
+                        for chunk in chunks {
+                            // M_n
+                            xor_si128_inplace(&mut x, chunk);
+                            self.cmac_cipher.encrypt(&mut x);
+                        }
 
-                    xor_si128_inplace(&mut x, &block);
+                        let rlen = rem.len();
+                        if rlen == 0 {
+                            // M_last
+                            xor_si128_inplace(&mut x, last_block);
+                            xor_si128_inplace(&mut x, &self.cmac_k1);
+                        } else {
+                            let mut block = [0u8; Self::BLOCK_LEN];
+                            block[..rlen].copy_from_slice(rem);
+                            block[rlen..Self::BLOCK_LEN].copy_from_slice(&last_block[..Self::BLOCK_LEN - rlen]);
 
-                    self.cmac_cipher.encrypt(&mut x);
-                }
+                            // M_n
+                            xor_si128_inplace(&mut x, &block);
+                            self.cmac_cipher.encrypt(&mut x);
 
-                let last_block_offset = mn * Self::BLOCK_LEN;
-                let last_block = &m[last_block_offset..];
-                let last_block_len = last_block.len();
+                            // M_last
+                            let mut block = [0u8; Self::BLOCK_LEN];
+                            let rem = &last_block[Self::BLOCK_LEN - rlen..];
+                            let rlen = rem.len();
+                            block[..rlen].copy_from_slice(rem);
+                            block[rlen] = 0x80;
 
-                if last_block_len == Self::BLOCK_LEN {
-                    let block = last_block;
+                            xor_si128_inplace(&mut x, &block);
+                            xor_si128_inplace(&mut x, &self.cmac_k2);
+                        }
+                    },
+                    None => {
+                        let mn = if r == 0 { n - 1 } else { n };
+                        for i in 0..mn {
+                            // M_n
+                            let start = i * Self::BLOCK_LEN;
+                            let end   = start + Self::BLOCK_LEN;
+                            let block = &m[start..end];
 
-                    xor_si128_inplace(&mut x, &block);
-                    xor_si128_inplace(&mut x, &self.cmac_k1);
-                } else {
-                    let mut block = padding_block;
-                    block[..last_block_len].copy_from_slice(&last_block);
-                    block[last_block_len] = 0x80;
+                            debug_assert_eq!(block.len(), Self::BLOCK_LEN);
 
-                    xor_si128_inplace(&mut x, &block);
-                    xor_si128_inplace(&mut x, &self.cmac_k2);
+                            xor_si128_inplace(&mut x, &block);
+
+                            self.cmac_cipher.encrypt(&mut x);
+                        }
+
+                        let last_block_offset = mn * Self::BLOCK_LEN;
+                        let last_block = &m[last_block_offset..];
+                        let last_block_len = last_block.len();
+
+                        if last_block_len == Self::BLOCK_LEN {
+                            let block = last_block;
+
+                            xor_si128_inplace(&mut x, &block);
+                            xor_si128_inplace(&mut x, &self.cmac_k1);
+                        } else {
+                            let mut block = padding_block;
+                            block[..last_block_len].copy_from_slice(&last_block);
+                            block[last_block_len] = 0x80;
+
+                            xor_si128_inplace(&mut x, &block);
+                            xor_si128_inplace(&mut x, &self.cmac_k2);
+                        }
+                    }
                 }
 
                 self.cmac_cipher.encrypt(&mut x);
@@ -152,28 +204,19 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     // indicates a string that is 127 zero bits concatenated with a
                     // single one bit, that is 0^127 || 1^1.
                     let one = 1u128.to_be_bytes();
-                    return self.cmac(&one);
+                    return self.cmac(&one, None);
                 }
 
-                let mut d = self.cmac(&Self::BLOCK_ZERO);
+                let mut d = self.cmac(&Self::BLOCK_ZERO, None);
                 for aad in components.iter() {
                     d = dbl(u128::from_be_bytes(d)).to_be_bytes();
-                    let d2 = self.cmac(aad);
+                    let d2 = self.cmac(aad, None);
 
                     xor_si128_inplace(&mut d, &d2);
                 }
 
                 let plen = payload.len();
-                if plen >= Self::BLOCK_LEN {
-                    let n = plen - Self::BLOCK_LEN;
-                    // FIXME: 消除 Alloc，这个需要 CMAC 算法分离 LastBlock 处理部分。
-                    let mut data = payload.to_vec();
-                    let block = &mut data[n..];
-
-                    xor_si128_inplace(block, &d);
-
-                    return self.cmac(&data);
-                } else {
+                if plen < Self::BLOCK_LEN {
                     // T = dbl(D) xor pad(Sn)
                     let mut t = dbl(u128::from_be_bytes(d)).to_be_bytes();
 
@@ -182,7 +225,24 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     }
                     t[plen] ^= 0b1000_0000;
 
-                    return self.cmac(&t);
+                    return self.cmac(&t, None);
+                } else if plen == Self::BLOCK_LEN {
+                    let mut block = [0u8; Self::BLOCK_LEN];
+                    block.copy_from_slice(payload);
+
+                    xor_si128_inplace(&mut block, &d);
+                    return self.cmac(&block, None);
+                } else if plen > Self::BLOCK_LEN {
+                    let n = plen - Self::BLOCK_LEN;
+                    
+                    let m1 = &payload[..n];
+                    let mut m2 = [0u8; Self::BLOCK_LEN];
+                    m2.copy_from_slice(&payload[n..]);
+
+                    xor_si128_inplace(&mut m2, &d);
+                    return self.cmac(&m1, Some(&m2));
+                } else {
+                    unreachable!()
                 }
             }
 
@@ -317,6 +377,42 @@ impl_block_cipher_with_siv_cmac_mode!(AesSivCmac256, Aes128);
 impl_block_cipher_with_siv_cmac_mode!(AesSivCmac384, Aes192);
 impl_block_cipher_with_siv_cmac_mode!(AesSivCmac512, Aes256);
 
+
+#[test]
+fn test_aes128_cmac() {
+    // NOTE: CMAC-KEY 为 前面的一半。
+    let key = hex::decode("2b7e151628aed2a6abf7158809cf4f3c\
+fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0").unwrap();
+    
+    let cipher = AesSivCmac256::new(&key);
+
+    let k1 = &cipher.cmac_k1;
+    let k2 = &cipher.cmac_k2;
+    assert_eq!(&k1[..], &hex::decode("fbeed618357133667c85e08f7236a8de").unwrap()[..]);
+    assert_eq!(&k2[..], &hex::decode("f7ddac306ae266ccf90bc11ee46d513b").unwrap()[..]);
+
+    let m = hex::decode("").unwrap();
+    let tag = cipher.cmac(&m, None);
+    assert_eq!(&tag[..], &hex::decode("bb1d6929e95937287fa37d129b756746").unwrap()[..] );
+
+    let m = hex::decode("6bc1bee22e409f96e93d7e117393172a").unwrap();
+    let tag = cipher.cmac(&m, None);
+    assert_eq!(&tag[..], &hex::decode("070a16b46b4d4144f79bdd9dd04a287c").unwrap()[..] );
+
+    let m = hex::decode("6bc1bee22e409f96e93d7e117393172a\
+ae2d8a571e03ac9c9eb76fac45af8e51\
+30c81c46a35ce411").unwrap();
+    let tag = cipher.cmac(&m, None);
+    assert_eq!(&tag[..], &hex::decode("dfa66747de9ae63030ca32611497c827").unwrap()[..] );
+
+    let m = hex::decode("\
+6bc1bee22e409f96e93d7e117393172a\
+ae2d8a571e03ac9c9eb76fac45af8e51\
+30c81c46a35ce411e5fbc1191a0a52ef\
+f69f2445df4f9b17ad2b417be66c3710").unwrap();
+    let tag = cipher.cmac(&m, None);
+    assert_eq!(&tag[..], &hex::decode("51f0bebf7e3b9d92fc49741779363cfe").unwrap()[..] );
+}
 
 #[test]
 fn test_aes_siv_cmac256_dec() {

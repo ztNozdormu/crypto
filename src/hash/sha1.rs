@@ -5,8 +5,7 @@
 // 
 // ❗️ SHA1算法在2005年后被证实存在弱点，可以被加以破解。
 // ‼️ SHA1算法在2017年被证实无法防止碰撞攻击，因此不适用于安全性认证。
-
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 
 // NOTE: 虽然在 X86 和 AArch64 架构上，有很多款芯片都支持对 SHA1 加速，
 //       但是考虑到 SHA1 已经被证实存在弱点，所以这里不再对 SHA1 的代码

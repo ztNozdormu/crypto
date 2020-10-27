@@ -1,6 +1,5 @@
 // 6.4 The Output Feedback Mode, (Page-20)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
-
 use crate::blockcipher::{
     Rc2FixedSize, Sm4,
     Aes128, Aes192, Aes256,

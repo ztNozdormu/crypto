@@ -193,8 +193,8 @@ impl Rc2FixedSize {
     }
 }
 
-impl std::fmt::Debug for Rc2FixedSize {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for Rc2FixedSize {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let ek = &self.inner.ek[..];
         f.debug_struct("Rc2FixedSize")
             .field("ek", &ek)
@@ -303,8 +303,8 @@ impl Rc2 {
     }
 }
 
-impl std::fmt::Debug for Rc2 {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Debug for Rc2 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let ek = &self.ek[..];
         f.debug_struct("Rc2")
             .field("ek", &ek)

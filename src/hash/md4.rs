@@ -1,7 +1,6 @@
 // The MD4 Message-Digest Algorithm
 // https://tools.ietf.org/html/rfc1320
-// 
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 
 
 const INITIAL_STATE: [u32; 4] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476];

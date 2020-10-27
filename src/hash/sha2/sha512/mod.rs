@@ -2,7 +2,7 @@
 // 
 // The SHA-512 Secure Hash Standard was published by NIST in 2002.
 // http://csrc.nist.gov/publications/fips/fips180-2/fips180-2.pdf
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 
 
 // NOTE:

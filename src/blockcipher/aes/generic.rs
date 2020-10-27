@@ -73,8 +73,8 @@ macro_rules! impl_aes {
             }
         }
 
-        impl std::fmt::Debug for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        impl core::fmt::Debug for $name {
+            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                 let ek = &self.ek[..];
                 f.debug_struct($name_s)
                     .field("ek", &ek)

@@ -16,7 +16,7 @@ pub use self::sha2::*;
 pub use self::sha3::*;
 
 
-// NOTE: 等待 std::array::FixedSizeArray 稳定后，即可替换。
+// NOTE: 等待 core::array::FixedSizeArray 稳定后，即可替换。
 pub trait Array<T> {
     fn array_as_slice(&self) -> &[T];
     fn array_as_mut_slice(&mut self) -> &mut [T];
@@ -69,11 +69,8 @@ pub trait CryptoHasher {
     const OUTPUT_LEN: usize; // Output digest
     
     type Output: Array<u8> + Sized;
-
-    // fn finish(self);
     
     fn digest(self) -> Self::Output;
-
     fn hexdigest(self) -> String 
     where 
         Self: Sized 
@@ -87,7 +84,7 @@ pub trait CryptoHasher {
         }
         s
     }
-
+    
     fn write<T: AsRef<[u8]>>(&mut self, bytes: T);
 
     fn oneshot<T: AsRef<[u8]>>(data: T) -> Self::Output;

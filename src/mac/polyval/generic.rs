@@ -101,8 +101,8 @@ impl Polyval {
         cl_mul(XMMMASK[1], tmp1[0], &mut tmp2); // 0x01
 
         unsafe {
-            let tmp33: &mut [u32; 4] = std::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp3);
-            let tmp11: &mut [u32; 4] = std::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp1);
+            let tmp33: &mut [u32; 4] = core::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp3);
+            let tmp11: &mut [u32; 4] = core::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp1);
 
             tmp33[0] = tmp11[2];
             tmp33[1] = tmp11[3];
@@ -116,8 +116,8 @@ impl Polyval {
         cl_mul(XMMMASK[1], tmp1[0], &mut tmp2); // 0x01
 
         unsafe {
-            let tmp33: &mut [u32; 4] = std::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp3);
-            let tmp11: &mut [u32; 4] = std::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp1);
+            let tmp33: &mut [u32; 4] = core::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp3);
+            let tmp11: &mut [u32; 4] = core::mem::transmute::<&mut [u64; 2], &mut [u32; 4]>(&mut tmp1);
 
             tmp33[0] = tmp11[2];
             tmp33[1] = tmp11[3];
