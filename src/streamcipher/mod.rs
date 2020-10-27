@@ -228,53 +228,53 @@ macro_rules! impl_stream_cipher {
 
 
 
-// SM4
-impl_stream_cipher!(Sm4Ctr, SM4_CTR);
-impl_stream_cipher!(Sm4Ofb, SM4_OFB);
-impl_stream_cipher!(Sm4Cfb1, SM4_CFB1);
-impl_stream_cipher!(Sm4Cfb8, SM4_CFB8);
-impl_stream_cipher!(Sm4Cfb128, SM4_CFB128);
+// // SM4
+// impl_stream_cipher!(Sm4Ctr, SM4_CTR);
+// impl_stream_cipher!(Sm4Ofb, SM4_OFB);
+// impl_stream_cipher!(Sm4Cfb1, SM4_CFB1);
+// impl_stream_cipher!(Sm4Cfb8, SM4_CFB8);
+// impl_stream_cipher!(Sm4Cfb128, SM4_CFB128);
 
-// AES
-impl_stream_cipher!(Aes128Ctr, AES128_CTR);
-impl_stream_cipher!(Aes128Ofb, AES128_OFB);
-impl_stream_cipher!(Aes128Cfb1, AES128_CFB1);
-impl_stream_cipher!(Aes128Cfb8, AES128_CFB8);
-impl_stream_cipher!(Aes128Cfb128, AES128_CFB128);
+// // AES
+// impl_stream_cipher!(Aes128Ctr, AES128_CTR);
+// impl_stream_cipher!(Aes128Ofb, AES128_OFB);
+// impl_stream_cipher!(Aes128Cfb1, AES128_CFB1);
+// impl_stream_cipher!(Aes128Cfb8, AES128_CFB8);
+// impl_stream_cipher!(Aes128Cfb128, AES128_CFB128);
 
-impl_stream_cipher!(Aes192Ctr, AES192_CTR);
-impl_stream_cipher!(Aes192Ofb, AES192_OFB);
-impl_stream_cipher!(Aes192Cfb1, AES192_CFB1);
-impl_stream_cipher!(Aes192Cfb8, AES192_CFB8);
-impl_stream_cipher!(Aes192Cfb128, AES192_CFB128);
+// impl_stream_cipher!(Aes192Ctr, AES192_CTR);
+// impl_stream_cipher!(Aes192Ofb, AES192_OFB);
+// impl_stream_cipher!(Aes192Cfb1, AES192_CFB1);
+// impl_stream_cipher!(Aes192Cfb8, AES192_CFB8);
+// impl_stream_cipher!(Aes192Cfb128, AES192_CFB128);
 
-impl_stream_cipher!(Aes256Ctr, AES256_CTR);
-impl_stream_cipher!(Aes256Ofb, AES256_OFB);
-impl_stream_cipher!(Aes256Cfb1, AES256_CFB1);
-impl_stream_cipher!(Aes256Cfb8, AES256_CFB8);
-impl_stream_cipher!(Aes256Cfb128, AES256_CFB128);
+// impl_stream_cipher!(Aes256Ctr, AES256_CTR);
+// impl_stream_cipher!(Aes256Ofb, AES256_OFB);
+// impl_stream_cipher!(Aes256Cfb1, AES256_CFB1);
+// impl_stream_cipher!(Aes256Cfb8, AES256_CFB8);
+// impl_stream_cipher!(Aes256Cfb128, AES256_CFB128);
 
-// Camellia
-impl_stream_cipher!(Camellia128Ctr, CAMELLIA128_CTR);
-impl_stream_cipher!(Camellia128Ofb, CAMELLIA128_OFB);
-impl_stream_cipher!(Camellia128Cfb1, CAMELLIA128_CFB1);
-impl_stream_cipher!(Camellia128Cfb8, CAMELLIA128_CFB8);
-impl_stream_cipher!(Camellia128Cfb128, CAMELLIA128_CFB128);
+// // Camellia
+// impl_stream_cipher!(Camellia128Ctr, CAMELLIA128_CTR);
+// impl_stream_cipher!(Camellia128Ofb, CAMELLIA128_OFB);
+// impl_stream_cipher!(Camellia128Cfb1, CAMELLIA128_CFB1);
+// impl_stream_cipher!(Camellia128Cfb8, CAMELLIA128_CFB8);
+// impl_stream_cipher!(Camellia128Cfb128, CAMELLIA128_CFB128);
 
-impl_stream_cipher!(Camellia192Ctr, CAMELLIA192_CTR);
-impl_stream_cipher!(Camellia192Ofb, CAMELLIA192_OFB);
-impl_stream_cipher!(Camellia192Cfb1, CAMELLIA192_CFB1);
-impl_stream_cipher!(Camellia192Cfb8, CAMELLIA192_CFB8);
-impl_stream_cipher!(Camellia192Cfb128, CAMELLIA192_CFB128);
+// impl_stream_cipher!(Camellia192Ctr, CAMELLIA192_CTR);
+// impl_stream_cipher!(Camellia192Ofb, CAMELLIA192_OFB);
+// impl_stream_cipher!(Camellia192Cfb1, CAMELLIA192_CFB1);
+// impl_stream_cipher!(Camellia192Cfb8, CAMELLIA192_CFB8);
+// impl_stream_cipher!(Camellia192Cfb128, CAMELLIA192_CFB128);
 
-impl_stream_cipher!(Camellia256Ctr, CAMELLIA256_CTR);
-impl_stream_cipher!(Camellia256Ofb, CAMELLIA256_OFB);
-impl_stream_cipher!(Camellia256Cfb1, CAMELLIA256_CFB1);
-impl_stream_cipher!(Camellia256Cfb8, CAMELLIA256_CFB8);
-impl_stream_cipher!(Camellia256Cfb128, CAMELLIA256_CFB128);
+// impl_stream_cipher!(Camellia256Ctr, CAMELLIA256_CTR);
+// impl_stream_cipher!(Camellia256Ofb, CAMELLIA256_OFB);
+// impl_stream_cipher!(Camellia256Cfb1, CAMELLIA256_CFB1);
+// impl_stream_cipher!(Camellia256Cfb8, CAMELLIA256_CFB8);
+// impl_stream_cipher!(Camellia256Cfb128, CAMELLIA256_CFB128);
 
-// Chacha20
-impl_stream_cipher!(Chacha20, CHACHA20);
+// // Chacha20
+// impl_stream_cipher!(Chacha20, CHACHA20);
 
 
 
@@ -291,7 +291,7 @@ fn bench_rc4(b: &mut test::Bencher) {
             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
             0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
         ]);
-        cipher.encrypt(&mut ciphertext);
+        cipher.encrypt_slice(&mut ciphertext);
         ciphertext
     })
 }
@@ -316,7 +316,7 @@ fn bench_chacha20(b: &mut test::Bencher) {
     
     b.bytes = Chacha20::BLOCK_LEN as u64;
     b.iter(|| {
-        chacha20.encrypt(&mut plaintext_and_ciphertext);
+        chacha20.encrypt_slice(&mut plaintext_and_ciphertext);
 
         plaintext_and_ciphertext
     })

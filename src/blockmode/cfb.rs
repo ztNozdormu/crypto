@@ -68,240 +68,12 @@ fn left_shift_1(bytes: &mut [u8], bit: bool) {
     }
 }
 
-macro_rules! impl_block_cipher_with_cfb1_mode {
-    ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
-        pub struct $name {
-            iv: [u8; Self::BLOCK_LEN],
-            cipher: $cipher,
-        }
 
-        impl $name {
-            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
-            pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
-            pub const S: usize = 1;                   // The number of bits in a data segment.
-
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
-                assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
-                assert!(Self::S <= Self::B);
-                assert!(Self::BLOCK_LEN <= 16);
-
-                let cipher = $cipher::new(key);
-                let mut iv = [0u8; Self::BLOCK_LEN];
-                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
-                
-                Self { cipher, iv }
-            }
-
-            // The number of bits in a data segment. 
-            pub fn s(&self) -> usize {
-                Self::S
-            }
-            
-            pub fn encrypt(&mut self, segments: &mut [u8]) {
-                if segments.is_empty() {
-                    return ();
-                }
-
-                let mut last_input_block = self.iv.clone();
-                let mut last_segment = false;
-                
-                // First 8 data segment ( 1 byte )
-                let mut output_block = last_input_block.clone();
-                self.cipher.encrypt(&mut output_block);
-                let mut first_byte = Bits(segments[0]);
-
-                first_byte.bit_xor(0, output_block[0]);
-                last_segment = first_byte.bit(0);
-
-                segments[0] = first_byte.0;
-                for i in 1..8 {
-                    left_shift_1(&mut last_input_block, last_segment);
-
-                    let mut output_block = last_input_block.clone();
-                    self.cipher.encrypt(&mut output_block);
-                    let mut byte = Bits(segments[0]);
-
-                    byte.bit_xor(i, output_block[0]);
-                    last_segment = byte.bit(i);
-                    segments[0] = byte.0;
-                }
-
-                if segments.len() == 1 {
-                    return ();
-                }
-
-                let data = &mut segments[1..];
-                for byte in data.iter_mut() {
-                    for i in 0..8 {
-                        left_shift_1(&mut last_input_block, last_segment);
-
-                        let mut output_block = last_input_block.clone();
-                        self.cipher.encrypt(&mut output_block);
-
-                        let mut bits = Bits(*byte);
-
-                        bits.bit_xor(i, output_block[0]);
-                        last_segment = bits.bit(i);
-                        *byte = bits.0;
-                    }
-                }
-            }
-
-            pub fn decrypt(&mut self, segments: &mut [u8]) {
-                if segments.is_empty() {
-                    return ();
-                }
-
-                let mut last_input_block = self.iv.clone();
-                let mut last_segment = false;
-                
-                // First 8 data segment ( 1 byte )
-                let mut output_block = last_input_block.clone();
-                self.cipher.encrypt(&mut output_block);
-                let mut first_byte = Bits(segments[0]);
-
-                last_segment = first_byte.bit(0);
-
-                first_byte.bit_xor(0, output_block[0]);
-                segments[0] = first_byte.0;
-
-                for i in 1..8 {
-                    left_shift_1(&mut last_input_block, last_segment);
-
-                    let mut output_block = last_input_block.clone();
-                    self.cipher.encrypt(&mut output_block);
-                    let mut byte = Bits(segments[0]);
-                    last_segment = byte.bit(i);
-
-                    byte.bit_xor(i, output_block[0]);
-                    segments[0] = byte.0;
-                }
-
-                if segments.len() == 1 {
-                    return ();
-                }
-                
-                let data = &mut segments[1..];
-                for byte in data.iter_mut() {
-                    for i in 0..8 {
-                        left_shift_1(&mut last_input_block, last_segment);
-
-                        let mut output_block = last_input_block.clone();
-                        self.cipher.encrypt(&mut output_block);
-
-                        let mut bits = Bits(*byte);
-                        last_segment = bits.bit(i);
-
-                        bits.bit_xor(i, output_block[0]);
-                        *byte = bits.0;
-                    }
-                }
-            }
-        }
-    }
-}
-
-macro_rules! impl_block_cipher_with_cfb8_mode {
-    ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
-        pub struct $name {
-            iv: [u8; Self::BLOCK_LEN],
-            cipher: $cipher,
-        }
-
-        impl $name {
-            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
-            pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
-            pub const S: usize = 8;                   // The number of bits in a data segment.
-            
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
-                assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
-                assert!(Self::S <= Self::B);
-
-                let cipher = $cipher::new(key);
-                let mut iv = [0u8; Self::BLOCK_LEN];
-                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
-                
-                Self { cipher, iv }
-            }
-
-            // The number of bits in a data segment. 
-            pub fn s(&self) -> usize {
-                Self::S
-            }
-            
-            pub fn encrypt(&mut self, segments: &mut [u8]) {
-                if segments.is_empty() {
-                    return ();
-                }
-
-                let mut last_input_block = self.iv.clone();
-                let mut last_segment = 0u8;
-
-                // First data segment
-                let mut output_block = last_input_block.clone();
-                self.cipher.encrypt(&mut output_block);
-                segments[0] ^= output_block[0];
-                last_segment = segments[0];
-
-                if segments.len() == 1 {
-                    return ();
-                }
-
-                for segment in &mut segments[1..].iter_mut() {
-                    let mut tmp = [0u8; Self::BLOCK_LEN];
-                    tmp[0..Self::BLOCK_LEN - 1].copy_from_slice(&last_input_block[1..]);
-                    tmp[Self::BLOCK_LEN - 1] = last_segment;
-                    last_input_block = tmp;
-
-                    let mut output_block = last_input_block.clone();
-                    self.cipher.encrypt(&mut output_block);
-                    *segment ^= output_block[0];
-                    last_segment = *segment;
-                }
-            }
-
-            pub fn decrypt(&mut self, segments: &mut [u8]) {
-                if segments.is_empty() {
-                    return ();
-                }
-
-                let mut last_input_block = self.iv.clone();
-                let mut last_segment = 0u8;
-
-                // First data segment
-                last_segment = segments[0];
-                let mut output_block = last_input_block.clone();
-                self.cipher.encrypt(&mut output_block);
-                segments[0] ^= output_block[0];
-
-                if segments.len() == 1 {
-                    return ();
-                }
-
-                for segment in &mut segments[1..].iter_mut() {
-                    let mut tmp = [0u8; Self::BLOCK_LEN];
-                    tmp[0..Self::BLOCK_LEN - 1].copy_from_slice(&last_input_block[1..]);
-                    tmp[Self::BLOCK_LEN - 1] = last_segment;
-                    last_input_block = tmp;
-
-                    last_segment = *segment;
-                    let mut output_block = last_input_block.clone();
-                    self.cipher.encrypt(&mut output_block);
-                    *segment ^= output_block[0];
-                }
-            }
-        }
-    }
-}
-
+// NOTE: 考虑到目前流行且安全的 块密码算法（BlockCipher） 的块大小都是 16 Bytes，
+//       因此 在和 CFB64 结合时，依然需要手动补齐数据，所以，我们不把它视作一个 `流密码`。
+// 
+//       当然，如果和 陈旧的 块密码算法 RC2 结合时，那么则不需要手动对齐数据，因为 RC2 的
+//       块大小为 8 Bytes，但是目前，我们并不考虑这些陈旧的 块密码算法。
 macro_rules! impl_block_cipher_with_cfb64_mode {
     ($name:tt, $cipher:tt) => {
         #[derive(Debug, Clone)]
@@ -311,12 +83,13 @@ macro_rules! impl_block_cipher_with_cfb64_mode {
         }
 
         impl $name {
-            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
             pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
             pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
             pub const S: usize = 64;                  // The number of bits in a data segment.
             const SEGMENTS_LEN: usize = Self::S / 8; // 8 bytes
+
 
             pub fn new(key: &[u8], nonce: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
@@ -328,11 +101,6 @@ macro_rules! impl_block_cipher_with_cfb64_mode {
                 iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
                 
                 Self { cipher, iv }
-            }
-
-            // The number of bits in a data segment. 
-            pub fn s(&self) -> usize {
-                Self::S
             }
             
             pub fn encrypt(&mut self, segments: &mut [u8]) {
@@ -404,6 +172,232 @@ macro_rules! impl_block_cipher_with_cfb64_mode {
     }
 }
 
+macro_rules! impl_block_cipher_with_cfb1_mode {
+    ($name:tt, $cipher:tt) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            iv: [u8; Self::BLOCK_LEN],
+            cipher: $cipher,
+        }
+
+        impl $name {
+            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
+            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
+            pub const S: usize = 1;                   // The number of bits in a data segment.
+
+
+            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+                assert_eq!(key.len(), Self::KEY_LEN);
+                assert_eq!(nonce.len(), Self::NONCE_LEN);
+                assert!(Self::S <= Self::B);
+                assert!(Self::BLOCK_LEN <= 16);
+
+                let cipher = $cipher::new(key);
+                let mut iv = [0u8; Self::BLOCK_LEN];
+                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
+                
+                Self { cipher, iv }
+            }
+
+            pub fn encrypt_slice(&mut self, segments: &mut [u8]) {
+                if segments.is_empty() {
+                    return ();
+                }
+
+                let mut last_input_block = self.iv.clone();
+                let mut last_segment = false;
+                
+                // First 8 data segment ( 1 byte )
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
+                let mut first_byte = Bits(segments[0]);
+
+                first_byte.bit_xor(0, output_block[0]);
+                last_segment = first_byte.bit(0);
+
+                segments[0] = first_byte.0;
+                for i in 1..8 {
+                    left_shift_1(&mut last_input_block, last_segment);
+
+                    let mut output_block = last_input_block.clone();
+                    self.cipher.encrypt(&mut output_block);
+                    let mut byte = Bits(segments[0]);
+
+                    byte.bit_xor(i, output_block[0]);
+                    last_segment = byte.bit(i);
+                    segments[0] = byte.0;
+                }
+
+                if segments.len() == 1 {
+                    return ();
+                }
+
+                let data = &mut segments[1..];
+                for byte in data.iter_mut() {
+                    for i in 0..8 {
+                        left_shift_1(&mut last_input_block, last_segment);
+
+                        let mut output_block = last_input_block.clone();
+                        self.cipher.encrypt(&mut output_block);
+
+                        let mut bits = Bits(*byte);
+
+                        bits.bit_xor(i, output_block[0]);
+                        last_segment = bits.bit(i);
+                        *byte = bits.0;
+                    }
+                }
+            }
+
+            pub fn decrypt_slice(&mut self, segments: &mut [u8]) {
+                if segments.is_empty() {
+                    return ();
+                }
+
+                let mut last_input_block = self.iv.clone();
+                let mut last_segment = false;
+                
+                // First 8 data segment ( 1 byte )
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
+                let mut first_byte = Bits(segments[0]);
+
+                last_segment = first_byte.bit(0);
+
+                first_byte.bit_xor(0, output_block[0]);
+                segments[0] = first_byte.0;
+
+                for i in 1..8 {
+                    left_shift_1(&mut last_input_block, last_segment);
+
+                    let mut output_block = last_input_block.clone();
+                    self.cipher.encrypt(&mut output_block);
+                    let mut byte = Bits(segments[0]);
+                    last_segment = byte.bit(i);
+
+                    byte.bit_xor(i, output_block[0]);
+                    segments[0] = byte.0;
+                }
+
+                if segments.len() == 1 {
+                    return ();
+                }
+                
+                let data = &mut segments[1..];
+                for byte in data.iter_mut() {
+                    for i in 0..8 {
+                        left_shift_1(&mut last_input_block, last_segment);
+
+                        let mut output_block = last_input_block.clone();
+                        self.cipher.encrypt(&mut output_block);
+
+                        let mut bits = Bits(*byte);
+                        last_segment = bits.bit(i);
+
+                        bits.bit_xor(i, output_block[0]);
+                        *byte = bits.0;
+                    }
+                }
+            }
+        }
+    }
+}
+
+macro_rules! impl_block_cipher_with_cfb8_mode {
+    ($name:tt, $cipher:tt) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            iv: [u8; Self::BLOCK_LEN],
+            cipher: $cipher,
+        }
+
+        impl $name {
+            pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
+            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
+            pub const S: usize = 8;                   // The number of bits in a data segment.
+            
+
+            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+                assert_eq!(key.len(), Self::KEY_LEN);
+                assert_eq!(nonce.len(), Self::NONCE_LEN);
+                assert!(Self::S <= Self::B);
+
+                let cipher = $cipher::new(key);
+                let mut iv = [0u8; Self::BLOCK_LEN];
+                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
+                
+                Self { cipher, iv }
+            }
+            
+            pub fn encrypt_slice(&mut self, segments: &mut [u8]) {
+                if segments.is_empty() {
+                    return ();
+                }
+
+                let mut last_input_block = self.iv.clone();
+                let mut last_segment = 0u8;
+
+                // First data segment
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
+                segments[0] ^= output_block[0];
+                last_segment = segments[0];
+
+                if segments.len() == 1 {
+                    return ();
+                }
+
+                for segment in &mut segments[1..].iter_mut() {
+                    let mut tmp = [0u8; Self::BLOCK_LEN];
+                    tmp[0..Self::BLOCK_LEN - 1].copy_from_slice(&last_input_block[1..]);
+                    tmp[Self::BLOCK_LEN - 1] = last_segment;
+                    last_input_block = tmp;
+
+                    let mut output_block = last_input_block.clone();
+                    self.cipher.encrypt(&mut output_block);
+                    *segment ^= output_block[0];
+                    last_segment = *segment;
+                }
+            }
+
+            pub fn decrypt_slice(&mut self, segments: &mut [u8]) {
+                if segments.is_empty() {
+                    return ();
+                }
+
+                let mut last_input_block = self.iv.clone();
+                let mut last_segment = 0u8;
+
+                // First data segment
+                last_segment = segments[0];
+                let mut output_block = last_input_block.clone();
+                self.cipher.encrypt(&mut output_block);
+                segments[0] ^= output_block[0];
+
+                if segments.len() == 1 {
+                    return ();
+                }
+
+                for segment in &mut segments[1..].iter_mut() {
+                    let mut tmp = [0u8; Self::BLOCK_LEN];
+                    tmp[0..Self::BLOCK_LEN - 1].copy_from_slice(&last_input_block[1..]);
+                    tmp[Self::BLOCK_LEN - 1] = last_segment;
+                    last_input_block = tmp;
+
+                    last_segment = *segment;
+                    let mut output_block = last_input_block.clone();
+                    self.cipher.encrypt(&mut output_block);
+                    *segment ^= output_block[0];
+                }
+            }
+        }
+    }
+}
+
 macro_rules! impl_block_cipher_with_cfb128_mode {
     ($name:tt, $cipher:tt) => {
         #[derive(Debug, Clone)]
@@ -413,8 +407,8 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
         }
 
         impl $name {
-            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
             pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
             pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
             pub const S: usize = 128;                 // The number of bits in a data segment.
@@ -431,13 +425,8 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
                 
                 Self { cipher, iv }
             }
-
-            // The number of bits in a data segment. 
-            pub fn s(&self) -> usize {
-                Self::S
-            }
             
-            pub fn encrypt(&mut self, segments: &mut [u8]) {
+            pub fn encrypt_slice(&mut self, segments: &mut [u8]) {
                 let mut last_input_block = self.iv.clone();
 
                 for segment in segments.chunks_mut(Self::BLOCK_LEN) {
@@ -451,7 +440,7 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
                 }
             }
 
-            pub fn decrypt(&mut self, segments: &mut [u8]) {
+            pub fn decrypt_slice(&mut self, segments: &mut [u8]) {
                 let mut last_input_block = self.iv.clone();
 
                 for segment in segments.chunks_mut(Self::BLOCK_LEN) {
@@ -528,7 +517,7 @@ fn bench_aes128_cfb128_enc(b: &mut test::Bencher) {
     b.bytes = Aes128Cfb128::BLOCK_LEN as u64;
     b.iter(|| {
         let mut ciphertext = test::black_box([0u8; Aes128Cfb128::BLOCK_LEN]);
-        cipher.encrypt(&mut ciphertext);
+        cipher.encrypt_slice(&mut ciphertext);
         ciphertext
     })
 }
@@ -543,11 +532,11 @@ ae2d8a").unwrap();
 
     let mut cipher = Aes128Cfb8::new(&key, &nonce);
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt_slice(&mut ciphertext);
 
     let mut cipher = Aes128Cfb8::new(&key, &nonce);
     let mut cleartext = ciphertext.clone();
-    cipher.decrypt(&mut cleartext);
+    cipher.decrypt_slice(&mut cleartext);
 
     assert_eq!(&cleartext[..], &plaintext[..]);
 }
@@ -583,7 +572,7 @@ fn test_aes128_cfb1_enc() {
 // 0110_1000_1011_0011
     let plaintext = [0x6b, 0xc1];
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt_slice(&mut ciphertext);
     assert_eq!(&ciphertext[..], &[ 0x68, 0xb3 ]);
 }
 
@@ -598,7 +587,7 @@ fn test_aes128_cfb1_dec() {
 
     let ciphertext = [0x68, 0xb3];
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt(&mut plaintext);
+    cipher.decrypt_slice(&mut plaintext);
     assert_eq!(&plaintext[..], &[ 0x6b, 0xc1 ]);
 }
 
@@ -613,7 +602,7 @@ fn test_aes128_cfb8_enc() {
 
     let plaintext = [0x6b, 0xc1, 0xbe, 0xe2, 0x2e];
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt_slice(&mut ciphertext);
     assert_eq!(&ciphertext[..], &[
         0x3b, 0x79, 0x42, 0x4c, 0x9c,
     ]);
@@ -630,7 +619,7 @@ fn test_aes128_cfb8_dec() {
 
     let ciphertext = [0x3b, 0x79, 0x42, 0x4c, 0x9c];
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt(&mut plaintext);
+    cipher.decrypt_slice(&mut plaintext);
     assert_eq!(&plaintext[..], &[
         0x6b, 0xc1, 0xbe, 0xe2, 0x2e
     ]);
@@ -653,7 +642,7 @@ f69f24\
 ").unwrap();
 
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt_slice(&mut ciphertext);
     assert_eq!(&ciphertext[..], &hex::decode("\
 3b3fd92eb72dad20333449f8e83cfb4a\
 c8a64537a0b3a93fcde3cdad9f1ce58b\
@@ -679,7 +668,7 @@ c04b05\
 ").unwrap();
 
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt(&mut plaintext);
+    cipher.decrypt_slice(&mut plaintext);
     assert_eq!(&plaintext[..], &hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a571e03ac9c9eb76fac45af8e51\

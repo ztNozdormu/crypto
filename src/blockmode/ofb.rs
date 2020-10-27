@@ -18,11 +18,13 @@ macro_rules! impl_block_cipher_with_ofb_mode {
         }
 
         impl $name {
-            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
             pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            
             const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
-
+            
+            
             pub fn new(key: &[u8], nonce: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
                 assert_eq!(nonce.len(), Self::NONCE_LEN);
@@ -34,7 +36,7 @@ macro_rules! impl_block_cipher_with_ofb_mode {
                 Self { cipher, iv }
             }
             
-            pub fn encrypt(&mut self, data: &mut [u8]) {
+            pub fn encrypt_slice(&mut self, data: &mut [u8]) {
                 let mut last_input_block = self.iv.clone();
                 for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
 
@@ -49,7 +51,7 @@ macro_rules! impl_block_cipher_with_ofb_mode {
                 }
             }
 
-            pub fn decrypt(&mut self, data: &mut [u8]) {
+            pub fn decrypt_slice(&mut self, data: &mut [u8]) {
                 let mut last_input_block = self.iv.clone();
                 for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
 
@@ -92,7 +94,7 @@ fn bench_aes128_ofb_enc(b: &mut test::Bencher) {
     b.bytes = Aes128Ofb::BLOCK_LEN as u64;
     b.iter(|| {
         let mut ciphertext = test::black_box([0u8; Aes128Ofb::BLOCK_LEN]);
-        cipher.encrypt(&mut ciphertext);
+        cipher.encrypt_slice(&mut ciphertext);
         test::black_box(ciphertext)
     })
 }
@@ -107,11 +109,11 @@ ae2d8a").unwrap();
 
     let mut cipher = Aes128Ofb::new(&key, &nonce);
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt_slice(&mut ciphertext);
 
     let mut cipher = Aes128Ofb::new(&key, &nonce);
     let mut cleartext = ciphertext.clone();
-    cipher.decrypt(&mut cleartext);
+    cipher.decrypt_slice(&mut cleartext);
 
     assert_eq!(&cleartext[..], &plaintext[..]);
 }
@@ -132,7 +134,7 @@ ae2d8a571e03ac9c9eb76fac45af8e51\
 f69f2445df4f9b17ad2b417be66c3710").unwrap();
 
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt_slice(&mut ciphertext);
 
     assert_eq!(&ciphertext[..], &hex::decode("\
 3b3fd92eb72dad20333449f8e83cfb4a\
@@ -157,7 +159,7 @@ fn test_aes128_ofb_dec() {
 304c6528f659c77866a510d9c1d6ae5e").unwrap();
 
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt(&mut plaintext);
+    cipher.decrypt_slice(&mut plaintext);
 
     assert_eq!(&plaintext[..], &hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\

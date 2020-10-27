@@ -143,7 +143,7 @@ impl Chacha20 {
         self.offset = 0;
     }
 
-    pub fn encrypt(&mut self, plaintext_and_ciphertext: &mut [u8]) {
+    pub fn encrypt_slice(&mut self, plaintext_and_ciphertext: &mut [u8]) {
         let plen = plaintext_and_ciphertext.len();
         for i in 0..plen {
             if self.offset == Self::BLOCK_LEN {
@@ -155,7 +155,7 @@ impl Chacha20 {
         }
     }
 
-    pub fn decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) {
+    pub fn decrypt_slice(&mut self, ciphertext_and_plaintext: &mut [u8]) {
         let clen = ciphertext_and_plaintext.len();
         for i in 0..clen {
             if self.offset == Self::BLOCK_LEN {
@@ -199,8 +199,8 @@ If I could offer you only one tip for the future, sunscreen would be it.";
     let mut chacha20 = Chacha20::new(&key, &nonce);
 
     let mut zero_block = [0u8; Chacha20::BLOCK_LEN];
-    chacha20.encrypt(&mut zero_block); // Block Index: 1
-    chacha20.encrypt(&mut zero_block); // Block Index: 2
+    chacha20.encrypt_slice(&mut zero_block); // Block Index: 1
+    chacha20.encrypt_slice(&mut zero_block); // Block Index: 2
     
     let expected_ciphertext: [u8; 114] = [
         0x6e, 0x2e, 0x35, 0x9a, 0x25, 0x68, 0xf9, 0x80, 
@@ -220,6 +220,6 @@ If I could offer you only one tip for the future, sunscreen would be it.";
         0x87, 0x4d,
     ];
     let mut ciphertext = plaintext.to_vec();
-    chacha20.encrypt(&mut ciphertext);
+    chacha20.encrypt_slice(&mut ciphertext);
     assert_eq!(&ciphertext[..], &expected_ciphertext[..]);
 }

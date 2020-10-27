@@ -23,10 +23,8 @@ impl Chacha20Poly1305 {
     pub const A_MAX: usize = u64::MAX as usize; // 2^64 - 1
     #[cfg(target_pointer_width = "32")]
     pub const A_MAX: usize = usize::MAX;        // 2^32 - 1
-
     pub const P_MAX: usize = 274877906880;                // (2^32 - 1) * BLOCK_LEN
     pub const C_MAX: usize = Self::P_MAX + Self::TAG_LEN; // 274,877,906,896
-    
     pub const N_MIN: usize = Self::NONCE_LEN;
     pub const N_MAX: usize = Self::NONCE_LEN;
 
@@ -41,10 +39,10 @@ impl Chacha20Poly1305 {
         let mut chacha20 = Chacha20::new(key, nonce);
 
         let mut keystream = [0u8; Self::BLOCK_LEN];
-        chacha20.encrypt(&mut keystream); // Block Index: 1
+        chacha20.encrypt_slice(&mut keystream); // Block Index: 1
 
         let mut keystream = [0u8; Self::BLOCK_LEN];
-        chacha20.encrypt(&mut keystream); // Block Index: 2
+        chacha20.encrypt_slice(&mut keystream); // Block Index: 2
 
         let mut poly1305_key = [0u8; Poly1305::KEY_LEN];
         poly1305_key.copy_from_slice(&keystream[..Poly1305::KEY_LEN][..]);
@@ -54,19 +52,37 @@ impl Chacha20Poly1305 {
         Self { chacha20, poly1305, }
     }
     
-    pub fn aead_encrypt(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8]) {
-        debug_assert!(plaintext_and_ciphertext.len() >= Self::TAG_LEN);
-        debug_assert!(plaintext_and_ciphertext.len() <= Self::C_MAX);
-        debug_assert!(aad.len() <= Self::A_MAX);
+    pub fn encrypt_slice(&mut self, aad: &[u8], aead_pkt: &mut [u8]) {
+        debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
 
+        let plen = aead_pkt.len() - Self::TAG_LEN;
+        let (plaintext_and_ciphertext, tag_out) = aead_pkt.split_at_mut(plen);
+
+        self.encrypt_slice_detached(aad, plaintext_and_ciphertext, tag_out)
+    }
+
+    pub fn decrypt_slice(&mut self, aad: &[u8], aead_pkt: &mut [u8]) -> bool {
+        debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
+
+        let clen = aead_pkt.len() - Self::TAG_LEN;
+        let (ciphertext_and_plaintext, tag_in) = aead_pkt.split_at_mut(clen);
+
+        self.decrypt_slice_detached(aad, ciphertext_and_plaintext, &tag_in)
+    }
+
+    pub fn encrypt_slice_detached(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
         let alen = aad.len();
-        let clen = plaintext_and_ciphertext.len();
-        let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
+        let plen = plaintext_and_ciphertext.len();
+        let tlen = tag_out.len();
 
-        let plaintext = &mut plaintext_and_ciphertext[..plen];
+        debug_assert!(alen <= Self::A_MAX);
+        debug_assert!(plen <= Self::P_MAX);
+        debug_assert!(tlen == Self::TAG_LEN);
+
+        
         let mut poly1305 = self.poly1305.clone();
 
-        self.chacha20.encrypt(plaintext);
+        self.chacha20.encrypt_slice(plaintext_and_ciphertext);
 
         poly1305.update(aad);
         // padding AAD
@@ -74,8 +90,8 @@ impl Chacha20Poly1305 {
         if r > 0 {
             poly1305.update(&Self::PADDING_BLOCK[..r]);
         }
-
-        poly1305.update(plaintext);
+        
+        poly1305.update(&plaintext_and_ciphertext);
         // padding ciphertext
         let r = Poly1305::BLOCK_LEN - plen % Poly1305::BLOCK_LEN;
         if r > 0 {
@@ -87,20 +103,19 @@ impl Chacha20Poly1305 {
 
         let tag = poly1305.finalize();
 
-        // Append TAG.
-        plaintext_and_ciphertext[plen..plen + Self::TAG_LEN].copy_from_slice(&tag);
+        tag_out.copy_from_slice(&tag[..Self::TAG_LEN]);
     }
 
-    pub fn aead_decrypt(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8]) -> bool {
-        debug_assert!(ciphertext_and_plaintext.len() >= Self::TAG_LEN);
-        debug_assert!(ciphertext_and_plaintext.len() <= Self::C_MAX);
-        debug_assert!(aad.len() <= Self::A_MAX);
-
+    pub fn decrypt_slice_detached(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
         let alen = aad.len();
         let clen = ciphertext_and_plaintext.len();
-        let plen = ciphertext_and_plaintext.len() - Self::TAG_LEN;
+        let tlen = tag_in.len();
 
-        let ciphertext = &ciphertext_and_plaintext[..plen];
+        debug_assert!(alen <= Self::A_MAX);
+        debug_assert!(clen <= Self::P_MAX);
+        debug_assert!(tlen == Self::TAG_LEN);
+
+
         let mut poly1305 = self.poly1305.clone();
 
         poly1305.update(aad);
@@ -110,25 +125,23 @@ impl Chacha20Poly1305 {
             poly1305.update(&Self::PADDING_BLOCK[..r]);
         }
 
-        poly1305.update(&ciphertext);
+        poly1305.update(&ciphertext_and_plaintext);
         // padding ciphertext
-        let r = Poly1305::BLOCK_LEN - plen % Poly1305::BLOCK_LEN;
+        let r = Poly1305::BLOCK_LEN - clen % Poly1305::BLOCK_LEN;
         if r > 0 {
             poly1305.update(&Self::PADDING_BLOCK[..r]);
         }
 
         poly1305.update(&(alen as u64).to_le_bytes());
-        poly1305.update(&(plen as u64).to_le_bytes());
+        poly1305.update(&(clen as u64).to_le_bytes());
 
         let tag = poly1305.finalize();
 
         // Verify
-        let input_tag = &ciphertext_and_plaintext[plen..plen + Self::TAG_LEN];
-        let is_match = bool::from(subtle::ConstantTimeEq::ct_eq(&input_tag[..], &tag[..]));
+        let is_match = bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag[..Self::TAG_LEN]));
 
         if is_match {
-            let ciphertext = &mut ciphertext_and_plaintext[..plen];
-            self.chacha20.decrypt(ciphertext);
+            self.chacha20.decrypt_slice(ciphertext_and_plaintext);
         }
 
         is_match
@@ -183,9 +196,9 @@ fn test_poly1305_key_generation() {
     let mut chacha20 = Chacha20::new(&key, &nonce);
 
     let mut keystream = [0u8; Chacha20::BLOCK_LEN];
-    chacha20.encrypt(&mut keystream); // Block Index: 1
+    chacha20.encrypt_slice(&mut keystream); // Block Index: 1
     let mut keystream = [0u8; Chacha20::BLOCK_LEN];
-    chacha20.encrypt(&mut keystream); // Block Index: 2
+    chacha20.encrypt_slice(&mut keystream); // Block Index: 2
 
     assert_eq!(&keystream[..Poly1305::KEY_LEN], &[
         0x8a, 0xd5, 0xa0, 0x8b, 0x90, 0x5f, 0x81, 0xcc, 
@@ -222,7 +235,7 @@ If I could offer you only one tip for the future, sunscreen would be it.";
     let mut ciphertext_and_tag = plaintext.to_vec();
     ciphertext_and_tag.resize(plen + Chacha20Poly1305::TAG_LEN, 0);
     
-    chacha20_poly1305.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    chacha20_poly1305.encrypt_slice(&aad, &mut ciphertext_and_tag);
 
     assert_eq!(&ciphertext_and_tag[..], &[
         0xd3, 0x1a, 0x8d, 0x34, 0x64, 0x8e, 0x60, 0xdb, 
@@ -277,7 +290,7 @@ work in progress.\x2f\xe2\x80\x9d";
 
     let mut chacha20_poly1305 = Chacha20Poly1305::new(&key, &nonce);
 
-    chacha20_poly1305.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    chacha20_poly1305.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &[
         0x64, 0xa0, 0x86, 0x15, 0x75, 0x86, 0x1a, 0xf4, 
         0x60, 0xf0, 0x62, 0xc7, 0x9b, 0xe6, 0x43, 0xbd,
@@ -319,7 +332,7 @@ work in progress.\x2f\xe2\x80\x9d";
 
     let mut chacha20_poly1305 = Chacha20Poly1305::new(&key, &nonce);
     
-    let ret = chacha20_poly1305.aead_decrypt(&aad, &mut ciphertext_and_tag);
+    let ret = chacha20_poly1305.decrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(ret, true);
 
     let cleartext = &ciphertext_and_tag[..plen];

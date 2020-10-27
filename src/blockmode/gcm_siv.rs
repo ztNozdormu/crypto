@@ -16,18 +16,7 @@ use subtle;
 
 const GCM_SIV_BLOCK_LEN: usize = 16;
 
-
-fn incr(block: &mut [u8]) {
-    debug_assert_eq!(block.len(), 16);
-
-    let counter = u32::from_le_bytes([block[0], block[1], block[2], block[3]]).wrapping_add(1).to_le_bytes();
-    block[0] = counter[0];
-    block[1] = counter[1];
-    block[2] = counter[2];
-    block[3] = counter[3];
-}
-
-
+            
 macro_rules! impl_block_cipher_with_gcm_siv_mode {
     ($name:tt, $cipher:tt) => {
 
@@ -41,13 +30,12 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const TAG_LEN: usize   = 16;
             pub const NONCE_LEN: usize = 12;
-
-            pub const P_MAX: usize = 68719476736;                 // 2^36
+            pub const TAG_LEN: usize   = 16;
+            
             pub const A_MAX: usize = 68719476736;                 // 2^36
+            pub const P_MAX: usize = 68719476736;                 // 2^36
             pub const C_MAX: usize = 68719476736 + Self::TAG_LEN; // 2^36 + 16
-
             pub const N_MIN: usize = Self::NONCE_LEN;
             pub const N_MAX: usize = Self::NONCE_LEN;
 
@@ -57,14 +45,10 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
                 //       这意味着 Aes192、Aria192、Camellia192 这些 Cipher 都无法和 GCM-SIV 组合。
                 assert!(Self::KEY_LEN == 16 || Self::KEY_LEN == 32);
                 assert_eq!(key.len(), Self::KEY_LEN);
-                
                 assert_eq!(nonce.len(), Self::NONCE_LEN); // 96-Bits
                 assert_eq!(Self::BLOCK_LEN, GCM_SIV_BLOCK_LEN);
                 assert_eq!(Self::BLOCK_LEN, Polyval::BLOCK_LEN);
                 
-                // NOTE: GCM-SIV 并不支持和 AES192 算法进行搭配。
-                assert!(Self::KEY_LEN == 16 || Self::KEY_LEN == 32);
-
                 let cipher = $cipher::new(key);
                 
                 let mut counter_block = [0u8; Self::BLOCK_LEN];
@@ -120,26 +104,40 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
             }
             
             #[inline]
-            pub fn ae_encrypt(&mut self, plaintext_and_ciphertext: &mut [u8]) {
-                self.aead_encrypt(&[], plaintext_and_ciphertext);
-            }
-            
-            #[inline]
-            pub fn ae_decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) -> bool {
-                self.aead_decrypt(&[], ciphertext_and_plaintext)
-            }
-            
-            pub fn aead_encrypt(&mut self, aad: &[u8], plaintext_and_ciphertext: &mut [u8]) {
-                // 4.  Encryption
-                // https://tools.ietf.org/html/rfc8452#section-4
-                debug_assert!(aad.len() < Self::A_MAX);
-                debug_assert!(plaintext_and_ciphertext.len() < Self::C_MAX);
-                debug_assert!(plaintext_and_ciphertext.len() >= Self::TAG_LEN);
+            fn ctr(counter_block: &mut [u8; Self::BLOCK_LEN]) {
+                let num_octets = u32::from_le_bytes([
+                    counter_block[0], counter_block[1], counter_block[2], counter_block[3]
+                ]).wrapping_add(1).to_le_bytes();
 
+                counter_block[0..4].copy_from_slice(&num_octets);
+            }
+
+            pub fn encrypt_slice(&self, aad: &[u8], aead_pkt: &mut [u8]) {
+                debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
+
+                let plen = aead_pkt.len() - Self::TAG_LEN;
+                let (plaintext_and_ciphertext, tag_out) = aead_pkt.split_at_mut(plen);
+
+                self.encrypt_slice_detached(aad, plaintext_and_ciphertext, tag_out)
+            }
+
+            pub fn decrypt_slice(&self, aad: &[u8], aead_pkt: &mut [u8]) -> bool {
+                debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
+
+                let clen = aead_pkt.len() - Self::TAG_LEN;
+                let (ciphertext_and_plaintext, tag_in) = aead_pkt.split_at_mut(clen);
+
+                self.decrypt_slice_detached(aad, ciphertext_and_plaintext, &tag_in)
+            }
+
+            pub fn encrypt_slice_detached(&self, aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
                 let alen = aad.len();
-                let plen = plaintext_and_ciphertext.len() - Self::TAG_LEN;
+                let plen = plaintext_and_ciphertext.len();
+                let tlen = tag_out.len();
 
-                let plaintext = &plaintext_and_ciphertext[..plen];
+                debug_assert!(alen <= Self::A_MAX);
+                debug_assert!(plen <= Self::P_MAX);
+                debug_assert!(tlen == Self::TAG_LEN);
 
                 let mut bit_len_block = [0u8; Self::BLOCK_LEN];
                 let aad_bit_len_octets = (alen as u64 * 8).to_le_bytes();
@@ -149,7 +147,7 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
 
                 let mut polyval = self.polyval.clone();
                 polyval.update(aad);
-                polyval.update(plaintext);
+                polyval.update(&plaintext_and_ciphertext);
                 polyval.update(&bit_len_block);
                 
                 let mut tag = polyval.finalize();
@@ -167,51 +165,45 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
                 counter_block[15] |= 0x80;
 
                 // CTR
-                let plaintext = &mut plaintext_and_ciphertext[..plen];
-                for chunk in plaintext.chunks_mut(Self::BLOCK_LEN) {
+                for chunk in plaintext_and_ciphertext.chunks_mut(Self::BLOCK_LEN) {
                     let mut keystream_block = counter_block.clone();
                     self.cipher.encrypt(&mut keystream_block);
 
-                    incr(&mut counter_block);
-                    
+                    Self::ctr(&mut counter_block);
+
                     for i in 0..chunk.len() {
                         chunk[i] ^= keystream_block[i];
                     }
                 }
 
-                // Save TAG
-                &mut plaintext_and_ciphertext[plen..plen + Self::TAG_LEN].copy_from_slice(&tag);
+                tag_out.copy_from_slice(&tag[..Self::TAG_LEN]);
             }
 
-            pub fn aead_decrypt(&mut self, aad: &[u8], ciphertext_and_plaintext: &mut [u8]) -> bool {
-                debug_assert!(aad.len() < Self::A_MAX);
-                debug_assert!(ciphertext_and_plaintext.len() < Self::C_MAX);
-                debug_assert!(ciphertext_and_plaintext.len() >= Self::TAG_LEN);
-                
+            pub fn decrypt_slice_detached(&self, aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
                 let alen = aad.len();
-                let clen = ciphertext_and_plaintext.len() - Self::TAG_LEN;
-                
-                // Input TAG
-                let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
+                let clen = ciphertext_and_plaintext.len();
+                let tlen = tag_in.len();
+
+                debug_assert!(alen <= Self::A_MAX);
+                debug_assert!(clen <= Self::P_MAX);
+                debug_assert!(tlen == Self::TAG_LEN);
 
                 let mut counter_block = [0u8; Self::BLOCK_LEN];
-                counter_block.copy_from_slice(&input_tag);
+                counter_block.copy_from_slice(&tag_in);
                 counter_block[15] |= 0x80;
                 
                 // CTR
-                let ciphertext = &mut ciphertext_and_plaintext[..clen];
-                for chunk in ciphertext.chunks_mut(Self::BLOCK_LEN) {
+                for chunk in ciphertext_and_plaintext.chunks_mut(Self::BLOCK_LEN) {
                     let mut keystream_block = counter_block.clone();
                     self.cipher.encrypt(&mut keystream_block);
 
-                    incr(&mut counter_block);
+                    Self::ctr(&mut counter_block);
 
                     for i in 0..chunk.len() {
                         chunk[i] ^= keystream_block[i];
                     }
                 }
 
-                let cleartext = &ciphertext_and_plaintext[..clen];
                 // Auth
                 let mut bit_len_block = [0u8; Self::BLOCK_LEN];
                 let aad_bit_len_octets = (alen as u64 * 8).to_le_bytes();
@@ -219,12 +211,12 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
                 bit_len_block[0.. 8].copy_from_slice(&aad_bit_len_octets);
                 bit_len_block[8..16].copy_from_slice(&ciphertext_bit_len_octets);
 
-
                 let mut polyval = self.polyval.clone();
                 polyval.update(aad);
-                polyval.update(cleartext);
+                polyval.update(&ciphertext_and_plaintext);
                 polyval.update(&bit_len_block);
 
+                // Expected TAG
                 let mut tag = polyval.finalize();
 
                 for i in 0..Self::NONCE_LEN {
@@ -232,13 +224,10 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
                 }
                 tag[15] &= 0x7f;
                 
-                // Expected TAG
                 self.cipher.encrypt(&mut tag);
                 
                 // Verify
-                let input_tag = &ciphertext_and_plaintext[clen..clen + Self::TAG_LEN];
-                // TODO: 使用 Result 类型抛出 `TagMisMatch` 错误？
-                bool::from(subtle::ConstantTimeEq::ct_eq(input_tag, &tag))
+                bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag[..Self::TAG_LEN]))
             }
         }
     }
@@ -275,8 +264,8 @@ fn test_aes128_gcm_siv_dec() {
     let mut ciphertext_and_tag = hex::decode("dc20e2d83f25705bb49e439eca56de25").unwrap();
 
     let plen      = plaintext.len();
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    let ret = cipher.aead_decrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    let ret = cipher.decrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(ret, true);
     assert_eq!(&ciphertext_and_tag[..plen], &plaintext[..]);
 
@@ -296,8 +285,8 @@ f42bf7226122fa92e17a40eeaac1201b\
 
     // let mut ciphertext_and_tag = plaintext.clone();
     // ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    let ret = cipher.aead_decrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    let ret = cipher.decrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(ret, true);
     assert_eq!(&ciphertext_and_tag[..plen], &plaintext[..]);
 }
@@ -314,8 +303,8 @@ fn test_aes128_gcm_siv() {
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("dc20e2d83f25705bb49e439eca56de25").unwrap()[..]);
 
     
@@ -327,8 +316,8 @@ fn test_aes128_gcm_siv() {
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("b5d839330ac7b786578782fff6013b81\
 5b287c22493a364c").unwrap()[..]);
 
@@ -340,8 +329,8 @@ fn test_aes128_gcm_siv() {
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("7323ea61d05932260047d942a4978db3\
 57391a0bc4fdec8b0d106639").unwrap()[..]);
 
@@ -354,8 +343,8 @@ fn test_aes128_gcm_siv() {
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("84e07e62ba83a6585417245d7ec413a9\
 fe427d6315c09b57ce45f2e3936a9445\
 1a8e45dcd4578c667cd86847bf6155ff").unwrap()[..]);
@@ -370,8 +359,8 @@ fe427d6315c09b57ce45f2e3936a9445\
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("3fd24ce1f5a67b75bf2351f181a475c7\
 b800a5b4d3dcf70106b1eea82fa1d64d\
 f42bf7226122fa92e17a40eeaac1201b\
@@ -388,8 +377,8 @@ f42bf7226122fa92e17a40eeaac1201b\
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("2433668f1058190f6d43e360f4f35cd8\
 e475127cfca7028ea8ab5c20f7ab2af0\
 2516a2bdcbc08d521be37ff28c152bba\
@@ -404,8 +393,8 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("1e6daba35669f4273b0a1a2560969cdf\
 790d99759abd1508").unwrap()[..]);
 
@@ -417,8 +406,8 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("296c7889fd99f41917f4462008299c51\
 02745aaa3a0c469fad9e075a").unwrap()[..]);
 
@@ -430,8 +419,8 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("e2b0c5da79a901c1745f700525cb335b\
 8f8936ec039e4e4bb97ebd8c4457441f").unwrap()[..]);
 
@@ -445,8 +434,8 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("620048ef3c1e73e57e02bb8562c416a3\
 19e73e4caac8e96a1ecb2933145a1d71\
 e6af6a7f87287da059a71684ed3498e1").unwrap()[..]);
@@ -461,8 +450,8 @@ e6af6a7f87287da059a71684ed3498e1").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("50c8303ea93925d64090d07bd109dfd9\
 515a5a33431019c17d93465999a8b005\
 3201d723120a8562b838cdff25bf9d1e\
@@ -479,8 +468,8 @@ e6af6a7f87287da059a71684ed3498e1").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("2f5c64059db55ee0fb847ed513003746\
 aca4e61c711b5de2e7a77ffd02da42fe\
 ec601910d3467bb8b36ebbaebce5fba3\
@@ -496,8 +485,8 @@ cdc46ae475563de037001ef84ae21744").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("a8fe3e8707eb1f84fb28f8cb73de8e99\
 e2f48a14").unwrap()[..]);
 
@@ -511,8 +500,8 @@ e2f48a14").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("6bb0fecf5ded9b77f902c7d5da236a43\
 91dd029724afc9805e976f451e6d87f6\
 fe106514").unwrap()[..]);
@@ -527,8 +516,8 @@ fe106514").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("44d0aaf6fb2f1f34add5e8064e83e12a\
 2adabff9b2ef00fb47920cc72a0c0f13\
 b9fd").unwrap()[..]);
@@ -542,8 +531,8 @@ b9fd").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("a4194b79071b01a87d65f706e3949578").unwrap()[..]);
 
     let key       = hex::decode("36864200e0eaf5284d884a0e77d31646").unwrap();
@@ -554,8 +543,8 @@ b9fd").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("af60eb711bd85bc1e4d3e0a462e074ee\
 a428a8").unwrap()[..]);
 
@@ -568,8 +557,8 @@ a428a8").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("bb93a3e34d3cd6a9c45545cfc11f03ad\
 743dba20f966").unwrap()[..]);
 
@@ -581,8 +570,8 @@ a428a8").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("4f37281f7ad12949d01d02fd0cd174c8\
 4fc5dae2f60f52fd2b").unwrap()[..]);
 
@@ -595,8 +584,8 @@ a428a8").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("f54673c5ddf710c745641c8bc1dc2f87\
 1fb7561da1286e655e24b7b0").unwrap()[..]);
 
@@ -609,8 +598,8 @@ a428a8").unwrap()[..]);
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("c9ff545e07b88a015f05b274540aa183\
 b3449b9f39552de99dc214a1190b0b").unwrap()[..]);
 
@@ -624,8 +613,8 @@ baa9c9596291b08466f37de21c7f").unwrap();
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("6298b296e24e8cc35dce0bed484b7f30\
 d5803e377094f04709f64d7b985310a4\
 db84").unwrap()[..]);
@@ -641,8 +630,8 @@ dfc240871d").unwrap();
     let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
-    let mut cipher = Aes128GcmSiv::new(&key, &nonce);
-    cipher.aead_encrypt(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128GcmSiv::new(&key, &nonce);
+    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("391cc328d484a4f46406181bcd62efd9\
 b3ee197d052d15506c84a9edd65e13e9\
 d24a2a6e70").unwrap()[..]);

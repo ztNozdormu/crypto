@@ -21,9 +21,10 @@ macro_rules! impl_block_cipher_with_ecb_mode {
         }
 
         impl $name {
-            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
-
+            pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
+            
+            
             pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
 

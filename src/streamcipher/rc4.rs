@@ -83,11 +83,11 @@ impl Rc4 {
         }
     }
 
-    pub fn encrypt(&mut self, plaintext_and_ciphertext: &mut [u8]) {
+    pub fn encrypt_slice(&mut self, plaintext_and_ciphertext: &mut [u8]) {
         self.in_place(plaintext_and_ciphertext);
     }
     
-    pub fn decrypt(&mut self, ciphertext_and_plaintext: &mut [u8]) {
+    pub fn decrypt_slice(&mut self, ciphertext_and_plaintext: &mut [u8]) {
         self.in_place(ciphertext_and_plaintext);
     }
 }
@@ -101,7 +101,7 @@ fn test_rc4() {
     let mut rc4 = Rc4::new(&key);
     let plaintext = b"Plaintext";
     let mut ciphertext = plaintext.clone();
-    rc4.encrypt(&mut ciphertext);
+    rc4.encrypt_slice(&mut ciphertext);
     assert_eq!(&ciphertext[..],
         &hex::decode("BBF316E8D940AF0AD3").unwrap()[..]);
 
@@ -109,7 +109,7 @@ fn test_rc4() {
     let mut rc4 = Rc4::new(&key);
     let plaintext = b"pedia";
     let mut ciphertext = plaintext.clone();
-    rc4.encrypt(&mut ciphertext);
+    rc4.encrypt_slice(&mut ciphertext);
     assert_eq!(&ciphertext[..],
         &hex::decode("1021BF0420").unwrap()[..]);
 
@@ -117,7 +117,7 @@ fn test_rc4() {
     let mut rc4 = Rc4::new(&key);
     let plaintext = b"Attack at dawn";
     let mut ciphertext = plaintext.clone();
-    rc4.encrypt(&mut ciphertext);
+    rc4.encrypt_slice(&mut ciphertext);
     assert_eq!(&ciphertext[..],
         &hex::decode("45A01F645FC35B383552544B9BF5").unwrap()[..]);
 
