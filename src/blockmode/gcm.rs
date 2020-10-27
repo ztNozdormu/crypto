@@ -247,61 +247,6 @@ macro_rules! impl_block_cipher_with_gcm_mode {
 }
 
 
-// 1            AEAD_AES_128_GCM            [RFC5116]
-// 5            AEAD_AES_128_GCM_8          [RFC5282]
-// 7            AEAD_AES_128_GCM_12         [RFC5282]
-// 
-// 2            AEAD_AES_256_GCM            [RFC5116]
-// 6            AEAD_AES_256_GCM_8          [RFC5282]
-// 8            AEAD_AES_256_GCM_12         [RFC5282]
-
-// AEAD_AES_256_GCM
-//     This algorithm is identical to AEAD_AES_128_GCM, but with the
-//     following differences:
-// 
-//         K_LEN is 32 octets, instead of 16 octets, and
-//         AES-256 GCM is used instead of AES-128 GCM.
-
-// AEAD_AES_256_GCM_8
-//    This algorithm is identical to AEAD_AES_256_GCM (see Section 5.2 of
-//    [RFC5116]), except that the tag length, t, is 8, and an
-//    authentication tag with a length of 8 octets (64 bits) is used.
-// 
-//    An AEAD_AES_256_GCM_8 ciphertext is exactly 8 octets longer than its
-//    corresponding plaintext.
-
-// AEAD_AES_256_GCM_12
-//    This algorithm is identical to AEAD_AES_256_GCM (see Section 5.2 of
-//    [RFC5116], except that the tag length, t, is 12 and an authentication
-//    tag with a length of 12 octets (64 bits) is used.
-// 
-//    An AEAD_AES_256_GCM_12 ciphertext is exactly 12 octets longer than
-//    its corresponding plaintext.
-
-
-// AEAD_AES_128_GCM
-//       K_LEN is 16 octets,
-//       P_MAX is 2^36 - 31 octets,
-//       A_MAX is 2^61 - 1 octets,
-//       N_MIN and N_MAX are both 12 octets, and
-//       C_MAX is 2^36 - 15 octets.
-
-// AEAD_AES_128_GCM_8
-//     This algorithm is identical to AEAD_AES_128_GCM (see Section 5.1 of
-//     [RFC5116]), except that the tag length, t, is 8, and an
-//     authentication tag with a length of 8 octets (64 bits) is used.
-// 
-//     An AEAD_AES_128_GCM_8 ciphertext is exactly 8 octets longer than its
-//     corresponding plaintext.
-
-// AEAD_AES_128_GCM_12
-//    This algorithm is identical to AEAD_AES_128_GCM (see Section 5.1 of
-//    [RFC5116]), except that the tag length, t, is 12, and an
-//    authentication tag with a length of 12 octets (64 bits) is used.
-// 
-//    An AEAD_AES_128_GCM_12 ciphertext is exactly 12 octets longer than
-//    its corresponding plaintext.
-
 impl_block_cipher_with_gcm_mode!(Aes128Gcm,   Aes128, 16); // TAG-LEN=16
 impl_block_cipher_with_gcm_mode!(Aes128Gcm8,  Aes128,  8); // TAG-LEN= 8
 impl_block_cipher_with_gcm_mode!(Aes128Gcm12, Aes128, 12); // TAG-LEN=12
@@ -309,7 +254,6 @@ impl_block_cipher_with_gcm_mode!(Aes128Gcm12, Aes128, 12); // TAG-LEN=12
 impl_block_cipher_with_gcm_mode!(Aes256Gcm,   Aes256, 16); // TAG-LEN=16
 impl_block_cipher_with_gcm_mode!(Aes256Gcm8,  Aes256,  8); // TAG-LEN= 8
 impl_block_cipher_with_gcm_mode!(Aes256Gcm12, Aes256, 12); // TAG-LEN=12
-
 
 impl_block_cipher_with_gcm_mode!(Sm4Gcm,         Sm4, 16);         // TAG-LEN=16
 impl_block_cipher_with_gcm_mode!(Camellia128Gcm, Camellia128, 16); // TAG-LEN=16

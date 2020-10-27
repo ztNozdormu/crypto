@@ -7,13 +7,8 @@ use super::dbl;
 use crate::util::xor_si128_inplace;
 use crate::blockcipher::{Aes128, Aes192, Aes256};
 
-
 use subtle;
 
-// 参考代码:
-//      https://github.com/kmcallister/ocb.rs/blob/master/ocb_sys/ocb.c
-//      https://web.cs.ucdavis.edu/~rogaway/ocb/news/code/ocb.c
-// 
 
 const MASK_1: u8 = 0b1000_0000;
 const MASK_2: u8 = 0b0100_0000;
@@ -363,35 +358,6 @@ macro_rules! impl_block_cipher_with_ocb_mode {
     }
 }
 
-
-// 3.1.  Named OCB Parameter Sets and RFC 5116 Constants
-// https://tools.ietf.org/html/rfc7253#section-3.1
-// 
-// +----------------------------+-------------+--------+
-// | Name                       | Blockcipher | TAGLEN |
-// +----------------------------+-------------+--------+
-// | AEAD_AES_128_OCB_TAGLEN128 |   AES-128   |  128   |
-// | AEAD_AES_128_OCB_TAGLEN96  |   AES-128   |   96   |
-// | AEAD_AES_128_OCB_TAGLEN64  |   AES-128   |   64   |
-// | AEAD_AES_192_OCB_TAGLEN128 |   AES-192   |  128   |
-// | AEAD_AES_192_OCB_TAGLEN96  |   AES-192   |   96   |
-// | AEAD_AES_192_OCB_TAGLEN64  |   AES-192   |   64   |
-// | AEAD_AES_256_OCB_TAGLEN128 |   AES-256   |  128   |
-// | AEAD_AES_256_OCB_TAGLEN96  |   AES-256   |   96   |
-// | AEAD_AES_256_OCB_TAGLEN64  |   AES-256   |   64   |
-// +----------------------------+-------------+--------+
-// 
-// 
-// For each of the OCB parameter sets
-// listed above: P_MAX, A_MAX, and C_MAX are all unbounded; N_MIN is 1
-// byte, and N_MAX is 15 bytes.  The parameter sets indicating the use
-// of AES-128, AES-192, and AES-256 have K_LEN equal to 16, 24, and 32
-// bytes, respectively.
-// 
-// Each ciphertext is longer than its corresponding plaintext by exactly
-// TAGLEN bits, and TAGLEN is given at the end of each name.  For
-// instance, an AEAD_AES_128_OCB_TAGLEN64 ciphertext is exactly 64 bits
-// longer than its corresponding plaintext.
 
 impl_block_cipher_with_ocb_mode!(Aes128OcbTag128, Aes128, 16); // TAG-LEN=16
 impl_block_cipher_with_ocb_mode!(Aes128OcbTag96,  Aes128, 12); // TAG-LEN=12

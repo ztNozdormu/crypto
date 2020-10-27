@@ -233,18 +233,6 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
     }
 }
 
-
-// 30           AEAD_AES_128_GCM_SIV        [RFC8452]
-// 31           AEAD_AES_256_GCM_SIV        [RFC8452]
-
-// The parameters for AEAD_AES_128_GCM_SIV are then as follows:
-// K_LEN is 16, P_MAX is 2^36, A_MAX is 2^36, N_MIN and N_MAX are 12,
-// and C_MAX is 2^36 + 16.
-// 
-// The parameters for AEAD_AES_256_GCM_SIV differ only in the key size:
-// K_LEN is 32, P_MAX is 2^36, A_MAX is 2^36, N_MIN and N_MAX are 12,
-// and C_MAX is 2^36 + 16.
-
 impl_block_cipher_with_gcm_siv_mode!(Aes128GcmSiv, Aes128);
 impl_block_cipher_with_gcm_siv_mode!(Aes256GcmSiv, Aes256);
 

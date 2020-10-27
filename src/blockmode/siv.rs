@@ -257,9 +257,7 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
 
                     counter = counter.wrapping_add(1);
                 }
-
-                // let iv = &mut plaintext_and_ciphertext[..Self::TAG_LEN];
-                // iv.copy_from_slice(&v[..Self::TAG_LEN]);
+                
                 tag_out.copy_from_slice(&v[..Self::TAG_LEN]);
             }
 
@@ -315,38 +313,6 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
     }
 }
 
-
-
-// 15           AEAD_AES_SIV_CMAC_256       [RFC5297]
-// 16           AEAD_AES_SIV_CMAC_384       [RFC5297]
-// 17           AEAD_AES_SIV_CMAC_512       [RFC5297]
-
-// AEAD_AES_SIV_CMAC_256
-//     K_LEN  is 32 octets.
-//     P_MAX  is 2^132 octets.
-//     A_MAX  is unlimited.
-//     N_MIN  is 1 octet.
-//     N_MAX  is unlimited.
-//     C_MAX  is 2^132 + 16 octets.
-
-// AEAD_AES_SIV_CMAC_384
-//     K_LEN  is 48 octets.
-//     P_MAX  is 2^132 octets.
-//     A_MAX  is unlimited.
-//     N_MIN  is 1 octet.
-//     N_MAX  is unlimited.
-//     C_MAX  is 2^132 + 16 octets
-
-// AEAD_AES_SIV_CMAC_512
-//     K_LEN  is 64 octets.
-//     P_MAX  is 2^132 octets.
-//     A_MAX  is unlimited.
-//     N_MIN  is 1 octet.
-//     N_MAX  is unlimited.
-//     C_MAX  is 2^132 + 16 octets.
-
-// 6.1.  AEAD_AES_SIV_CMAC_256
-// https://tools.ietf.org/html/rfc5297#section-6.1
 impl_block_cipher_with_siv_cmac_mode!(AesSivCmac256, Aes128);
 impl_block_cipher_with_siv_cmac_mode!(AesSivCmac384, Aes192);
 impl_block_cipher_with_siv_cmac_mode!(AesSivCmac512, Aes256);
