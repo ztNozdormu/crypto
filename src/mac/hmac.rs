@@ -1,6 +1,6 @@
 // HMAC: Keyed-Hashing for Message Authentication
 // https://tools.ietf.org/html/rfc2104
-use crate::hash::{Md2, Md4, Md5, Sm3, Sha1, Sha256, Sha384, Sha512, };
+use crate::hash::{ Md2, Md4, Md5, Sm3, Sha1, Sha256, Sha384, Sha512, };
 
 
 const IPAD: u8 = 0x36;

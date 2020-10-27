@@ -1,6 +1,6 @@
 // HMAC-based Extract-and-Expand Key Derivation Function (HKDF)
 // https://tools.ietf.org/html/rfc5869
-use crate::mac::{HmacMd2, HmacMd4, HmacMd5, HmacSm3, HmacSha1, HmacSha256, HmacSha384, HmacSha512, };
+use crate::mac::{ HmacMd2, HmacMd4, HmacMd5, HmacSm3, HmacSha1, HmacSha256, HmacSha384, HmacSha512, };
 
 
 macro_rules! impl_hkdf_with_hmac {
