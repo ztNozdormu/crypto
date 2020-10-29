@@ -5,12 +5,10 @@
 // http://www.gmbz.org.cn/upload/2018-04-04/1522788048733065051.pdf
 // http://sca.hainan.gov.cn/xxgk/bzhgf/201804/W020180409400793061524.pdf
 // 
-// NOTE: 
-//      1. 硬件加速方面的思路和代码可以参考项目: https://github.com/mjosaarinen/sm4ni
-//      2. 代码参考自 https://github.com/citahub/libsm/blob/master/src/sm4/cipher.rs
+// The SM4 Blockcipher Algorithm And Its Modes Of Operations
+//            draft-ribose-cfrg-sm4-10
 // 
-//          https://github.com/randombit/botan/blob/master/src/lib/block/sm4/sm4_armv8/sm4_armv8.cpp
-
+// https://tools.ietf.org/html/draft-ribose-cfrg-sm4-10
 const FK: [u32; 4]  = [ 0xa3b1_bac6, 0x56aa_3350, 0x677d_9197, 0xb270_22dc ];
 const CK: [u32; 32] = [
     0x00070e15, 0x1c232a31, 0x383f464d, 0x545b6269, 0x70777e85, 0x8c939aa1, 0xa8afb6bd, 0xc4cbd2d9,
@@ -37,9 +35,35 @@ const SBOX: [u8; 256] = [
     0x18, 0xf0, 0x7d, 0xec, 0x3a, 0xdc, 0x4d, 0x20, 0x79, 0xee, 0x5f, 0x3e, 0xd7, 0xcb, 0x39, 0x48,
 ];
 
+macro_rules! SM4_T {
+    ($x:expr) => {
+        {
+            let t = sub_bytes($x);
+            t ^ t.rotate_left(2) ^ t.rotate_left(10) ^ t.rotate_left(18) ^ t.rotate_left(24)
+        }
+    }
+}
+
+macro_rules! SM4_ROUNDS_ENC {
+    ($i:expr, $rk:expr, $x:expr) => {
+        $x[0] ^= SM4_T!($x[1] ^ $x[2] ^ $x[3] ^ $rk[$i][0]);
+        $x[1] ^= SM4_T!($x[0] ^ $x[2] ^ $x[3] ^ $rk[$i][1]);
+        $x[2] ^= SM4_T!($x[0] ^ $x[1] ^ $x[3] ^ $rk[$i][2]);
+        $x[3] ^= SM4_T!($x[0] ^ $x[1] ^ $x[2] ^ $rk[$i][3]);
+    }
+}
+
+macro_rules! SM4_ROUNDS_DEC {
+    ($i:expr, $rk:expr, $x:expr) => {
+        $x[0] ^= SM4_T!($x[1] ^ $x[2] ^ $x[3] ^ $rk[$i][3]);
+        $x[1] ^= SM4_T!($x[0] ^ $x[2] ^ $x[3] ^ $rk[$i][2]);
+        $x[2] ^= SM4_T!($x[0] ^ $x[1] ^ $x[3] ^ $rk[$i][1]);
+        $x[3] ^= SM4_T!($x[0] ^ $x[1] ^ $x[2] ^ $rk[$i][0]);
+    }
+}
 
 #[inline]
-fn tau_trans(input: u32) -> u32 {
+fn sub_bytes(input: u32) -> u32 {
     let mut octets = input.to_be_bytes();
     octets[0] = SBOX[octets[0] as usize];
     octets[1] = SBOX[octets[1] as usize];
@@ -47,43 +71,21 @@ fn tau_trans(input: u32) -> u32 {
     octets[3] = SBOX[octets[3] as usize];
     u32::from_be_bytes(octets)
 }
-#[inline]
-fn l_rotate(x: u32, i: u32) -> u32 {
-    (x << (i % 32)) | (x >> (32 - (i % 32)))
-}
-#[inline]
-fn l_trans(b: u32) -> u32 {
-    b ^ l_rotate(b, 2) ^ l_rotate(b, 10) ^ l_rotate(b, 18) ^ l_rotate(b, 24)
-}
-#[inline]
-fn t_trans(input: u32) -> u32 {
-    l_trans(tau_trans(input))
-}
-#[inline]
-fn l_prime_trans(b: u32) -> u32 {
-    b ^ l_rotate(b, 13) ^ l_rotate(b, 23)
-}
-#[inline]
-fn t_prime_trans(input: u32) -> u32 {
-    l_prime_trans(tau_trans(input))
-}
 
 
 /// GM/T 0002-2012 SM4分组密码算法
 #[derive(Debug, Clone)]
 pub struct Sm4 {
-    // round key
-    rk: [[u32; 4]; Self::NR],
+    pub(crate) rk: [[u32; 4]; Self::NR],
 }
 
 impl Sm4 {
     pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
     
-    // Rounds
-    const NR: usize = 8;
-
-
+    pub const NR: usize = 8; // Rounds
+    
+    
     pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
 
@@ -96,10 +98,19 @@ impl Sm4 {
 
         let mut rk = [[0u32; 4]; Self::NR];
         for i in 0..Self::NR {
-            k[0] ^= t_prime_trans(k[1] ^ k[2] ^ k[3] ^ CK[i * 4]);
-            k[1] ^= t_prime_trans(k[2] ^ k[3] ^ k[0] ^ CK[i * 4 + 1]);
-            k[2] ^= t_prime_trans(k[3] ^ k[0] ^ k[1] ^ CK[i * 4 + 2]);
-            k[3] ^= t_prime_trans(k[0] ^ k[1] ^ k[2] ^ CK[i * 4 + 3]);
+            // Linear operation L'
+            let t1 = sub_bytes(k[1] ^ k[2] ^ k[3] ^ CK[i * 4 + 0]);
+            k[0] ^= t1 ^ t1.rotate_left(13) ^ t1.rotate_left(23);
+
+            let t2 = sub_bytes(k[2] ^ k[3] ^ k[0] ^ CK[i * 4 + 1]);
+            k[1] ^= t2 ^ t2.rotate_left(13) ^ t2.rotate_left(23);
+
+            let t3 = sub_bytes(k[3] ^ k[0] ^ k[1] ^ CK[i * 4 + 2]);
+            k[2] ^= t3 ^ t3.rotate_left(13) ^ t3.rotate_left(23);
+
+            let t4 = sub_bytes(k[0] ^ k[1] ^ k[2] ^ CK[i * 4 + 3]);
+            k[3] ^= t4 ^ t4.rotate_left(13) ^ t4.rotate_left(23);
+
             rk[i] = k;
         }
 
@@ -116,12 +127,14 @@ impl Sm4 {
             u32::from_be_bytes([block[12], block[13], block[14], block[15]]),
         ];
 
-        for i in 0..Self::NR {
-            x[0] ^= t_trans(x[1] ^ x[2] ^ x[3] ^ self.rk[i][0] );
-            x[1] ^= t_trans(x[2] ^ x[3] ^ x[0] ^ self.rk[i][1]);
-            x[2] ^= t_trans(x[3] ^ x[0] ^ x[1] ^ self.rk[i][2]);
-            x[3] ^= t_trans(x[0] ^ x[1] ^ x[2] ^ self.rk[i][3]);
-        }
+        SM4_ROUNDS_ENC!(0, self.rk, x);
+        SM4_ROUNDS_ENC!(1, self.rk, x);
+        SM4_ROUNDS_ENC!(2, self.rk, x);
+        SM4_ROUNDS_ENC!(3, self.rk, x);
+        SM4_ROUNDS_ENC!(4, self.rk, x);
+        SM4_ROUNDS_ENC!(5, self.rk, x);
+        SM4_ROUNDS_ENC!(6, self.rk, x);
+        SM4_ROUNDS_ENC!(7, self.rk, x);
 
         block[ 0.. 4].copy_from_slice(&x[3].to_be_bytes());
         block[ 4.. 8].copy_from_slice(&x[2].to_be_bytes());
@@ -139,55 +152,18 @@ impl Sm4 {
             u32::from_be_bytes([block[12], block[13], block[14], block[15]]),
         ];
 
-        for i in 0..Self::NR {
-            x[0] ^= t_trans(x[1] ^ x[2] ^ x[3] ^ self.rk[Self::NR - i - 1][3]);
-            x[1] ^= t_trans(x[2] ^ x[3] ^ x[0] ^ self.rk[Self::NR - i - 1][2]);
-            x[2] ^= t_trans(x[3] ^ x[0] ^ x[1] ^ self.rk[Self::NR - i - 1][1]);
-            x[3] ^= t_trans(x[0] ^ x[1] ^ x[2] ^ self.rk[Self::NR - i - 1][0]);
-        }
-        
+        SM4_ROUNDS_DEC!(7, self.rk, x);
+        SM4_ROUNDS_DEC!(6, self.rk, x);
+        SM4_ROUNDS_DEC!(5, self.rk, x);
+        SM4_ROUNDS_DEC!(4, self.rk, x);
+        SM4_ROUNDS_DEC!(3, self.rk, x);
+        SM4_ROUNDS_DEC!(2, self.rk, x);
+        SM4_ROUNDS_DEC!(1, self.rk, x);
+        SM4_ROUNDS_DEC!(0, self.rk, x);
+
         block[ 0.. 4].copy_from_slice(&x[3].to_be_bytes());
         block[ 4.. 8].copy_from_slice(&x[2].to_be_bytes());
         block[ 8..12].copy_from_slice(&x[1].to_be_bytes());
         block[12..16].copy_from_slice(&x[0].to_be_bytes());
     }
-}
-
-
-// Tests below
-#[test]
-fn test_sm4_setup_cipher() {
-    let key: [u8; Sm4::KEY_LEN] = [
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
-        0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 
-    ];
-
-    let cipher = Sm4::new(&key);
-    
-    assert_eq!(cipher.rk[0][0], 0xf12186f9);
-    assert_eq!(cipher.rk[Sm4::NR - 1][3], 0x9124a012);
-}
-
-#[test]
-fn test_sm4_enc_and_dec() {
-    let key: [u8; Sm4::KEY_LEN] = [
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
-        0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 
-    ];
-    let plaintext: [u8; Sm4::BLOCK_LEN] = [
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 
-        0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10,
-    ];
-
-    let cipher = Sm4::new(&key);
-
-    let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
-    assert_eq!(&ciphertext[..], &[
-        0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e,
-        0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46,
-    ]);
-
-    cipher.decrypt(&mut ciphertext);
-    assert_eq!(&ciphertext[..], &plaintext[..]);
 }
