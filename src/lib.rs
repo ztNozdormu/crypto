@@ -32,6 +32,9 @@ pub mod streamcipher;
 pub mod aeadcipher;
 
 
+#[cfg(feature = "shadowsocks")]
+pub mod shadowsocks;
+
 
 // Elliptic Curve Cryptography（ECC）
 // http://docs.rs/x25519-dalek
