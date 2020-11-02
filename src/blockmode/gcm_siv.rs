@@ -4,6 +4,7 @@
 // AES-GCM-SIV: Specification and Analysis
 // https://eprint.iacr.org/2017/168.pdf
 use crate::mem::Zeroize;
+use crate::mem::constant_time_eq;
 use crate::mac::Polyval;
 use crate::blockcipher::{
     Sm4,
@@ -11,8 +12,6 @@ use crate::blockcipher::{
     Camellia128, Camellia256,
     Aria128, Aria256,
 };
-
-use subtle;
 
 
 const GCM_SIV_BLOCK_LEN: usize = 16;
@@ -242,7 +241,7 @@ macro_rules! impl_block_cipher_with_gcm_siv_mode {
                 self.cipher.encrypt(&mut tag);
                 
                 // Verify
-                bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag[..Self::TAG_LEN]))
+                constant_time_eq(tag_in, &tag[..Self::TAG_LEN])
             }
         }
     }

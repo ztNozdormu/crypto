@@ -12,11 +12,11 @@
 // https://csrc.nist.gov/projects/block-cipher-techniques/bcm/modes-development
 use super::dbl;
 use crate::mem::Zeroize;
+use crate::mem::constant_time_eq;
 use crate::util::xor_si128_inplace;
 use crate::util::and_si128_inplace;
 use crate::blockcipher::{Aes128, Aes192, Aes256};
 
-use subtle;
 
 
 macro_rules! impl_block_cipher_with_siv_cmac_mode {
@@ -381,9 +381,9 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
 
                 // T = S2V(K1, AD1, ..., ADn, P)
                 let tag = self.siv(components, &ciphertext_and_plaintext);
-
+                
                 // Verify
-                bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag[..]))
+                constant_time_eq(tag_in, &tag[..Self::TAG_LEN])
             }
         }
     }

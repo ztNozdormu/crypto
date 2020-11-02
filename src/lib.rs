@@ -7,8 +7,6 @@
 #[cfg(test)]
 extern crate test;
 
-extern crate subtle;
-
 #[cfg(test)]
 extern crate hex;
 

@@ -1,6 +1,5 @@
-use subtle;
-
 use crate::mem::Zeroize;
+use crate::mem::constant_time_eq;
 use crate::mac::Poly1305;
 use crate::streamcipher::Chacha20;
 
@@ -155,10 +154,10 @@ impl Chacha20Poly1305 {
         poly1305.update(&(clen as u64).to_le_bytes());
 
         let tag = poly1305.finalize();
-
+        
         // Verify
-        let is_match = bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag[..Self::TAG_LEN]));
-
+        let is_match = constant_time_eq(tag_in, &tag[..Self::TAG_LEN]);
+        
         if is_match {
             self.chacha20.decrypt_slice(ciphertext_and_plaintext);
         }

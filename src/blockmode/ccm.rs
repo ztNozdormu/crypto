@@ -10,6 +10,7 @@
 // CBC-MAC
 // Cipher Block Chaining-Message Authentication Code
 use crate::mem::Zeroize;
+use crate::mem::constant_time_eq;
 use crate::util::xor_si128_inplace;
 use crate::blockcipher::{
     Sm4,
@@ -17,8 +18,6 @@ use crate::blockcipher::{
     Camellia128, Camellia256,
     Aria128, Aria256,
 };
-
-use subtle;
 
 
 macro_rules! impl_block_cipher_with_ccm_mode {
@@ -326,7 +325,7 @@ macro_rules! impl_block_cipher_with_ccm_mode {
                 xor_si128_inplace(&mut tag, &b0);
 
                 // Verify
-                bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag[..Self::TAG_LEN]))
+                constant_time_eq(tag_in, &tag[..Self::TAG_LEN])
             }
         }
 
