@@ -37,7 +37,6 @@ impl Drop for Aes128 {
         self.zeroize();
     }
 }
-
 impl core::fmt::Debug for Aes128 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Aes128").finish()
@@ -159,7 +158,6 @@ impl Drop for Aes192 {
         self.zeroize();
     }
 }
-
 impl core::fmt::Debug for Aes192 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Aes192").finish()

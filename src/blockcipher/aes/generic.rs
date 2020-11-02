@@ -74,15 +74,6 @@ macro_rules! impl_aes {
                 decrypt(ciphertext_in_and_plaintext_out, &self.ek, $nr);
             }
         }
-
-        impl core::fmt::Debug for $name {
-            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                let ek = &self.ek[..];
-                f.debug_struct($name_s)
-                    .field("ek", &ek)
-                    .finish()
-            }
-        }
     }
 }
 
@@ -90,36 +81,48 @@ impl_aes!(Aes128, AES128_NR, AES128_NK, "Aes128");
 impl_aes!(Aes192, AES192_NR, AES192_NK, "Aes192");
 impl_aes!(Aes256, AES256_NR, AES256_NK, "Aes256");
 
-impl Drop for Aes128 {
-    fn drop(&mut self) {
-        self.ek = [0u8; (AES128_NR + 1) * AES_BLOCK_LEN];
+impl Zeroize for Aes128 {
+    fn zeroize(&mut self) {
+        self.ek.zeroize();
     }
 }
-
+impl Drop for Aes128 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
 impl core::fmt::Debug for Aes128 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Aes128").finish()
     }
 }
 
-impl Drop for Aes192 {
-    fn drop(&mut self) {
-        self.ek = [0u8; (AES192_NR + 1) * AES_BLOCK_LEN];
+impl Zeroize for Aes192 {
+    fn zeroize(&mut self) {
+        self.ek.zeroize();
     }
 }
-
+impl Drop for Aes192 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
 impl core::fmt::Debug for Aes192 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Aes192").finish()
     }
 }
 
-impl Drop for Aes256 {
-    fn drop(&mut self) {
-        self.ek = [0u8; (AES256_NR + 1) * AES_BLOCK_LEN];
+impl Zeroize for Aes256 {
+    fn zeroize(&mut self) {
+        self.ek.zeroize();
     }
 }
-
+impl Drop for Aes256 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
 impl core::fmt::Debug for Aes256 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Aes256").finish()
