@@ -84,7 +84,7 @@ OpenSSL::
 
 Rust Crypto::
 
-    test aeadcipher::bench_aes128_ccm_enc         ... bench:           0 ns/iter (+/- 0) = 16000 MB/s
+    test aeadcipher::bench_aes128_ccm_enc         ... bench:          25 ns/iter (+/- 0) = 640 MB/s
     test aeadcipher::bench_aes128_gcm_enc         ... bench:          27 ns/iter (+/- 0) = 592 MB/s
     test aeadcipher::bench_aes128_gcm_siv_enc     ... bench:          79 ns/iter (+/- 0) = 202 MB/s
     test aeadcipher::bench_aes128_ocb_tag_128_enc ... bench:          21 ns/iter (+/- 0) = 761 MB/s
