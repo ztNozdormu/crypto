@@ -21,10 +21,12 @@
 // 参考 bigint: 
 //      https://github.com/sorpaas/etcommon-rs/blob/master/bigint/src/uint/mod.rs
 // 
+use crate::mem::Zeroize;
+
 
 // 2.5.1.  The Poly1305 Algorithms in Pseudocode
 // https://tools.ietf.org/html/rfc8439#section-2.5.1
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Poly1305 {
     r        : [u32; 5], // r: le_bytes_to_num(key[0..15])
     h        : [u32; 5],
@@ -33,11 +35,34 @@ pub struct Poly1305 {
     buffer   : [u8; Poly1305::BLOCK_LEN],
 }
 
+impl Zeroize for Poly1305 {
+    fn zeroize(&mut self) {
+        self.r.zeroize();
+        self.h.zeroize();
+        self.pad.zeroize();
+        self.leftover.zeroize();
+        self.buffer.zeroize();
+    }
+}
+
+impl Drop for Poly1305 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Poly1305 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Poly1305").finish()
+    }
+}
+
 impl Poly1305 {
     pub const KEY_LEN: usize   = 32;
     pub const BLOCK_LEN: usize = 16;
     pub const TAG_LEN: usize   = 16;
 
+    
     pub fn new(key: &[u8]) -> Self {
         // A 256-bit one-time key
         debug_assert!(key.len() >= Self::KEY_LEN);

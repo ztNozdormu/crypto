@@ -14,6 +14,8 @@ extern crate hex;
 
 
 mod util;
+pub mod mem;
+
 // pub mod error;
 
 // cryptographic hash function (CHF)

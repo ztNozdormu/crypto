@@ -23,6 +23,7 @@
 // 
 // CFB128 和 分组大小为 16 byte 的对称分组密码结合时（如 AES/Camellia/Aria），也可以被当作是一个流密码。
 // 
+use crate::mem::Zeroize;
 use crate::blockcipher::{
     Sm4,
     Aes128, Aes192, Aes256,
@@ -76,10 +77,23 @@ fn left_shift_1(bytes: &mut [u8], bit: bool) {
 //       块大小为 8 Bytes，但是目前，我们并不考虑这些陈旧的 块密码算法。
 macro_rules! impl_block_cipher_with_cfb64_mode {
     ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.iv.zeroize();
+                self.cipher.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {
@@ -174,10 +188,23 @@ macro_rules! impl_block_cipher_with_cfb64_mode {
 
 macro_rules! impl_block_cipher_with_cfb1_mode {
     ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.iv.zeroize();
+                self.cipher.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {
@@ -307,10 +334,23 @@ macro_rules! impl_block_cipher_with_cfb1_mode {
 
 macro_rules! impl_block_cipher_with_cfb8_mode {
     ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.iv.zeroize();
+                self.cipher.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {
@@ -400,10 +440,23 @@ macro_rules! impl_block_cipher_with_cfb8_mode {
 
 macro_rules! impl_block_cipher_with_cfb128_mode {
     ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.iv.zeroize();
+                self.cipher.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {

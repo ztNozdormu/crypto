@@ -17,7 +17,7 @@ pub fn sm3<T: AsRef<[u8]>>(data: T) -> [u8; Sm3::DIGEST_LEN] {
 }
 
 /// GM/T 0004-2012 SM3密码杂凑算法标准
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Sm3 {
     buffer: [u8; Self::BLOCK_LEN],
     state: [u32; 8],

@@ -6,7 +6,8 @@
 // 
 // Specification of ARIA
 // http://210.104.33.10/ARIA/doc/ARIA-specification-e.pdf
-// 
+use crate::mem::Zeroize;
+
 
 const SB1: [u8; 256] = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
@@ -193,9 +194,28 @@ macro_rules! A {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Aria128 {
     ek: [u128; Self::NR * 2],
+}
+
+impl Zeroize for Aria128 {
+    fn zeroize(&mut self) {
+        self.ek.zeroize();
+    }
+}
+
+impl Drop for Aria128 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+
+impl core::fmt::Debug for Aria128 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aria128").finish()
+    }
 }
 
 impl Aria128 {
@@ -312,9 +332,27 @@ impl Aria128 {
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Aria192 {
     ek: [u128; Self::NR * 2],
+}
+
+impl Zeroize for Aria192 {
+    fn zeroize(&mut self) {
+        self.ek.zeroize();
+    }
+}
+
+impl Drop for Aria192 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Aria192 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aria192").finish()
+    }
 }
 
 impl Aria192 {
@@ -441,9 +479,27 @@ impl Aria192 {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Aria256 {
     ek: [u128; Self::NR * 2],
+}
+
+impl Zeroize for Aria256 {
+    fn zeroize(&mut self) {
+        self.ek.zeroize();
+    }
+}
+
+impl Drop for Aria256 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Aria256 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aria256").finish()
+    }
 }
 
 impl Aria256 {

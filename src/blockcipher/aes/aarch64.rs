@@ -1,3 +1,5 @@
+use crate::mem::Zeroize;
+
 #[cfg(target_arch = "aarch64")]
 use core::arch::aarch64::*;
 
@@ -54,9 +56,21 @@ fn decrypt_aarch64(expanded_key: &[u8], nr: isize, ciphertext: &mut [u8]) {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Aes128 {
     ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+}
+
+impl Drop for Aes128 {
+    fn drop(&mut self) {
+        self.ek = [0u8; (Self::NR + 1) * Self::BLOCK_LEN];
+    }
+}
+
+impl core::fmt::Debug for Aes128 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aes128").finish()
+    }
 }
 
 impl Aes128 {
@@ -86,9 +100,21 @@ impl Aes128 {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Aes192 {
     ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+}
+
+impl Drop for Aes192 {
+    fn drop(&mut self) {
+        self.ek = [0u8; (Self::NR + 1) * Self::BLOCK_LEN];
+    }
+}
+
+impl core::fmt::Debug for Aes192 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aes192").finish()
+    }
 }
 
 impl Aes192 {
@@ -117,9 +143,21 @@ impl Aes192 {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Aes256 {
     ek: [u8; (Self::NR + 1) * Self::BLOCK_LEN],
+}
+
+impl Drop for Aes256 {
+    fn drop(&mut self) {
+        self.ek = [0u8; (Self::NR + 1) * Self::BLOCK_LEN];
+    }
+}
+
+impl core::fmt::Debug for Aes256 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aes256").finish()
+    }
 }
 
 impl Aes256 {

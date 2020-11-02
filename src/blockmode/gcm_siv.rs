@@ -3,6 +3,7 @@
 // 
 // AES-GCM-SIV: Specification and Analysis
 // https://eprint.iacr.org/2017/168.pdf
+use crate::mem::Zeroize;
 use crate::mac::Polyval;
 use crate::blockcipher::{
     Sm4,
@@ -20,11 +21,25 @@ const GCM_SIV_BLOCK_LEN: usize = 16;
 macro_rules! impl_block_cipher_with_gcm_siv_mode {
     ($name:tt, $cipher:tt) => {
 
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             cipher: $cipher,
             nonce: [u8; Self::NONCE_LEN],
             polyval: Polyval,
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.cipher.zeroize();
+                self.nonce.zeroize();
+                self.polyval.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {

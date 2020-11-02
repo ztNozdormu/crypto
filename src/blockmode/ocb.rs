@@ -4,6 +4,7 @@
 // OCB: A Block-Cipher Mode of Operation for Efficient Authenticated Encryption
 // https://csrc.nist.gov/CSRC/media/Projects/Block-Cipher-Techniques/documents/BCM/proposed-modes/ocb/ocb-spec.pdf
 use super::dbl;
+use crate::mem::Zeroize;
 use crate::util::xor_si128_inplace;
 use crate::blockcipher::{Aes128, Aes192, Aes256};
 
@@ -23,13 +24,27 @@ const MASK_8: u8 = 0b0000_0001;
 macro_rules! impl_block_cipher_with_ocb_mode {
     ($name:tt, $cipher:tt, $tlen:tt) => {
 
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             cipher: $cipher,
             offset_0: [u8; Self::BLOCK_LEN],
             table: [[u8; Self::BLOCK_LEN]; 32],
         }
         
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.cipher.zeroize();
+                self.offset_0.zeroize();
+                self.table.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
+        }
+
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;

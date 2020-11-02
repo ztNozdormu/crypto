@@ -23,6 +23,8 @@
 // 
 // The Rijndael Animation
 // http://www.formaestudio.com/rijndaelinspector/
+use crate::mem::Zeroize;
+
 
 const WORD_SIZE: usize      =  4; // Word(u32) size in bytes
 
@@ -88,6 +90,41 @@ impl_aes!(Aes128, AES128_NR, AES128_NK, "Aes128");
 impl_aes!(Aes192, AES192_NR, AES192_NK, "Aes192");
 impl_aes!(Aes256, AES256_NR, AES256_NK, "Aes256");
 
+impl Drop for Aes128 {
+    fn drop(&mut self) {
+        self.ek = [0u8; (AES128_NR + 1) * AES_BLOCK_LEN];
+    }
+}
+
+impl core::fmt::Debug for Aes128 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aes128").finish()
+    }
+}
+
+impl Drop for Aes192 {
+    fn drop(&mut self) {
+        self.ek = [0u8; (AES192_NR + 1) * AES_BLOCK_LEN];
+    }
+}
+
+impl core::fmt::Debug for Aes192 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aes192").finish()
+    }
+}
+
+impl Drop for Aes256 {
+    fn drop(&mut self) {
+        self.ek = [0u8; (AES256_NR + 1) * AES_BLOCK_LEN];
+    }
+}
+
+impl core::fmt::Debug for Aes256 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Aes256").finish()
+    }
+}
 
 // The round constant word array. 
 const RCON: [u32; 10] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];

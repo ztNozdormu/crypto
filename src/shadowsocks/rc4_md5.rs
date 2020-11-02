@@ -1,3 +1,4 @@
+use crate::mem::Zeroize;
 use crate::hash::Md5;
 use crate::streamcipher::Rc4;
 
@@ -6,6 +7,24 @@ use crate::streamcipher::Rc4;
 #[derive(Clone)]
 pub struct Rc4Md5 {
     cipher: Rc4,
+}
+
+impl Zeroize for Rc4Md5 {
+    fn zeroize(&mut self) {
+        self.cipher.zeroize();
+    }
+}
+
+impl Drop for Rc4Md5 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Rc4Md5 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Rc4Md5").finish()
+    }
 }
 
 impl Rc4Md5 {
@@ -33,7 +52,7 @@ impl Rc4Md5 {
     }
     
     pub fn decrypt_slice(&mut self, ciphertext_and_plaintext: &mut [u8]) {
-        self.cipher.encrypt_slice(ciphertext_and_plaintext)
+        self.cipher.decrypt_slice(ciphertext_and_plaintext)
     }
 }
 

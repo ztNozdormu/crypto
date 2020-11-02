@@ -1,5 +1,6 @@
 use subtle;
 
+use crate::mem::Zeroize;
 use crate::mac::Poly1305;
 use crate::streamcipher::Chacha20;
 
@@ -7,10 +8,28 @@ use crate::streamcipher::Chacha20;
 /// ChaCha20 and Poly1305 for IETF Protocols
 /// 
 /// https://tools.ietf.org/html/rfc8439
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Chacha20Poly1305 {
     chacha20: Chacha20,
     poly1305: Poly1305,
+}
+
+impl Zeroize for Chacha20Poly1305 {
+    fn zeroize(&mut self) {
+        self.chacha20.zeroize();
+        self.poly1305.zeroize();
+    }
+}
+impl Drop for Chacha20Poly1305 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Chacha20Poly1305 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Chacha20Poly1305").finish()
+    }
 }
 
 impl Chacha20Poly1305 {

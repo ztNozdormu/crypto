@@ -1,3 +1,5 @@
+use crate::mem::Zeroize;
+
 #[cfg(target_arch = "x86")]
 use core::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -6,10 +8,25 @@ use core::arch::x86_64::*;
 // 参考:
 // https://www.intel.cn/content/dam/www/public/us/en/documents/white-papers/carry-less-multiplication-instruction-in-gcm-mode-paper.pdf
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct GHash {
     key: __m128i,
     buf: __m128i,
+}
+
+impl Zeroize for GHash {
+    fn zeroize(&mut self) {
+        unsafe {
+            self.key = _mm_setzero_si128();
+            self.buf = _mm_setzero_si128();
+        }
+    }
+}
+
+impl Drop for GHash {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 impl GHash {

@@ -1,5 +1,6 @@
 // 6.4 The Output Feedback Mode, (Page-20)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
+use crate::mem::Zeroize;
 use crate::blockcipher::{
     Rc2FixedSize, Sm4,
     Aes128, Aes192, Aes256,
@@ -10,10 +11,23 @@ use crate::blockcipher::{
 
 macro_rules! impl_block_cipher_with_ofb_mode {
     ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.cipher.zeroize();
+                self.iv.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {

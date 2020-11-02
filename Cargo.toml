@@ -14,17 +14,17 @@ hex = "0.4"
 
 [features]
 default = [
+    "std",
     "subtle/i128",
 ]
 
-tls    = [ "tls1_1", "tls1_2", "tls1_3" ]
-
 ssl    = [ ]
+tls    = [ "tls1_1", "tls1_2", "tls1_3" ]
 tls1_1 = [ ]
 tls1_2 = [ ]
 tls1_3 = [ ]
 
-shadowsocks = []
+shadowsocks = [ ]
 
 std     = [
     "subtle/std",
@@ -36,7 +36,7 @@ nightly = [
 
 [package.metadata.docs.rs]
 all-features = true
-# rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html#release
 [profile.release]

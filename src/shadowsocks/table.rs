@@ -1,3 +1,4 @@
+use crate::mem::Zeroize;
 use crate::hash::Md5;
 
 
@@ -8,10 +9,28 @@ pub struct TableCipher {
     dbox: [u8; Self::TABLE_SIZE], // Decrypt
 }
 
+impl Zeroize for TableCipher {
+    fn zeroize(&mut self) {
+        self.ebox.zeroize();
+        self.dbox.zeroize();
+    }
+}
+
+impl Drop for TableCipher {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for TableCipher {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("TableCipher").finish()
+    }
+}
+
 impl TableCipher {
     const TABLE_SIZE: usize = 256;
-
-
+    
     pub fn new(key: &[u8]) -> Self {
         let h = Md5::oneshot(key);
         let a = u64::from_le_bytes([

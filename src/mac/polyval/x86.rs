@@ -1,8 +1,9 @@
+use crate::mem::Zeroize;
+
 #[cfg(target_arch = "x86")]
 use core::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
-
 
 // Intel® Carry-Less Multiplication Instruction and its Usage for Computing the GCM Mode
 // 
@@ -13,11 +14,27 @@ use core::arch::x86_64::*;
 // https://github.com/Shay-Gueron/AES-GCM-SIV/blob/master/AES_GCM_SIV_128/AES_GCM_SIV_128_C_Intrinsics_Code/polyval.c
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Polyval {
     key: __m128i,
     h: __m128i,
 }
+
+impl Zeroize for Polyval {
+    fn zeroize(&mut self) {
+        unsafe {
+            self.key = _mm_setzero_si128();
+            self.h   = _mm_setzero_si128();
+        }
+    }
+}
+
+impl Drop for Polyval {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
 
 impl Polyval {
     pub const KEY_LEN: usize   = 16;

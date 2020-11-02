@@ -8,7 +8,8 @@
 // Counter with Cipher Block Chaining-Message Authentication Code. 
 // 
 // CBC-MAC
-// Cipher Block Chaining-Message Authentication Code 
+// Cipher Block Chaining-Message Authentication Code
+use crate::mem::Zeroize;
 use crate::util::xor_si128_inplace;
 use crate::blockcipher::{
     Sm4,
@@ -22,10 +23,23 @@ use subtle;
 
 macro_rules! impl_block_cipher_with_ccm_mode {
     ($name:tt, $cipher:tt, $nlen:tt, $tlen:tt, $q:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             cipher: $cipher,
             nonce: [u8; Self::NONCE_LEN],
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.nonce.zeroize();
+                self.cipher.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         // 6.  AES GCM Algorithms for Secure Shell

@@ -1,65 +1,5 @@
+use crate::mem::Zeroize;
 
-/// 2.1.  The ChaCha Quarter Round
-// https://tools.ietf.org/html/rfc8439#section-2.1
-#[inline]
-fn quarter_round(state: &mut [u32], ai: usize, bi: usize, ci: usize, di: usize) {
-    // n <<<= m
-    // 等介于: (n << m) ^ (n >> (32 - 8))
-
-    // a += b; d ^= a; d <<<= 16;
-    // c += d; b ^= c; b <<<= 12;
-    // a += b; d ^= a; d <<<= 8;
-    // c += d; b ^= c; b <<<= 7;
-    let mut a = state[ai];
-    let mut b = state[bi];
-    let mut c = state[ci];
-    let mut d = state[di];
-
-    a = a.wrapping_add(b); d ^= a; d = d.rotate_left(16);
-    c = c.wrapping_add(d); b ^= c; b = b.rotate_left(12);
-    a = a.wrapping_add(b); d ^= a; d = d.rotate_left(8);
-    c = c.wrapping_add(d); b ^= c; b = b.rotate_left(7);
-
-    state[ai] = a;
-    state[bi] = b;
-    state[ci] = c;
-    state[di] = d;
-}
-
-#[inline]
-fn diagonal_rounds(state: &mut [u32]) {
-    for _ in 0..10 {
-        // column rounds
-        quarter_round(state, 0, 4,  8, 12);
-        quarter_round(state, 1, 5,  9, 13);
-        quarter_round(state, 2, 6, 10, 14);
-        quarter_round(state, 3, 7, 11, 15);
-        quarter_round(state, 0, 5, 10, 15);
-        quarter_round(state, 1, 6, 11, 12);
-        quarter_round(state, 2, 7,  8, 13);
-        quarter_round(state, 3, 4,  9, 14);
-    }
-}
-
-#[inline]
-fn state_to_keystream(state: &[u32; 16], keystream: &mut [u8; Chacha20::BLOCK_LEN]) {
-    keystream[ 0.. 4].copy_from_slice(&state[0].to_le_bytes());
-    keystream[ 4.. 8].copy_from_slice(&state[1].to_le_bytes());
-    keystream[ 8..12].copy_from_slice(&state[2].to_le_bytes());
-    keystream[12..16].copy_from_slice(&state[3].to_le_bytes());
-    keystream[16..20].copy_from_slice(&state[4].to_le_bytes());
-    keystream[20..24].copy_from_slice(&state[5].to_le_bytes());
-    keystream[24..28].copy_from_slice(&state[6].to_le_bytes());
-    keystream[28..32].copy_from_slice(&state[7].to_le_bytes());
-    keystream[32..36].copy_from_slice(&state[8].to_le_bytes());
-    keystream[36..40].copy_from_slice(&state[9].to_le_bytes());
-    keystream[40..44].copy_from_slice(&state[10].to_le_bytes());
-    keystream[44..48].copy_from_slice(&state[11].to_le_bytes());
-    keystream[48..52].copy_from_slice(&state[12].to_le_bytes());
-    keystream[52..56].copy_from_slice(&state[13].to_le_bytes());
-    keystream[56..60].copy_from_slice(&state[14].to_le_bytes());
-    keystream[60..64].copy_from_slice(&state[15].to_le_bytes());
-}
 
 //    cccccccc  cccccccc  cccccccc  cccccccc
 //    kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
@@ -68,7 +8,7 @@ fn state_to_keystream(state: &[u32; 16], keystream: &mut [u8; Chacha20::BLOCK_LE
 // 
 // c=constant k=key b=blockcount n=nonce
 /// ChaCha20 for IETF Protocols
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Chacha20 {
     // constants | key | counter | nonce
     initial_state: [u32; 16],
@@ -76,6 +16,27 @@ pub struct Chacha20 {
     keystream: [u8; Self::BLOCK_LEN],
     // keystream bytes used
     offset: usize,
+}
+
+impl Zeroize for Chacha20 {
+    fn zeroize(&mut self) {
+        self.initial_state.zeroize();
+        self.state.zeroize();
+        self.keystream.zeroize();
+        self.offset.zeroize();
+    }
+}
+
+impl Drop for Chacha20 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Chacha20 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Chacha20").finish()
+    }
 }
 
 impl Chacha20 {
@@ -166,6 +127,68 @@ impl Chacha20 {
             self.offset += 1;
         }
     }
+}
+
+/// 2.1.  The ChaCha Quarter Round
+// https://tools.ietf.org/html/rfc8439#section-2.1
+#[inline]
+fn quarter_round(state: &mut [u32], ai: usize, bi: usize, ci: usize, di: usize) {
+    // n <<<= m
+    // 等介于: (n << m) ^ (n >> (32 - 8))
+
+    // a += b; d ^= a; d <<<= 16;
+    // c += d; b ^= c; b <<<= 12;
+    // a += b; d ^= a; d <<<= 8;
+    // c += d; b ^= c; b <<<= 7;
+    let mut a = state[ai];
+    let mut b = state[bi];
+    let mut c = state[ci];
+    let mut d = state[di];
+
+    a = a.wrapping_add(b); d ^= a; d = d.rotate_left(16);
+    c = c.wrapping_add(d); b ^= c; b = b.rotate_left(12);
+    a = a.wrapping_add(b); d ^= a; d = d.rotate_left(8);
+    c = c.wrapping_add(d); b ^= c; b = b.rotate_left(7);
+
+    state[ai] = a;
+    state[bi] = b;
+    state[ci] = c;
+    state[di] = d;
+}
+
+#[inline]
+fn diagonal_rounds(state: &mut [u32]) {
+    for _ in 0..10 {
+        // column rounds
+        quarter_round(state, 0, 4,  8, 12);
+        quarter_round(state, 1, 5,  9, 13);
+        quarter_round(state, 2, 6, 10, 14);
+        quarter_round(state, 3, 7, 11, 15);
+        quarter_round(state, 0, 5, 10, 15);
+        quarter_round(state, 1, 6, 11, 12);
+        quarter_round(state, 2, 7,  8, 13);
+        quarter_round(state, 3, 4,  9, 14);
+    }
+}
+
+#[inline]
+fn state_to_keystream(state: &[u32; 16], keystream: &mut [u8; Chacha20::BLOCK_LEN]) {
+    keystream[ 0.. 4].copy_from_slice(&state[0].to_le_bytes());
+    keystream[ 4.. 8].copy_from_slice(&state[1].to_le_bytes());
+    keystream[ 8..12].copy_from_slice(&state[2].to_le_bytes());
+    keystream[12..16].copy_from_slice(&state[3].to_le_bytes());
+    keystream[16..20].copy_from_slice(&state[4].to_le_bytes());
+    keystream[20..24].copy_from_slice(&state[5].to_le_bytes());
+    keystream[24..28].copy_from_slice(&state[6].to_le_bytes());
+    keystream[28..32].copy_from_slice(&state[7].to_le_bytes());
+    keystream[32..36].copy_from_slice(&state[8].to_le_bytes());
+    keystream[36..40].copy_from_slice(&state[9].to_le_bytes());
+    keystream[40..44].copy_from_slice(&state[10].to_le_bytes());
+    keystream[44..48].copy_from_slice(&state[11].to_le_bytes());
+    keystream[48..52].copy_from_slice(&state[12].to_le_bytes());
+    keystream[52..56].copy_from_slice(&state[13].to_le_bytes());
+    keystream[56..60].copy_from_slice(&state[14].to_le_bytes());
+    keystream[60..64].copy_from_slice(&state[15].to_le_bytes());
 }
 
 
