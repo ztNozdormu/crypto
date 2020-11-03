@@ -7,6 +7,7 @@ use crate::mem::Zeroize;
 //    bbbbbbbb  nnnnnnnn  nnnnnnnn  nnnnnnnn
 // 
 // c=constant k=key b=blockcount n=nonce
+
 /// ChaCha20 for IETF Protocols
 #[derive(Clone)]
 pub struct Chacha20 {
@@ -44,6 +45,7 @@ impl Chacha20 {
     pub const BLOCK_LEN: usize = 64;
     pub const NONCE_LEN: usize = 12;
     
+    const INITIAL_STATE: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574]; // b"expand 32-byte k";
 
     pub fn new(key: &[u8], nonce: &[u8]) -> Self {
         // o  A 256-bit key
@@ -56,11 +58,11 @@ impl Chacha20 {
         let mut state = [0u32; 16];
 
         // The ChaCha20 state is initialized as follows:
-        state[0] = 0x61707865;
-        state[1] = 0x3320646e;
-        state[2] = 0x79622d32;
-        state[3] = 0x6b206574;
-
+        state[0] = Self::INITIAL_STATE[0];
+        state[1] = Self::INITIAL_STATE[1];
+        state[2] = Self::INITIAL_STATE[2];
+        state[3] = Self::INITIAL_STATE[3];
+        
         // A 256-bit key (32 Bytes)
         state[ 4] = u32::from_le_bytes([key[ 0], key[ 1], key[ 2], key[ 3]]);
         state[ 5] = u32::from_le_bytes([key[ 4], key[ 5], key[ 6], key[ 7]]);

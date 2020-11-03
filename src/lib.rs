@@ -35,6 +35,9 @@ pub mod aeadcipher;
 #[cfg(feature = "shadowsocks")]
 pub mod shadowsocks;
 
+#[cfg(feature = "openssh")]
+pub mod openssh;
+
 
 // Elliptic Curve Cryptography（ECC）
 // http://docs.rs/x25519-dalek

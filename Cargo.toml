@@ -15,7 +15,12 @@ hex = "0.4"
 [features]
 default = [
     "std",
+    "openssh",
+    "shadowsocks",
 ]
+
+std     = [ ]
+nightly = [ ]
 
 ssl    = [ ]
 tls    = [ "tls1_1", "tls1_2", "tls1_3" ]
@@ -23,10 +28,8 @@ tls1_1 = [ ]
 tls1_2 = [ ]
 tls1_3 = [ ]
 
+openssh     = [ ]
 shadowsocks = [ ]
-
-std     = [ ]
-nightly = [ ]
 
 
 [package.metadata.docs.rs]
