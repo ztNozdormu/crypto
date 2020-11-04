@@ -54,39 +54,35 @@ macro_rules! impl_block_cipher_with_ctr_mode {
             }
 
             #[inline]
-            fn ctr(counter_block: &mut [u8; Self::BLOCK_LEN]) {
+            fn ctr64(counter_block: &mut [u8; Self::BLOCK_LEN]) {
                 let counter = u64::from_be_bytes([
-                    counter_block[8], counter_block[9], counter_block[10], counter_block[11], 
+                    counter_block[ 8], counter_block[ 9], counter_block[10], counter_block[11], 
                     counter_block[12], counter_block[13], counter_block[14], counter_block[15], 
                 ]);
                 counter_block[8..16].copy_from_slice(&counter.wrapping_add(1).to_be_bytes());
             }
 
             pub fn encrypt_slice(&mut self, data: &mut [u8]) {
-                let mut counter_block = self.counter_block.clone();
-
                 for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
-                    let mut output_block = counter_block.clone();
+                    let mut output_block = self.counter_block.clone();
                     self.cipher.encrypt(&mut output_block);
 
                     for i in 0..plaintext.len() {
                         plaintext[i] ^= output_block[i];
                     }
-                    Self::ctr(&mut counter_block);
+                    Self::ctr64(&mut self.counter_block);
                 }
             }
 
             pub fn decrypt_slice(&mut self, data: &mut [u8]) {
-                let mut counter_block = self.counter_block.clone();
-
                 for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
-                    let mut output_block = counter_block.clone();
+                    let mut output_block = self.counter_block.clone();
                     self.cipher.encrypt(&mut output_block);
 
                     for i in 0..ciphertext.len() {
                         ciphertext[i] ^= output_block[i];
                     }
-                    Self::ctr(&mut counter_block);
+                    Self::ctr64(&mut self.counter_block);
                 }
             }
         }

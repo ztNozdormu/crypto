@@ -235,47 +235,47 @@ macro_rules! impl_aead_cipher_with_siv_cmac {
 
 
 // AES-GCM
-impl_aead_cipher!(Aes128Gcm,   AEAD_AES_128_GCM);
-impl_aead_cipher!(Aes128Gcm8,  AEAD_AES_128_GCM_8);
-impl_aead_cipher!(Aes128Gcm12, AEAD_AES_128_GCM_12);
-impl_aead_cipher!(Aes256Gcm,   AEAD_AES_256_GCM);
-impl_aead_cipher!(Aes256Gcm8,  AEAD_AES_256_GCM_8);
-impl_aead_cipher!(Aes256Gcm12, AEAD_AES_256_GCM_12);
+// impl_aead_cipher!(Aes128Gcm,   AEAD_AES_128_GCM);
+// impl_aead_cipher!(Aes128Gcm8,  AEAD_AES_128_GCM_8);
+// impl_aead_cipher!(Aes128Gcm12, AEAD_AES_128_GCM_12);
+// impl_aead_cipher!(Aes256Gcm,   AEAD_AES_256_GCM);
+// impl_aead_cipher!(Aes256Gcm8,  AEAD_AES_256_GCM_8);
+// impl_aead_cipher!(Aes256Gcm12, AEAD_AES_256_GCM_12);
 
 // AES-GCM-SIV
-impl_aead_cipher!(Aes128GcmSiv, AEAD_AES_128_GCM_SIV);
-impl_aead_cipher!(Aes256GcmSiv, AEAD_AES_256_GCM_SIV);
+// impl_aead_cipher!(Aes128GcmSiv, AEAD_AES_128_GCM_SIV);
+// impl_aead_cipher!(Aes256GcmSiv, AEAD_AES_256_GCM_SIV);
 
 // AES-CCM
-impl_aead_cipher!(Aes128Ccm,        AEAD_AES_128_CCM);
-impl_aead_cipher!(Aes128CcmShort,   AEAD_AES_128_CCM_SHORT);
-impl_aead_cipher!(Aes128CcmShort8,  AEAD_AES_128_CCM_SHORT_8);
-impl_aead_cipher!(Aes128CcmShort12, AEAD_AES_128_CCM_SHORT_12);
-impl_aead_cipher!(Aes128Ccm8,       AEAD_AES_128_CCM_8);
+// impl_aead_cipher!(Aes128Ccm,        AEAD_AES_128_CCM);
+// impl_aead_cipher!(Aes128CcmShort,   AEAD_AES_128_CCM_SHORT);
+// impl_aead_cipher!(Aes128CcmShort8,  AEAD_AES_128_CCM_SHORT_8);
+// impl_aead_cipher!(Aes128CcmShort12, AEAD_AES_128_CCM_SHORT_12);
+// impl_aead_cipher!(Aes128Ccm8,       AEAD_AES_128_CCM_8);
 
-impl_aead_cipher!(Aes256Ccm,        AEAD_AES_256_CCM);
-impl_aead_cipher!(Aes256CcmShort,   AEAD_AES_256_CCM_SHORT);
-impl_aead_cipher!(Aes256CcmShort8,  AEAD_AES_256_CCM_SHORT_8);
-impl_aead_cipher!(Aes256CcmShort12, AEAD_AES_256_CCM_SHORT_12);
-impl_aead_cipher!(Aes256Ccm8,       AEAD_AES_256_CCM_8);
+// impl_aead_cipher!(Aes256Ccm,        AEAD_AES_256_CCM);
+// impl_aead_cipher!(Aes256CcmShort,   AEAD_AES_256_CCM_SHORT);
+// impl_aead_cipher!(Aes256CcmShort8,  AEAD_AES_256_CCM_SHORT_8);
+// impl_aead_cipher!(Aes256CcmShort12, AEAD_AES_256_CCM_SHORT_12);
+// impl_aead_cipher!(Aes256Ccm8,       AEAD_AES_256_CCM_8);
 
 // AES-SIV-CMAC
-impl_aead_cipher_with_siv_cmac!(AesSivCmac256, AEAD_AES_SIV_CMAC_256);
-impl_aead_cipher_with_siv_cmac!(AesSivCmac384, AEAD_AES_SIV_CMAC_384);
-impl_aead_cipher_with_siv_cmac!(AesSivCmac512, AEAD_AES_SIV_CMAC_512);
+// impl_aead_cipher_with_siv_cmac!(AesSivCmac256, AEAD_AES_SIV_CMAC_256);
+// impl_aead_cipher_with_siv_cmac!(AesSivCmac384, AEAD_AES_SIV_CMAC_384);
+// impl_aead_cipher_with_siv_cmac!(AesSivCmac512, AEAD_AES_SIV_CMAC_512);
 
 // AES-OCB
-impl_aead_cipher!(Aes128OcbTag64,  AEAD_AES_128_OCB_TAGLEN64);
-impl_aead_cipher!(Aes128OcbTag96,  AEAD_AES_128_OCB_TAGLEN96);
-impl_aead_cipher!(Aes128OcbTag128, AEAD_AES_128_OCB_TAGLEN128);
+// impl_aead_cipher!(Aes128OcbTag64,  AEAD_AES_128_OCB_TAGLEN64);
+// impl_aead_cipher!(Aes128OcbTag96,  AEAD_AES_128_OCB_TAGLEN96);
+// impl_aead_cipher!(Aes128OcbTag128, AEAD_AES_128_OCB_TAGLEN128);
 
-impl_aead_cipher!(Aes192OcbTag64,  AEAD_AES_192_OCB_TAGLEN64);
-impl_aead_cipher!(Aes192OcbTag96,  AEAD_AES_192_OCB_TAGLEN96);
-impl_aead_cipher!(Aes192OcbTag128, AEAD_AES_192_OCB_TAGLEN128);
+// impl_aead_cipher!(Aes192OcbTag64,  AEAD_AES_192_OCB_TAGLEN64);
+// impl_aead_cipher!(Aes192OcbTag96,  AEAD_AES_192_OCB_TAGLEN96);
+// impl_aead_cipher!(Aes192OcbTag128, AEAD_AES_192_OCB_TAGLEN128);
 
-impl_aead_cipher!(Aes256OcbTag64,  AEAD_AES_256_OCB_TAGLEN64);
-impl_aead_cipher!(Aes256OcbTag96,  AEAD_AES_256_OCB_TAGLEN96);
-impl_aead_cipher!(Aes256OcbTag128, AEAD_AES_256_OCB_TAGLEN128);
+// impl_aead_cipher!(Aes256OcbTag64,  AEAD_AES_256_OCB_TAGLEN64);
+// impl_aead_cipher!(Aes256OcbTag96,  AEAD_AES_256_OCB_TAGLEN96);
+// impl_aead_cipher!(Aes256OcbTag128, AEAD_AES_256_OCB_TAGLEN128);
 
 // Chacha20Poly1305
 impl_aead_cipher!(Chacha20Poly1305,  AEAD_CHACHA20_POLY1305);
@@ -314,12 +314,12 @@ fn bench_aes128_gcm_enc(b: &mut test::Bencher) {
     let iv = hex::decode("cafebabefacedbaddecaf888").unwrap();
     let aad = [0u8; 0];
 
-    let cipher = Aes128Gcm::new(&key, &iv);
+    let cipher = Aes128Gcm::new(&key);
 
     b.bytes = Aes128Gcm::BLOCK_LEN as u64;
     b.iter(|| {
         let mut plaintext_and_ciphertext = [1u8; Aes128Gcm::BLOCK_LEN + Aes128Gcm::TAG_LEN];
-        cipher.encrypt_slice(&aad, &mut plaintext_and_ciphertext);
+        cipher.encrypt_slice(&iv, &aad, &mut plaintext_and_ciphertext);
         plaintext_and_ciphertext
     })
 }
@@ -330,12 +330,12 @@ fn bench_aes128_gcm_siv_enc(b: &mut test::Bencher) {
     let iv = hex::decode("cafebabefacedbaddecaf888").unwrap();
     let aad = [0u8; 0];
 
-    let cipher = Aes128GcmSiv::new(&key, &iv);
+    let cipher = Aes128GcmSiv::new(&key);
 
     b.bytes = Aes128GcmSiv::BLOCK_LEN as u64;
     b.iter(|| {
         let mut plaintext_and_ciphertext = test::black_box([1u8; Aes128GcmSiv::BLOCK_LEN + Aes128GcmSiv::TAG_LEN]);
-        cipher.encrypt_slice(&aad, &mut plaintext_and_ciphertext);
+        cipher.encrypt_slice(&iv, &aad, &mut plaintext_and_ciphertext);
         plaintext_and_ciphertext
     })
 }
@@ -346,12 +346,12 @@ fn bench_aes128_ccm_enc(b: &mut test::Bencher) {
     let iv = hex::decode("cafebabefacedbaddecaf888").unwrap();
     let aad = [0u8; 0];
 
-    let cipher = Aes128Ccm::new(&key, &iv);
+    let cipher = Aes128Ccm::new(&key);
 
     b.bytes = Aes128Ccm::BLOCK_LEN as u64;
     b.iter(|| {
         let mut plaintext_and_ciphertext = test::black_box([1u8; Aes128Ccm::BLOCK_LEN + Aes128Ccm::TAG_LEN]);
-        cipher.encrypt_slice(&aad, &mut plaintext_and_ciphertext);
+        cipher.encrypt_slice(&iv, &aad, &mut plaintext_and_ciphertext);
         plaintext_and_ciphertext
     })
 }
@@ -362,12 +362,12 @@ fn bench_aes128_ocb_tag_128_enc(b: &mut test::Bencher) {
     let iv = hex::decode("cafebabefacedbaddecaf888").unwrap();
     let aad = [0u8; 0];
 
-    let cipher = Aes128OcbTag128::new(&key, &iv);
+    let cipher = Aes128OcbTag128::new(&key);
 
     b.bytes = Aes128OcbTag128::BLOCK_LEN as u64;
     b.iter(|| {
         let mut plaintext_and_ciphertext = test::black_box([1u8; Aes128OcbTag128::BLOCK_LEN + Aes128OcbTag128::TAG_LEN]);
-        cipher.encrypt_slice(&aad, &mut plaintext_and_ciphertext);
+        cipher.encrypt_slice(&iv, &aad, &mut plaintext_and_ciphertext);
         plaintext_and_ciphertext
     })
 }

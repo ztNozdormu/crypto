@@ -30,16 +30,12 @@ macro_rules! impl_block_cipher_with_gcm_mode {
         pub struct $name {
             cipher: $cipher,
             ghash: GHash,
-            counter_block: [u8; Self::BLOCK_LEN],
-            base_ectr: [u8; Self::BLOCK_LEN],
         }
 
         impl Zeroize for $name {
             fn zeroize(&mut self) {
                 self.cipher.zeroize();
                 self.ghash.zeroize();
-                self.counter_block.zeroize();
-                self.base_ectr.zeroize();
             }
         }
 
@@ -66,23 +62,13 @@ macro_rules! impl_block_cipher_with_gcm_mode {
             pub const N_MAX: usize = Self::NONCE_LEN;
 
 
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 // NOTE: GCM 只可以和 块大小为 16 Bytes 的块密码算法协同工作。
                 assert_eq!(Self::BLOCK_LEN, GCM_BLOCK_LEN);
                 assert_eq!(Self::BLOCK_LEN, GHash::BLOCK_LEN);
                 assert_eq!(key.len(), Self::KEY_LEN);
-                // NOTE: 前面 12 Bytes 为 IV，后面 4 Bytes 为 BlockCounter。
-                //       BlockCounter 不接受用户的输入，如果输入了直接忽略。
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
-
-                let mut counter_block = [0u8; Self::BLOCK_LEN];
-                counter_block[..Self::NONCE_LEN].copy_from_slice(&nonce[..Self::NONCE_LEN]);
-                counter_block[15] = 1; // 初始化计数器
-
+                
                 let cipher = $cipher::new(key);
-
-                let mut base_ectr = counter_block.clone();
-                cipher.encrypt(&mut base_ectr);
 
                 // NOTE: 计算 Ghash 初始状态。
                 let mut h = [0u8; Self::BLOCK_LEN];
@@ -90,37 +76,40 @@ macro_rules! impl_block_cipher_with_gcm_mode {
 
                 let ghash = GHash::new(&h);
 
-                Self { cipher, ghash, counter_block, base_ectr }
+                Self { cipher, ghash }
             }
 
             #[inline]
-            fn ctr(counter_block: &mut [u8; Self::BLOCK_LEN]) {
-                let num_octets = u32::from_be_bytes([
+            fn ctr32(counter_block: &mut [u8; Self::BLOCK_LEN]) {
+                let counter = u32::from_be_bytes([
                     counter_block[12], counter_block[13], counter_block[14], counter_block[15],
-                ]).wrapping_add(1).to_be_bytes();
+                ]);
 
-                counter_block[Self::NONCE_LEN..Self::BLOCK_LEN].copy_from_slice(&num_octets);
+                counter_block[Self::NONCE_LEN..Self::BLOCK_LEN].copy_from_slice(&counter.wrapping_add(1).to_be_bytes());
             }
 
-            pub fn encrypt_slice(&self, aad: &[u8], aead_pkt: &mut [u8]) {
+            pub fn encrypt_slice(&self, nonce: &[u8], aad: &[u8], aead_pkt: &mut [u8]) {
                 debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
 
                 let plen = aead_pkt.len() - Self::TAG_LEN;
                 let (plaintext_and_ciphertext, tag_out) = aead_pkt.split_at_mut(plen);
 
-                self.encrypt_slice_detached(aad, plaintext_and_ciphertext, tag_out)
+                self.encrypt_slice_detached(nonce, aad, plaintext_and_ciphertext, tag_out)
             }
 
-            pub fn decrypt_slice(&self, aad: &[u8], aead_pkt: &mut [u8]) -> bool {
+            pub fn decrypt_slice(&self, nonce: &[u8], aad: &[u8], aead_pkt: &mut [u8]) -> bool {
                 debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
 
                 let clen = aead_pkt.len() - Self::TAG_LEN;
                 let (ciphertext_and_plaintext, tag_in) = aead_pkt.split_at_mut(clen);
 
-                self.decrypt_slice_detached(aad, ciphertext_and_plaintext, &tag_in)
+                self.decrypt_slice_detached(nonce, aad, ciphertext_and_plaintext, &tag_in)
             }
 
-            pub fn encrypt_slice_detached(&self, aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
+            pub fn encrypt_slice_detached(&self, nonce: &[u8], aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
+                // NOTE: 前面 12 Bytes 为 IV，后面 4 Bytes 为 BlockCounter。
+                assert_eq!(nonce.len(), Self::NONCE_LEN);
+
                 let alen = aad.len();
                 let plen = plaintext_and_ciphertext.len();
                 let tlen = tag_out.len();
@@ -130,14 +119,20 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 debug_assert!(tlen == Self::TAG_LEN);
 
                 let mut mac = self.ghash.clone();
-                let mut counter_block = self.counter_block.clone();
-                
+
+                let mut counter_block = [0u8; Self::BLOCK_LEN];
+                counter_block[..Self::NONCE_LEN].copy_from_slice(&nonce[..Self::NONCE_LEN]);
+                counter_block[15] = 1; // 初始化计数器 （大端序）
+
+                let mut base_ectr = counter_block.clone();
+                self.cipher.encrypt(&mut base_ectr);
+
                 mac.update(aad);
 
                 //////// Update ////////
                 let n = plen / Self::BLOCK_LEN;
                 for i in 0..n {
-                    Self::ctr(&mut counter_block);
+                    Self::ctr32(&mut counter_block);
                     
                     let mut ectr = counter_block.clone();
                     self.cipher.encrypt(&mut ectr);
@@ -150,7 +145,7 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 }
 
                 if plen % Self::BLOCK_LEN != 0 {
-                    Self::ctr(&mut counter_block);
+                    Self::ctr32(&mut counter_block);
                     
                     let mut ectr = counter_block.clone();
                     self.cipher.encrypt(&mut ectr);
@@ -173,7 +168,7 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 mac.update(&octets);
 
                 let mut tag = [0u8; Self::TAG_LEN];
-                tag[..Self::TAG_LEN].copy_from_slice(&self.base_ectr[..Self::TAG_LEN]);
+                tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
 
                 let code = mac.finalize();
                 if Self::TAG_LEN == 16 {
@@ -187,7 +182,10 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 tag_out.copy_from_slice(&tag[..Self::TAG_LEN]);
             }
 
-            pub fn decrypt_slice_detached(&self, aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
+            pub fn decrypt_slice_detached(&self, nonce: &[u8], aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
+                // NOTE: 前面 12 Bytes 为 IV，后面 4 Bytes 为 BlockCounter。
+                assert_eq!(nonce.len(), Self::NONCE_LEN);
+
                 let alen = aad.len();
                 let clen = ciphertext_and_plaintext.len();
                 let tlen = tag_in.len();
@@ -197,14 +195,20 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 debug_assert!(tlen == Self::TAG_LEN);
 
                 let mut mac = self.ghash.clone();
-                let mut counter_block = self.counter_block.clone();
+
+                let mut counter_block = [0u8; Self::BLOCK_LEN];
+                counter_block[..Self::NONCE_LEN].copy_from_slice(&nonce[..Self::NONCE_LEN]);
+                counter_block[15] = 1; // 初始化计数器 （大端序）
+                
+                let mut base_ectr = counter_block.clone();
+                self.cipher.encrypt(&mut base_ectr);
 
                 mac.update(&aad);
 
                 //////////// Update ///////////////
                 let n = clen / Self::BLOCK_LEN;
                 for i in 0..n {
-                    Self::ctr(&mut counter_block);
+                    Self::ctr32(&mut counter_block);
                     
                     let mut ectr = counter_block.clone();
                     self.cipher.encrypt(&mut ectr);
@@ -217,7 +221,7 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 }
 
                 if clen % Self::BLOCK_LEN != 0 {
-                    Self::ctr(&mut counter_block);
+                    Self::ctr32(&mut counter_block);
                     
                     let mut ectr = counter_block.clone();
                     self.cipher.encrypt(&mut ectr);
@@ -242,7 +246,7 @@ macro_rules! impl_block_cipher_with_gcm_mode {
                 mac.update(&octets);
 
                 let mut tag = [0u8; Self::TAG_LEN];
-                tag[..Self::TAG_LEN].copy_from_slice(&self.base_ectr[..Self::TAG_LEN]);
+                tag[..Self::TAG_LEN].copy_from_slice(&base_ectr[..Self::TAG_LEN]);
 
                 let code = mac.finalize();
                 if Self::TAG_LEN == 16 {
@@ -277,6 +281,15 @@ impl_block_cipher_with_gcm_mode!(Camellia256Gcm, Camellia256, 16); // TAG-LEN=16
 impl_block_cipher_with_gcm_mode!(Aria256Gcm,     Aria256, 16);     // TAG-LEN=16
 
 
+// #[test]
+// fn test_aes128_gcm_with_openssl() {
+//     use openssl::symm::Cipher;
+//     use openssl::symm::Crypter;
+//     use openssl::symm::Mode;
+
+//     unimplemented!();
+// }
+
 #[test]
 fn test_aes128_gcm() {
     // B   AES Test Vectors, (Page-29)
@@ -289,8 +302,8 @@ fn test_aes128_gcm() {
     let plaintext = [0u8; 0];
     let mut ciphertext_and_tag = [0u8; 0 + Aes128Gcm::TAG_LEN];
 
-    let cipher = Aes128Gcm::new(&key, &iv);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128Gcm::new(&key);
+    cipher.encrypt_slice(&iv, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("58e2fccefa7e3061367f1d57a4e7455a").unwrap()[..]);
 
 
@@ -304,8 +317,8 @@ fn test_aes128_gcm() {
     let mut plaintext_and_ciphertext = plaintext.clone();
     plaintext_and_ciphertext.resize(plen + Aes128Gcm::TAG_LEN, 0);
 
-    let cipher = Aes128Gcm::new(&key, &iv);
-    cipher.encrypt_slice(&aad, &mut plaintext_and_ciphertext);
+    let cipher = Aes128Gcm::new(&key);
+    cipher.encrypt_slice(&iv, &aad, &mut plaintext_and_ciphertext);
 
     assert_eq!(&plaintext_and_ciphertext[..plen], &hex::decode("0388dace60b6a392f328c2b971b2fe78").unwrap()[..]);
     assert_eq!(&plaintext_and_ciphertext[plen..], &hex::decode("ab6e47d42cec13bdf53a67b21257bddf").unwrap()[..]);
@@ -324,8 +337,8 @@ b16aedf5aa0de657ba637b391aafd255").unwrap();
     let mut plaintext_and_ciphertext = plaintext.clone();
     plaintext_and_ciphertext.resize(plen + Aes128Gcm::TAG_LEN, 0);
 
-    let cipher = Aes128Gcm::new(&key, &iv);
-    cipher.encrypt_slice(&aad, &mut plaintext_and_ciphertext);
+    let cipher = Aes128Gcm::new(&key);
+    cipher.encrypt_slice(&iv, &aad, &mut plaintext_and_ciphertext);
     assert_eq!(&plaintext_and_ciphertext[..plen], &hex::decode("42831ec2217774244b7221b784d0d49c\
 e3aa212f2c02a4e035c17e2329aca12e\
 21d514b25466931c7d8f6a5aac84aa05\
@@ -347,8 +360,8 @@ b16aedf5aa0de657ba637b39").unwrap();
     let mut plaintext_and_ciphertext = plaintext.clone();
     plaintext_and_ciphertext.resize(plen + Aes128Gcm::TAG_LEN, 0);
 
-    let cipher = Aes128Gcm::new(&key, &iv);
-    cipher.encrypt_slice(&aad, &mut plaintext_and_ciphertext);
+    let cipher = Aes128Gcm::new(&key);
+    cipher.encrypt_slice(&iv, &aad, &mut plaintext_and_ciphertext);
     assert_eq!(&plaintext_and_ciphertext[..plen], &hex::decode("42831ec2217774244b7221b784d0d49c\
 e3aa212f2c02a4e035c17e2329aca12e\
 21d514b25466931c7d8f6a5aac84aa05\

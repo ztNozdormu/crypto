@@ -167,35 +167,6 @@ impl Chacha20Poly1305 {
 }
 
 
-// chacha20-poly1305@openssh.com
-// 
-// http://bxr.su/OpenBSD/usr.bin/ssh/PROTOCOL.chacha20poly1305
-// https://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-03
-// 
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/PROTOCOL.chacha20poly1305
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/chacha.c
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/chacha.h
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/poly1305.c
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/poly1305.h
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/cipher-chachapoly.c
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/cipher-chachapoly.h
-// https://github.com/openbsd/src/blob/master/usr.bin/ssh/cipher-chachapoly-libcrypto.c
-// 
-// 
-// Code:
-// http://bxr.su/OpenBSD/usr.bin/ssh/chacha.c
-// http://bxr.su/OpenBSD/usr.bin/ssh/chacha.h
-// http://bxr.su/OpenBSD/usr.bin/ssh/poly1305.c
-// http://bxr.su/OpenBSD/usr.bin/ssh/poly1305.h
-// http://bxr.su/OpenBSD/usr.bin/ssh/cipher-chachapoly.c
-// http://bxr.su/OpenBSD/usr.bin/ssh/cipher-chachapoly.h
-// #[derive(Debug, Clone)]
-// pub struct Chacha20Poly1305OpenSSH {
-//     chacha20: Chacha20,
-//     poly1305: Poly1305,
-//     data_len: usize,
-// }
-
 #[test]
 fn test_poly1305_key_generation() {
     // 2.6.2.  Poly1305 Key Generation Test Vector
