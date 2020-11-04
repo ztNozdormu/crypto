@@ -281,15 +281,6 @@ impl_block_cipher_with_gcm_mode!(Camellia256Gcm, Camellia256, 16); // TAG-LEN=16
 impl_block_cipher_with_gcm_mode!(Aria256Gcm,     Aria256, 16);     // TAG-LEN=16
 
 
-// #[test]
-// fn test_aes128_gcm_with_openssl() {
-//     use openssl::symm::Cipher;
-//     use openssl::symm::Crypter;
-//     use openssl::symm::Mode;
-
-//     unimplemented!();
-// }
-
 #[test]
 fn test_aes128_gcm() {
     // B   AES Test Vectors, (Page-29)
