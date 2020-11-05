@@ -56,7 +56,7 @@ macro_rules! impl_block_cipher_with_ctr_mode {
 
             /// Counter Block Format
             /// 
-            /// IV || Counter (block counter is a 32-bit big-endian integer value)
+            /// IV (96-bits) || Counter (32-bits, big-endian)
             pub fn encrypt_slice(&self, counter_block: &mut [u8; Self::BLOCK_LEN], plaintext_in_ciphertext_out: &mut [u8]) {
                 debug_assert_eq!(counter_block.len(), Self::BLOCK_LEN);
                 
@@ -70,13 +70,13 @@ macro_rules! impl_block_cipher_with_ctr_mode {
                     Self::ctr32(counter_block);
                 }
             }
-
+            
             /// Counter Block Format
             /// 
-            /// IV || Counter (block counter is a 32-bit big-endian integer value)
+            /// IV (96-bits) || Counter (32-bits, big-endian)
             pub fn decrypt_slice(&self, counter_block: &mut [u8; Self::BLOCK_LEN], ciphertext_in_plaintext_out: &mut [u8]) {
                 debug_assert_eq!(counter_block.len(), Self::BLOCK_LEN);
-
+                
                 for ciphertext in ciphertext_in_plaintext_out.chunks_mut(Self::BLOCK_LEN) {
                     let mut output_block = counter_block.clone();
                     self.cipher.encrypt(&mut output_block);
