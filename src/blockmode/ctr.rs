@@ -1,5 +1,6 @@
 // 6.5 The Counter Mode, (Page-22)
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
+use crate::mem::Zeroize;
 use crate::blockcipher::{
     Sm4,
     Aes128, Aes192, Aes256,
@@ -7,72 +8,83 @@ use crate::blockcipher::{
     Aria128, Aria192, Aria256,
 };
 
+// NOTE: CTR 分组并没有一个统一的规范，在一些实现里面，它们的 Counter 可能是 32-Bits 的。
+//       比如 IPSecs: 
+// 
+//       4.  Counter Block Format
+//       https://tools.ietf.org/html/rfc3686#section-4
 
 macro_rules! impl_block_cipher_with_ctr_mode {
     ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
-            counter_block: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
         }
 
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.cipher.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
+        }
+        
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
 
             
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
 
                 let cipher = $cipher::new(key);
 
-                // NOTE: CTR 分组并没有一个统一的规范，在一些实现里面，它们的 Counter 可能是 32-Bits 的。
-                //       比如 IPSecs: 
-                // 
-                //       4.  Counter Block Format
-                //       https://tools.ietf.org/html/rfc3686#section-4
-                let mut counter_block = [0u8; 16];
-                counter_block[0..16].copy_from_slice(&nonce[..16]);
-
-                Self { cipher, counter_block }
+                Self { cipher }
             }
 
             #[inline]
-            fn ctr(counter_block: &mut [u8; Self::BLOCK_LEN]) {
-                let counter = u64::from_be_bytes([
-                    counter_block[8], counter_block[9], counter_block[10], counter_block[11], 
+            fn ctr32(counter_block: &mut [u8; Self::BLOCK_LEN]) {
+                let counter = u32::from_be_bytes([
                     counter_block[12], counter_block[13], counter_block[14], counter_block[15], 
                 ]);
-                counter_block[8..16].copy_from_slice(&counter.wrapping_add(1).to_be_bytes());
+                counter_block[12..16].copy_from_slice(&counter.wrapping_add(1).to_be_bytes());
             }
 
-            pub fn encrypt_slice(&mut self, data: &mut [u8]) {
-                let mut counter_block = self.counter_block.clone();
-
-                for plaintext in data.chunks_mut(Self::BLOCK_LEN) {
+            /// Counter Block Format
+            /// 
+            /// IV (96-bits) || Counter (32-bits, big-endian)
+            pub fn encrypt_slice(&self, counter_block: &mut [u8; Self::BLOCK_LEN], plaintext_in_ciphertext_out: &mut [u8]) {
+                debug_assert_eq!(counter_block.len(), Self::BLOCK_LEN);
+                
+                for plaintext in plaintext_in_ciphertext_out.chunks_mut(Self::BLOCK_LEN) {
                     let mut output_block = counter_block.clone();
                     self.cipher.encrypt(&mut output_block);
 
                     for i in 0..plaintext.len() {
                         plaintext[i] ^= output_block[i];
                     }
-                    Self::ctr(&mut counter_block);
+                    Self::ctr32(counter_block);
                 }
             }
-
-            pub fn decrypt_slice(&mut self, data: &mut [u8]) {
-                let mut counter_block = self.counter_block.clone();
-
-                for ciphertext in data.chunks_mut(Self::BLOCK_LEN) {
+            
+            /// Counter Block Format
+            /// 
+            /// IV (96-bits) || Counter (32-bits, big-endian)
+            pub fn decrypt_slice(&self, counter_block: &mut [u8; Self::BLOCK_LEN], ciphertext_in_plaintext_out: &mut [u8]) {
+                debug_assert_eq!(counter_block.len(), Self::BLOCK_LEN);
+                
+                for ciphertext in ciphertext_in_plaintext_out.chunks_mut(Self::BLOCK_LEN) {
                     let mut output_block = counter_block.clone();
                     self.cipher.encrypt(&mut output_block);
 
                     for i in 0..ciphertext.len() {
                         ciphertext[i] ^= output_block[i];
                     }
-                    Self::ctr(&mut counter_block);
+                    Self::ctr32(counter_block);
                 }
             }
         }
@@ -99,13 +111,24 @@ fn test_aes128_ctr() {
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a").unwrap();
 
-    let mut cipher = Aes128Ctr::new(&key, &nonce);
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt_slice(&mut ciphertext);
 
-    let mut cipher = Aes128Ctr::new(&key, &nonce);
+    let mut counter_block = [0u8; Aes128Ctr::BLOCK_LEN];
+    counter_block.copy_from_slice(&nonce);
+
+    let cipher = Aes128Ctr::new(&key);
+    
+    cipher.encrypt_slice(&mut counter_block, &mut ciphertext);
+
+
     let mut cleartext = ciphertext.clone();
-    cipher.decrypt_slice(&mut cleartext);
+
+    let mut counter_block = [0u8; Aes128Ctr::BLOCK_LEN];
+    counter_block.copy_from_slice(&nonce);
+
+    let cipher = Aes128Ctr::new(&key);
+    
+    cipher.decrypt_slice(&mut counter_block, &mut cleartext);
 
     assert_eq!(&cleartext[..], &plaintext[..]);
 }
@@ -118,9 +141,6 @@ fn test_aes128_ctr_enc() {
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
     let nonce = hex::decode("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
-
-    let mut cipher = Aes128Ctr::new(&key, &nonce);
-
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a571e03ac9c9eb76fac45af8e51\
@@ -128,7 +148,13 @@ ae2d8a571e03ac9c9eb76fac45af8e51\
 f69f2445df4f9b17ad2b417be66c3710").unwrap();
 
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt_slice(&mut ciphertext);
+
+    let mut counter_block = [0u8; Aes128Ctr::BLOCK_LEN];
+    counter_block.copy_from_slice(&nonce);
+
+    let cipher = Aes128Ctr::new(&key);
+
+    cipher.encrypt_slice(&mut counter_block, &mut ciphertext);
 
     assert_eq!(&ciphertext[..], &hex::decode("\
 874d6191b620e3261bef6864990db6ce\
@@ -143,9 +169,6 @@ fn test_aes128_ctr_dec() {
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
     let nonce = hex::decode("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
-
-    let mut cipher = Aes128Ctr::new(&key, &nonce);
-
     let ciphertext = hex::decode("\
 874d6191b620e3261bef6864990db6ce\
 9806f66b7970fdff8617187bb9fffdff\
@@ -153,7 +176,12 @@ fn test_aes128_ctr_dec() {
 1e031dda2fbe03d1792170a0f3009cee").unwrap();
 
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt_slice(&mut plaintext);
+
+    let mut counter_block = [0u8; Aes128Ctr::BLOCK_LEN];
+    counter_block.copy_from_slice(&nonce);
+
+    let cipher = Aes128Ctr::new(&key);
+    cipher.decrypt_slice(&mut counter_block, &mut plaintext);
 
     assert_eq!(&plaintext[..], &hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\

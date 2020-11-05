@@ -12,7 +12,9 @@
 //     RC4 is a stream cipher.
 //     RC5 is a 32/64/128-bit block cipher developed in 1994.
 //     RC6, a 128-bit block cipher based heavily on RC5, was an AES finalist developed in 1997.
-// 
+use crate::mem::Zeroize;
+
+
 const PI_TABLE: [u8; 256] = [
     0xd9, 0x78, 0xf9, 0xc4, 0x19, 0xdd, 0xb5, 0xed, 
     0x28, 0xe9, 0xfd, 0x79, 0x4a, 0xa0, 0xd8, 0x9d, 
@@ -168,6 +170,24 @@ pub struct Rc2FixedSize {
     inner: Rc2,
 }
 
+impl Zeroize for Rc2FixedSize {
+    fn zeroize(&mut self) {
+        self.inner.zeroize();
+    }
+}
+
+impl Drop for Rc2FixedSize {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Rc2FixedSize {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Rc2FixedSize").finish()
+    }
+}
+
 impl Rc2FixedSize {
     pub const KEY_LEN: usize   = 16;
     pub const BLOCK_LEN: usize = 16;
@@ -193,15 +213,6 @@ impl Rc2FixedSize {
     }
 }
 
-impl core::fmt::Debug for Rc2FixedSize {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let ek = &self.inner.ek[..];
-        f.debug_struct("Rc2FixedSize")
-            .field("ek", &ek)
-            .finish()
-    }
-}
-
 
 // A Description of the RC2(r) Encryption Algorithm (RC2 (also known as ARC2))
 // https://tools.ietf.org/html/rfc2268
@@ -211,6 +222,24 @@ impl core::fmt::Debug for Rc2FixedSize {
 #[derive(Clone)]
 pub struct Rc2 {
     ek: [u16; 64],
+}
+
+impl Zeroize for Rc2 {
+    fn zeroize(&mut self) {
+        self.ek.zeroize();
+    }
+}
+
+impl Drop for Rc2 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl core::fmt::Debug for Rc2 {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Rc2").finish()
+    }
 }
 
 impl Rc2 {
@@ -300,15 +329,6 @@ impl Rc2 {
 
         self.decrypt(&mut blocks[0.. 8]);
         self.decrypt(&mut blocks[8..16]);
-    }
-}
-
-impl core::fmt::Debug for Rc2 {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let ek = &self.ek[..];
-        f.debug_struct("Rc2")
-            .field("ek", &ek)
-            .finish()
     }
 }
 

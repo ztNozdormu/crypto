@@ -12,6 +12,7 @@ use core::convert::TryFrom;
 //        K[i] := floor(232 × abs (sin(i + 1)))
 //    end for
 // precomputed table
+#[allow(dead_code)]
 const K64: [u32; 64] = [
     0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
     0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
@@ -52,6 +53,7 @@ const S42: u32 = 10;
 const S43: u32 = 15;
 const S44: u32 = 21;
 
+#[allow(dead_code)]
 const S64: [u32; 64] = [
     7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
     5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,

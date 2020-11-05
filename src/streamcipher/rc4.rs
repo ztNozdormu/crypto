@@ -2,6 +2,7 @@
 // http://cypherpunks.venona.com/archive/1994/09/msg00304.html
 // 
 // https://en.wikipedia.org/wiki/RC4
+use crate::mem::Zeroize;
 
 
 const INIT_STATE: [u8; 256] = [
@@ -32,14 +33,23 @@ pub struct Rc4 {
     state: [u8; 256],
 }
 
+impl Zeroize for Rc4 {
+    fn zeroize(&mut self) {
+        self.x.zeroize();
+        self.y.zeroize();
+        self.state.iter_mut().zeroize();
+    }
+}
+
+impl Drop for Rc4 {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
 impl core::fmt::Debug for Rc4 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let state = &self.state[..];
-        f.debug_struct("Rc4")
-            .field("x", &self.x)
-            .field("y", &self.y)
-            .field("state", &state)
-            .finish()
+        f.debug_struct("Rc4").finish()
     }
 }
 

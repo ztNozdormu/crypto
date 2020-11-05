@@ -1,6 +1,7 @@
+use crate::mem::Zeroize;
+
 #[cfg(target_arch = "aarch64")]
 use core::arch::aarch64::*;
-
 use core::mem::transmute;
 
 
@@ -35,10 +36,25 @@ unsafe fn _mm_clmulepi64_si128(a: uint8x16_t, b: uint8x16_t, imm8: u8) -> uint8x
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Polyval {
     key: uint8x16_t,
     h: uint8x16_t,
+}
+
+impl Zeroize for Polyval {
+    fn zeroize(&mut self) {
+        unsafe {
+            self.key = vdupq_n_u8(0);
+            self.h   = vdupq_n_u8(0);
+        }
+    }
+}
+
+impl Drop for Polyval {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 impl Polyval {

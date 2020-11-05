@@ -18,12 +18,12 @@ fn main() {
     let plaintext = [1u8; 64];
     let plen = plaintext.len();
 
-    let mut cipher = Chacha20Poly1305::new(&key, &nonce);
+    let cipher = Chacha20Poly1305::new(&key);
     
     let mut ciphertext_and_tag = plaintext.to_vec();
     ciphertext_and_tag.resize(plen + Chacha20Poly1305::TAG_LEN, 0);
 
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag[..]);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag[..]);
     
     println!("plaintext: {:?}", &plaintext[..]);
     println!("ciphertext: {:?}", &ciphertext_and_tag[..plen]);

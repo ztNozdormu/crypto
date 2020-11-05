@@ -32,9 +32,6 @@ mod chacha20;
 pub use self::rc4::*;
 pub use self::chacha20::*;
 
-// TODO: 
-//      实现 Salsa20 ？
-
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -88,73 +85,6 @@ pub enum StreamCipherKind {
     RC4,
     CHACHA20,
     ZUC,
-
-//     // AEAD
-// // 1            AEAD_AES_128_GCM            [RFC5116]
-// // 5            AEAD_AES_128_GCM_8          [RFC5282]
-// // 7            AEAD_AES_128_GCM_12         [RFC5282]
-// // 
-// // 2            AEAD_AES_256_GCM            [RFC5116]
-// // 6            AEAD_AES_256_GCM_8          [RFC5282]
-// // 8            AEAD_AES_256_GCM_12         [RFC5282]
-//     AES128_GCM,
-//     AES256_GCM,
-//     AES128_GCM_8,
-//     AES256_GCM_8,
-//     AES128_GCM_12,
-//     AES256_GCM_12,
-// // 3            AEAD_AES_128_CCM            [RFC5116]
-// // 9            AEAD_AES_128_CCM_SHORT      [RFC5282]
-// // 11           AEAD_AES_128_CCM_SHORT_8    [RFC5282]
-// // 13           AEAD_AES_128_CCM_SHORT_12   [RFC5282]
-// // 18           AEAD_AES_128_CCM_8          [RFC6655]
-// // 
-// // 4            AEAD_AES_256_CCM            [RFC5116]
-// // 10           AEAD_AES_256_CCM_SHORT      [RFC5282]
-// // 12           AEAD_AES_256_CCM_SHORT_8    [RFC5282]
-// // 14           AEAD_AES_256_CCM_SHORT_12   [RFC5282]
-// // 19           AEAD_AES_256_CCM_8          [RFC6655]
-//     AES128_CCM,
-//     AES256_CCM,
-//     AES128_CCM_8,
-//     AES256_CCM_8,
-//     AES128_CCM_SHORT,
-//     AES256_CCM_SHORT,
-//     AES128_CCM_SHORT_8,
-//     AES256_CCM_SHORT_8,
-//     AES128_CCM_SHORT_12,
-//     AES256_CCM_SHORT_12,
-// // 15           AEAD_AES_SIV_CMAC_256       [RFC5297]
-// // 16           AEAD_AES_SIV_CMAC_384       [RFC5297]
-// // 17           AEAD_AES_SIV_CMAC_512       [RFC5297]
-//     AES_SIV_CMAC_256,
-//     AES_SIV_CMAC_384,
-//     AES_SIV_CMAC_512,
-// // 30           AEAD_AES_128_GCM_SIV        [RFC8452]
-// // 31           AEAD_AES_256_GCM_SIV        [RFC8452]
-//     AES_128_GCM_SIV,
-//     AES_256_GCM_SIV,
-// // | AEAD_AES_128_OCB_TAGLEN128 |   AES-128   |  128   |
-// // | AEAD_AES_128_OCB_TAGLEN96  |   AES-128   |   96   |
-// // | AEAD_AES_128_OCB_TAGLEN64  |   AES-128   |   64   |
-// // | AEAD_AES_192_OCB_TAGLEN128 |   AES-192   |  128   |
-// // | AEAD_AES_192_OCB_TAGLEN96  |   AES-192   |   96   |
-// // | AEAD_AES_192_OCB_TAGLEN64  |   AES-192   |   64   |
-// // | AEAD_AES_256_OCB_TAGLEN128 |   AES-256   |  128   |
-// // | AEAD_AES_256_OCB_TAGLEN96  |   AES-256   |   96   |
-// // | AEAD_AES_256_OCB_TAGLEN64  |   AES-256   |   64   |
-//     AES128_OCB_TAGLEN_64,
-//     AES128_OCB_TAGLEN_96,
-//     AES128_OCB_TAGLEN_128,
-//     AES192_OCB_TAGLEN_64,
-//     AES192_OCB_TAGLEN_96,
-//     AES192_OCB_TAGLEN_128,
-//     AES256_OCB_TAGLEN_64,
-//     AES256_OCB_TAGLEN_96,
-//     AES256_OCB_TAGLEN_128,
-
-//     CHACHA20_POLY1305,          // AEAD_CHACHA20_POLY1305, IETF AEAD 版本
-//     CHACHA20_POLY1305_OPENSSH,  // TODO: 暂未实现
     
     Private(&'static str),
 }
@@ -309,14 +239,15 @@ fn bench_chacha20(b: &mut test::Bencher) {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4a, 
         0x00, 0x00, 0x00, 0x00
     ];
+
     let plaintext = [1u8; Chacha20::BLOCK_LEN];
     let mut plaintext_and_ciphertext = plaintext.clone();
     
-    let mut chacha20 = Chacha20::new(&key, &nonce);
+    let chacha20 = Chacha20::new(&key);
     
     b.bytes = Chacha20::BLOCK_LEN as u64;
     b.iter(|| {
-        chacha20.encrypt_slice(&mut plaintext_and_ciphertext);
+        chacha20.encrypt_slice(1, &nonce, &mut plaintext_and_ciphertext);
 
         plaintext_and_ciphertext
     })

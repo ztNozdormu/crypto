@@ -1,6 +1,7 @@
+use crate::mem::Zeroize;
+
 #[cfg(target_arch = "aarch64")]
 use core::arch::aarch64::*;
-
 use core::mem::transmute;
 
 
@@ -78,10 +79,25 @@ unsafe fn gf_mul(key: uint8x16_t, m: &[u8], tag: &mut uint8x16_t) {
     *tag = res;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct GHash {
     key: uint8x16_t,
     tag: uint8x16_t,
+}
+
+impl Zeroize for GHash {
+    fn zeroize(&mut self) {
+        unsafe {
+            self.key = vdupq_n_u8(0);
+            self.tag = vdupq_n_u8(0);
+        }
+    }
+}
+
+impl Drop for GHash {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 impl GHash {

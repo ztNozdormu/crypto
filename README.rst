@@ -4,18 +4,18 @@ Rust Crypto
 .. contents::
 
 
-🚧 代表有兴趣开发、✅ 代表已经实现、❌ 代表没有兴趣实现。
+🚧 Interested but not implemented yet ✅ Implemented ❌ Not Interested
 
-当前性能
----------------
+Benchmarks
+----------
 
-X86_64 架构
-~~~~~~~~~~~~~
-:硬件: MacBook Pro(Retina, 15-inch, Mid 2015)
-:处理器: 2.2 GHz 四核Intel Core i7
+X86_64
+~~~~~~
+:Hardware: MacBook Pro(Retina, 15-inch, Mid 2015)
+:CPU: 2.2 GHz Quad-Core Intel Core i7
 
 
-OpenSSL 性能::
+OpenSSL::
 
     sm4-ecb                  92 mb/s
     aria-128-ecb            127 mb/s
@@ -58,11 +58,11 @@ Rust Crypto::
 
 
 
-AArch64 架构
-~~~~~~~~~~~~~~
-:平台: 华为云 鲲鹏通用计算增强型 （kc1.small.1 | 1vCPUs | 1GB）
+AArch64
+~~~~~~~
+:Platform: Huawei Cloud - Kunpeng General Computing-plus KC1 ECS （kc1.small.1 | 1vCPUs | 1GB）
 :CPU: Huawei Kunpeng 920 2.6GHz
-:OS: Debian 10.2.0 64bit with ARM
+:OS: Debian 10.2.0 64bit for ARM
 
 
 OpenSSL::
@@ -84,7 +84,7 @@ OpenSSL::
 
 Rust Crypto::
 
-    test aeadcipher::bench_aes128_ccm_enc         ... bench:           0 ns/iter (+/- 0) = 16000 MB/s
+    test aeadcipher::bench_aes128_ccm_enc         ... bench:          25 ns/iter (+/- 0) = 640 MB/s
     test aeadcipher::bench_aes128_gcm_enc         ... bench:          27 ns/iter (+/- 0) = 592 MB/s
     test aeadcipher::bench_aes128_gcm_siv_enc     ... bench:          79 ns/iter (+/- 0) = 202 MB/s
     test aeadcipher::bench_aes128_ocb_tag_128_enc ... bench:          21 ns/iter (+/- 0) = 761 MB/s
@@ -113,8 +113,8 @@ Rust Crypto::
 
 
 
-硬件加速
--------------------------
+Hardware Acceleration
+---------------------
 X86/X86-64:
 
 *   ✅ AES
@@ -133,8 +133,8 @@ AArch64:
 *   ❌ SM3
 *   ❌ SM4
 
-摘要算法
---------------------------
+Digest Algorithms
+-----------------
 *   ✅ MD2
 *   ✅ MD4
 *   ✅ MD5
@@ -154,11 +154,11 @@ AArch64:
 *   ❌ Whirlpool
 *   🚧 GOST
 
-分组对称加密算法
---------------------------
+Symmetric Key Encryption (Block Alogrithms)
+-------------------------------------------
 *   ❌ DES
 *   ❌ 3DES
-*   ✅ RC2 (又称：ARC2)
+*   ✅ RC2 (or: ARC2)
 *   🚧 RC5
 *   ❌ RC6
 *   ✅ AES
@@ -170,23 +170,23 @@ AArch64:
 *   ❌ Twofish
 *   ❌ Threefish
 
-序列对称加密算法（流密码）
---------------------------
+Stream Cipher Alogrithms
+------------------------
 *   ✅ RC4
 *   ✅ Chacha20
-*   🚧 ZUC（祖冲之算法）
+*   🚧 ZUC (in Chinese: 祖冲之算法)
 
 
-公私钥非对称加密算法
---------------------------
+Asymmetric Cryptographic Algorithm
+----------------------------------
 *   ❌ RSA
 *   ❌ ED25519
 *   🚧 SM2 （基于椭圆曲线：签名算法、密钥交换算法、加密算法）
 *   🚧 SM9 （基于离散对数的机制：签名算法、密钥交换算法、加密算法）
 
-认证加密算法（AE）
---------------------------
-*   ✅ Chacha20Poly1305（IETF发布的版本）
+Authenticated Encryption (AE) Algorithms
+----------------------------------------
+*   ✅ Chacha20Poly1305 (RFC7539)
 *   🚧 Chacha20Poly1305OpenSSH
 *   ✅ AES-CCM
 *   ✅ AES-OCB
@@ -207,7 +207,7 @@ AArch64:
 *   ✅ SM4-GCM-SIV
 
 
-非认证加密算法
+Encryption Algorithms
 --------------------------
 *   ✅ AES-ECB
 *   ✅ AES-CBC
@@ -244,21 +244,20 @@ AArch64:
 *   ✅ SM4-CTR
 
 
-密钥派生函数（KDF）
---------------------------
+Key Derivation Function (KDF)
+-----------------------------
 *   ✅ HKDF
 *   🚧 Scrypt
 *   ❌ PBKDF2
 
-消息认证码（MAC）
---------------------------
+Message Authentication Code (MAC)
+---------------------------------
 *   ✅ HMAC
 *   ✅ Poly1305
 *   ✅ GMAC
 *   ✅ CBC-Mac
 *   ✅ CMac
 
-其它加密算法
---------------------------
+Others
+------
 *   🚧 bcrypt
-

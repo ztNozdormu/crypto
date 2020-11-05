@@ -11,22 +11,38 @@
 // Block Cipher Techniques
 // https://csrc.nist.gov/projects/block-cipher-techniques/bcm/modes-development
 use super::dbl;
+use crate::mem::Zeroize;
+use crate::mem::constant_time_eq;
 use crate::util::xor_si128_inplace;
 use crate::util::and_si128_inplace;
 use crate::blockcipher::{Aes128, Aes192, Aes256};
 
-use subtle;
 
 
 macro_rules! impl_block_cipher_with_siv_cmac_mode {
     ($name:tt, $cipher:tt) => {
 
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             cipher: $cipher,
             cmac_cipher: $cipher,
             cmac_k1: [u8; Self::BLOCK_LEN],
             cmac_k2: [u8; Self::BLOCK_LEN],
+        }
+
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.cipher.zeroize();
+                self.cmac_cipher.zeroize();
+                self.cmac_k1.zeroize();
+                self.cmac_k2.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {
@@ -296,7 +312,7 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                 for i in 0..n {
                     let chunk = &mut plaintext_and_ciphertext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
                     xor_si128_inplace(chunk, &keystream_block);
@@ -308,14 +324,14 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     let rem = &mut plaintext_and_ciphertext[n * Self::BLOCK_LEN..];
                     let rlen = rem.len();
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
-                    for i in 0..rem.len() {
+                    for i in 0..rlen {
                         rem[i] ^= keystream_block[i];
                     }
 
-                    counter = counter.wrapping_add(1);
+                    // counter = counter.wrapping_add(1);
                 }
                 
                 tag_out.copy_from_slice(&v[..Self::TAG_LEN]);
@@ -341,7 +357,7 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                 for i in 0..n {
                     let chunk = &mut ciphertext_and_plaintext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
                     xor_si128_inplace(chunk, &keystream_block);
@@ -353,21 +369,21 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     let rem = &mut ciphertext_and_plaintext[n * Self::BLOCK_LEN..];
                     let rlen = rem.len();
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
-                    for i in 0..rem.len() {
+                    for i in 0..rlen {
                         rem[i] ^= keystream_block[i];
                     }
 
-                    counter = counter.wrapping_add(1);
+                    // counter = counter.wrapping_add(1);
                 }
 
                 // T = S2V(K1, AD1, ..., ADn, P)
                 let tag = self.siv(components, &ciphertext_and_plaintext);
-
+                
                 // Verify
-                bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag[..]))
+                constant_time_eq(tag_in, &tag[..Self::TAG_LEN])
             }
         }
     }
@@ -440,7 +456,6 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
 2021222324252627").unwrap();
     let plaintext = hex::decode("112233445566778899aabbccddee").unwrap();
 
-    let plen      = plaintext.len();
     // NOTE: Layout = IV || C
     let mut ciphertext_and_tag = plaintext.clone();
     for _ in 0..AesSivCmac256::TAG_LEN {
@@ -467,7 +482,6 @@ deaddadadeaddadaffeeddccbbaa9988\
     let plaintext = hex::decode("7468697320697320736f6d6520706c61\
 696e7465787420746f20656e63727970\
 74207573696e67205349562d414553").unwrap();
-    let plen      = plaintext.len();
     // NOTE: Layout = IV || C
     let mut ciphertext_and_tag = plaintext.clone();
     for _ in 0..AesSivCmac256::TAG_LEN {

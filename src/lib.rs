@@ -1,19 +1,20 @@
 #![cfg_attr(test, feature(test))]
 #![feature(stdsimd, llvm_asm)]
-#![allow(unused_macros, unused_variables, dead_code, unused_assignments, unused_imports)]
+// #![allow(unused_macros, unused_variables, dead_code, unused_assignments, unused_imports)]
+#![allow(unused_macros, unused_assignments)]
 
 // #![no_std]
 
 #[cfg(test)]
 extern crate test;
 
-extern crate subtle;
-
 #[cfg(test)]
 extern crate hex;
 
 
 mod util;
+pub mod mem;
+
 // pub mod error;
 
 // cryptographic hash function (CHF)
@@ -31,6 +32,12 @@ pub mod blockcipher;
 pub mod streamcipher;
 pub mod aeadcipher;
 
+
+#[cfg(feature = "shadowsocks")]
+pub mod shadowsocks;
+
+#[cfg(feature = "openssh")]
+pub mod openssh;
 
 
 // Elliptic Curve Cryptography（ECC）

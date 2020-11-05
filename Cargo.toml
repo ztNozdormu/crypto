@@ -7,36 +7,34 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-subtle = { version = "2.3", default-features = false }
+
 
 [dev-dependencies]
 hex = "0.4"
 
 [features]
 default = [
-    "subtle/i128",
+    "std",
+    "openssh",
+    "shadowsocks",
 ]
 
-tls    = [ "tls1_1", "tls1_2", "tls1_3" ]
+std     = [ ]
+nightly = [ ]
 
 ssl    = [ ]
+tls    = [ "tls1_1", "tls1_2", "tls1_3" ]
 tls1_1 = [ ]
 tls1_2 = [ ]
 tls1_3 = [ ]
 
-shadowsocks = []
-
-std     = [
-    "subtle/std",
-]
-nightly = [
-    "subtle/nightly",
-]
+openssh     = [ ]
+shadowsocks = [ ]
 
 
 [package.metadata.docs.rs]
 all-features = true
-# rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 # https://doc.rust-lang.org/cargo/reference/profiles.html#release
 [profile.release]

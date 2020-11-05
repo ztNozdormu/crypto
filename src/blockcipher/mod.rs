@@ -3,6 +3,7 @@ mod rc2;
 mod sm4;
 mod aes;
 mod aria;
+#[allow(unused_macros, unused_variables, dead_code, unused_assignments, unused_imports)]
 mod camellia;
 
 pub use self::rc2::*;

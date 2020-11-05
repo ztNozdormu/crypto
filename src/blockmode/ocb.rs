@@ -4,10 +4,11 @@
 // OCB: A Block-Cipher Mode of Operation for Efficient Authenticated Encryption
 // https://csrc.nist.gov/CSRC/media/Projects/Block-Cipher-Techniques/documents/BCM/proposed-modes/ocb/ocb-spec.pdf
 use super::dbl;
+use crate::mem::Zeroize;
+use crate::mem::constant_time_eq;
 use crate::util::xor_si128_inplace;
 use crate::blockcipher::{Aes128, Aes192, Aes256};
 
-use subtle;
 
 
 const MASK_1: u8 = 0b1000_0000;
@@ -23,13 +24,25 @@ const MASK_8: u8 = 0b0000_0001;
 macro_rules! impl_block_cipher_with_ocb_mode {
     ($name:tt, $cipher:tt, $tlen:tt) => {
 
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
             cipher: $cipher,
-            offset_0: [u8; Self::BLOCK_LEN],
             table: [[u8; Self::BLOCK_LEN]; 32],
         }
         
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.cipher.zeroize();
+                self.table.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
+        }
+
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
@@ -45,11 +58,10 @@ macro_rules! impl_block_cipher_with_ocb_mode {
             const STRETCH_LEN: usize = Self::BLOCK_LEN + 8;
 
 
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
                 assert_eq!(Self::BLOCK_LEN, 16);
-                assert!(nonce.len() >= Self::N_MIN && nonce.len() <= Self::N_MAX);
-
+                
                 let cipher = $cipher::new(key);
 
                 // L_*, L_$, L_0, L_1, L_2, ..., L_29
@@ -63,8 +75,17 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                     table[i] = double;
                 }
 
+                Self {
+                    cipher,
+                    table,
+                }
+            }
+
+            #[inline]
+            fn calc_offset_0(&self, nonce: &[u8]) -> [u8; Self::BLOCK_LEN] {
+                assert!(nonce.len() >= Self::N_MIN && nonce.len() <= Self::N_MAX);
+
                 let nlen = nonce.len();
-                let nlen_bits = nlen * 8;
 
                 // Nonce = num2str(TAGLEN mod 128,7) || zeros(120-bitlen(N)) || 1 || N
                 let mut nonce_ = [0u8; Self::BLOCK_LEN];
@@ -78,7 +99,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 // Ktop = ENCIPHER(K, Nonce[1..122] || zeros(6))
                 let mut ktop = nonce_.clone();
                 ktop[15] &= 0b1100_0000;
-                cipher.encrypt(&mut ktop);
+                self.cipher.encrypt(&mut ktop);
 
                 // Stretch = Ktop || (Ktop[1..64] xor Ktop[9..72])
                 // ktop || ktop[0..8] || ktop[1..9]
@@ -121,11 +142,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                     offset_0[i] = byte;
                 }
 
-                Self {
-                    cipher,
-                    offset_0,
-                    table,
-                }
+                offset_0
             }
 
             // 4.1.  Processing Associated Data: HASH
@@ -187,26 +204,26 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 sum
             }
             
-            pub fn encrypt_slice(&self, aad: &[u8], aead_pkt: &mut [u8]) {
+            pub fn encrypt_slice(&self, nonce: &[u8], aad: &[u8], aead_pkt: &mut [u8]) {
                 debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
 
                 let plen = aead_pkt.len() - Self::TAG_LEN;
                 let (plaintext_and_ciphertext, tag_out) = aead_pkt.split_at_mut(plen);
 
-                self.encrypt_slice_detached(aad, plaintext_and_ciphertext, tag_out)
+                self.encrypt_slice_detached(nonce, aad, plaintext_and_ciphertext, tag_out)
             }
 
-            pub fn decrypt_slice(&self, aad: &[u8], aead_pkt: &mut [u8]) -> bool {
+            pub fn decrypt_slice(&self, nonce: &[u8], aad: &[u8], aead_pkt: &mut [u8]) -> bool {
                 debug_assert!(aead_pkt.len() >= Self::TAG_LEN);
 
                 let clen = aead_pkt.len() - Self::TAG_LEN;
                 let (ciphertext_and_plaintext, tag_in) = aead_pkt.split_at_mut(clen);
 
-                self.decrypt_slice_detached(aad, ciphertext_and_plaintext, &tag_in)
+                self.decrypt_slice_detached(nonce, aad, ciphertext_and_plaintext, &tag_in)
             }
 
 
-            pub fn encrypt_slice_detached(&self, aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
+            pub fn encrypt_slice_detached(&self, nonce: &[u8], aad: &[u8], plaintext_and_ciphertext: &mut [u8], tag_out: &mut [u8]) {
                 let alen = aad.len();
                 let plen = plaintext_and_ciphertext.len();
                 let tlen = tag_out.len();
@@ -215,8 +232,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 debug_assert!(plen <= Self::P_MAX);
                 debug_assert!(tlen == Self::TAG_LEN);
 
-                
-                let mut offset = self.offset_0.clone();
+                let mut offset = self.calc_offset_0(nonce);
                 let mut checksum = [0u8; Self::BLOCK_LEN];
 
                 let mut block_idx = 1usize;
@@ -284,7 +300,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 tag_out.copy_from_slice(&tag_block[..Self::TAG_LEN]);
             }
 
-            pub fn decrypt_slice_detached(&self, aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
+            pub fn decrypt_slice_detached(&self, nonce: &[u8], aad: &[u8], ciphertext_and_plaintext: &mut [u8], tag_in: &[u8]) -> bool {
                 let alen = aad.len();
                 let clen = ciphertext_and_plaintext.len();
                 let tlen = tag_in.len();
@@ -293,8 +309,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 debug_assert!(clen <= Self::P_MAX);
                 debug_assert!(tlen == Self::TAG_LEN);
 
-
-                let mut offset = self.offset_0.clone();
+                let mut offset = self.calc_offset_0(nonce);
                 let mut checksum = [0u8; Self::BLOCK_LEN];
 
                 let mut block_idx = 1usize;
@@ -352,7 +367,7 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 xor_si128_inplace(&mut tag_block, &aad_hash);
 
                 // Verify
-                bool::from(subtle::ConstantTimeEq::ct_eq(tag_in, &tag_block[..Self::TAG_LEN]))
+                constant_time_eq(tag_in, &tag_block[..Self::TAG_LEN])
             }
         }
     }
@@ -381,15 +396,14 @@ fn test_aes128_ocb_tag128_dec() {
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
+    let cipher = Aes128OcbTag128::new(&key);
 
     let mut ciphertext_and_tag = hex::decode("4412923493C57D5DE0D700F753CCE0D1D2D95060122E9F15\
 A5DDBFC5787E50B5CC55EE507BCB084E479AD363AC366B95\
 A98CA5F3000B1479").unwrap();
-    let ret = cipher.decrypt_slice(&aad, &mut ciphertext_and_tag);
+    let ret = cipher.decrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(ret, true);
     assert_eq!(&ciphertext_and_tag[..plen], &plaintext);
 }
@@ -404,11 +418,10 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("785407BFFFC8AD9EDCC5520AC9111EE6").unwrap()[..]);
 
 
@@ -416,11 +429,10 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("0001020304050607").unwrap();
     let plaintext = hex::decode("0001020304050607").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("6820B3657B6F615A5725BDA0D3B4EB3A257C9AF1F8F03009").unwrap()[..]);
 
 
@@ -428,11 +440,10 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("0001020304050607").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("81017F8203F081277152FADE694A0A00").unwrap()[..]);
 
 
@@ -440,11 +451,10 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("0001020304050607").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("45DD69F8F5AAE72414054CD1F35D82760B2CD00D2F99BFA9").unwrap()[..]);
 
 
@@ -452,11 +462,10 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("571D535B60B277188BE5147170A9A22C3AD7A4FF3835B8C5\
 701C1CCEC8FC3358").unwrap()[..]);
 
@@ -465,11 +474,10 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("8CF761B6902EF764462AD86498CA6B97").unwrap()[..]);
 
 
@@ -477,11 +485,10 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("5CE88EC2E0692706A915C00AEB8B2396F40E1C743F52436B\
 DF06D8FA1ECA343D").unwrap()[..]);
 
@@ -490,11 +497,10 @@ DF06D8FA1ECA343D").unwrap()[..]);
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("1CA2207308C87C010756104D8840CE1952F09673A448A122\
 C92C62241051F57356D7F3C90BB0E07F").unwrap()[..]);
     
@@ -502,11 +508,10 @@ C92C62241051F57356D7F3C90BB0E07F").unwrap()[..]);
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("6DC225A071FC1B9F7C69F93B0F1E10DE").unwrap()[..]);
 
 
@@ -514,11 +519,10 @@ C92C62241051F57356D7F3C90BB0E07F").unwrap()[..]);
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("221BD0DE7FA6FE993ECCD769460A0AF2D6CDED0C395B1C3C\
 E725F32494B9F914D85C0B1EB38357FF").unwrap()[..]);
 
@@ -529,11 +533,10 @@ E725F32494B9F914D85C0B1EB38357FF").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("BD6F6C496201C69296C11EFD138A467ABD3C707924B964DE\
 AFFC40319AF5A48540FBBA186C5553C68AD9F592A79A4240").unwrap()[..]);
 
@@ -543,11 +546,10 @@ AFFC40319AF5A48540FBBA186C5553C68AD9F592A79A4240").unwrap()[..]);
 18191A1B1C1D1E1F").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("FE80690BEE8A485D11F32965BC9D2A32").unwrap()[..]);
     
 
@@ -556,11 +558,10 @@ AFFC40319AF5A48540FBBA186C5553C68AD9F592A79A4240").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("2942BFC773BDA23CABC6ACFD9BFD5835BD300F0973792EF4\
 6040C53F1432BCDFB5E1DDE3BC18A5F840B52E653444D5DF").unwrap()[..]);
 
@@ -571,11 +572,10 @@ AFFC40319AF5A48540FBBA186C5553C68AD9F592A79A4240").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("D5CA91748410C1751FF8A2F618255B68A0A12E093FF45460\
 6E59F9C1D0DDC54B65E8628E568BAD7AED07BA06A4A69483\
 A7035490C5769E60").unwrap()[..]);
@@ -586,11 +586,10 @@ A7035490C5769E60").unwrap()[..]);
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("C5CD9D1850C141E358649994EE701B68").unwrap()[..]);
 
     
@@ -599,11 +598,10 @@ A7035490C5769E60").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
-    let cipher = Aes128OcbTag128::new(&key, &nonce);
-    cipher.encrypt_slice(&aad, &mut ciphertext_and_tag);
+    let cipher = Aes128OcbTag128::new(&key);
+    cipher.encrypt_slice(&nonce, &aad, &mut ciphertext_and_tag);
     assert_eq!(&ciphertext_and_tag[..], &hex::decode("4412923493C57D5DE0D700F753CCE0D1D2D95060122E9F15\
 A5DDBFC5787E50B5CC55EE507BCB084E479AD363AC366B95\
 A98CA5F3000B1479").unwrap()[..]);

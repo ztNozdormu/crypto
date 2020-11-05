@@ -12,6 +12,7 @@
 //      ECB 和 CBC 分组模式都无法处理不定长的输入数据，
 //      需要自己手动为不定长数据按照块密码算法的块大小做对齐工作。
 // 
+use crate::mem::Zeroize;
 use crate::blockcipher::{
     Rc2FixedSize, Sm4,
     Aes128, Aes192, Aes256,
@@ -22,36 +23,45 @@ use crate::blockcipher::{
 
 macro_rules! impl_block_cipher_with_cbc_mode {
     ($name:tt, $cipher:tt) => {
-        #[derive(Debug, Clone)]
+        #[derive(Clone)]
         pub struct $name {
-            iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
+        }
+        
+        impl Zeroize for $name {
+            fn zeroize(&mut self) {
+                self.cipher.zeroize();
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                self.zeroize();
+            }
         }
 
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            pub const IV_LEN: usize    = $cipher::BLOCK_LEN;
             
 
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
-
+                
                 let cipher = $cipher::new(key);
-                let mut iv = [0u8; Self::BLOCK_LEN];
-                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
 
-                Self { cipher, iv }
+                Self { cipher }
             }
             
             /// the plaintext must be a sequence of one or more complete data blocks.
             /// the total number of bits in the plaintext must be a positive multiple 
             /// of the block (or segment) size.
-            pub fn encrypt(&mut self, blocks: &mut [u8]) {
+            pub fn encrypt(&mut self, iv: &[u8; Self::IV_LEN], blocks: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
 
-                let mut last_block = self.iv.clone();
+                let mut last_block = iv.clone();
                 for plaintext in blocks.chunks_mut(Self::BLOCK_LEN) {
                     debug_assert_eq!(plaintext.len(), Self::BLOCK_LEN);
 
@@ -70,10 +80,11 @@ macro_rules! impl_block_cipher_with_cbc_mode {
             /// the plaintext must be a sequence of one or more complete data blocks.
             /// the total number of bits in the plaintext must be a positive multiple 
             /// of the block (or segment) size.
-            pub fn decrypt(&mut self, blocks: &mut [u8]) {
+            pub fn decrypt(&mut self, iv: &[u8; Self::IV_LEN], blocks: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 assert_eq!(blocks.len() % Self::BLOCK_LEN, 0);
 
-                let mut last_block = self.iv.clone();
+                let mut last_block = iv.clone();
                 for ciphertext in blocks.chunks_mut(Self::BLOCK_LEN) {
                     debug_assert_eq!(ciphertext.len(), Self::BLOCK_LEN);
 
@@ -113,14 +124,16 @@ impl_block_cipher_with_cbc_mode!(Camellia256Cbc, Camellia256);
 #[bench]
 fn bench_aes128_cbc_enc(b: &mut test::Bencher) {
     let key = hex::decode("00000000000000000000000000000000").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-    
-    let mut cipher = Aes128Cbc::new(&key, &nonce);
+    let ivec = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cbc::IV_LEN];
+    iv.copy_from_slice(&ivec);
+
+    let mut cipher = Aes128Cbc::new(&key);
     
     b.bytes = Aes128Cbc::BLOCK_LEN as u64;
     b.iter(|| {
         let mut ciphertext = test::black_box([1u8; Aes128Cbc::BLOCK_LEN]);
-        cipher.encrypt(&mut ciphertext);
+        cipher.encrypt(&iv, &mut ciphertext);
         ciphertext
     })
 }
@@ -130,9 +143,11 @@ fn test_aes128_cbc_enc() {
     // F.2.1  CBC-AES128.Encrypt, (Page-34)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cbc::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cbc::new(&key, &nonce);
+    let mut cipher = Aes128Cbc::new(&key);
 
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
@@ -141,7 +156,7 @@ ae2d8a571e03ac9c9eb76fac45af8e51\
 f69f2445df4f9b17ad2b417be66c3710").unwrap();
 
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt(&iv, &mut ciphertext);
 
     assert_eq!(&ciphertext[..], &hex::decode("\
 7649abac8119b246cee98e9b12e9197d\
@@ -155,9 +170,11 @@ fn test_aes128_cbc_dec() {
     // F.2.2  CBC-AES128.Decrypt, (Page-34)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cbc::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cbc::new(&key, &nonce);
+    let mut cipher = Aes128Cbc::new(&key);
 
     let ciphertext = hex::decode("\
 7649abac8119b246cee98e9b12e9197d\
@@ -166,7 +183,7 @@ fn test_aes128_cbc_dec() {
 3ff1caa1681fac09120eca307586e1a7").unwrap();
 
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt(&mut plaintext);
+    cipher.decrypt(&iv, &mut plaintext);
 
     assert_eq!(&plaintext[..], &hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
