@@ -304,7 +304,6 @@ fn test_aes128_gcm_siv() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -317,7 +316,6 @@ fn test_aes128_gcm_siv() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("0100000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -330,7 +328,6 @@ fn test_aes128_gcm_siv() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("010000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -344,7 +341,6 @@ fn test_aes128_gcm_siv() {
     let plaintext = hex::decode("01000000000000000000000000000000\
 02000000000000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -360,7 +356,6 @@ fe427d6315c09b57ce45f2e3936a9445\
 02000000000000000000000000000000\
 03000000000000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -378,7 +373,6 @@ f42bf7226122fa92e17a40eeaac1201b\
 03000000000000000000000000000000\
 04000000000000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -394,7 +388,6 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let aad       = hex::decode("01").unwrap();
     let plaintext = hex::decode("0200000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -407,7 +400,6 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let aad       = hex::decode("01").unwrap();
     let plaintext = hex::decode("020000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -420,7 +412,6 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let aad       = hex::decode("01").unwrap();
     let plaintext = hex::decode("02000000000000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -435,7 +426,6 @@ e475127cfca7028ea8ab5c20f7ab2af0\
     let plaintext = hex::decode("02000000000000000000000000000000\
 03000000000000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -451,7 +441,6 @@ e6af6a7f87287da059a71684ed3498e1").unwrap()[..]);
 03000000000000000000000000000000\
 04000000000000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -469,7 +458,6 @@ e6af6a7f87287da059a71684ed3498e1").unwrap()[..]);
 04000000000000000000000000000000\
 05000000000000000000000000000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -486,7 +474,6 @@ cdc46ae475563de037001ef84ae21744").unwrap()[..]);
     let aad       = hex::decode("010000000000000000000000").unwrap();
     let plaintext = hex::decode("02000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -501,7 +488,6 @@ e2f48a14").unwrap()[..]);
     let plaintext = hex::decode("03000000000000000000000000000000\
 04000000").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -517,7 +503,6 @@ fe106514").unwrap()[..]);
     let plaintext = hex::decode("03000000000000000000000000000000\
 0400").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -532,7 +517,6 @@ b9fd").unwrap()[..]);
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -544,7 +528,6 @@ b9fd").unwrap()[..]);
     let aad       = hex::decode("46bb91c3c5").unwrap();
     let plaintext = hex::decode("7a806c").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -558,7 +541,6 @@ a428a8").unwrap()[..]);
     let aad       = hex::decode("fc880c94a95198874296").unwrap();
     let plaintext = hex::decode("bdc66f146545").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -571,7 +553,6 @@ a428a8").unwrap()[..]);
     let aad       = hex::decode("046787f3ea22c127aaf195d1894728").unwrap();
     let plaintext = hex::decode("1177441f195495860f").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -585,7 +566,6 @@ a428a8").unwrap()[..]);
 97e74e93").unwrap();
     let plaintext = hex::decode("9f572c614b4745914474e7c7").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -599,7 +579,6 @@ a428a8").unwrap()[..]);
 2b0da55210cc1c1b0a").unwrap();
     let plaintext = hex::decode("0d8c8451178082355c9e940fea2f58").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -614,7 +593,6 @@ baa9c9596291b08466f37de21c7f").unwrap();
     let plaintext = hex::decode("6b3db4da3d57aa94842b9803a96e07fb\
 6de7").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);
@@ -631,7 +609,6 @@ db84").unwrap()[..]);
     let plaintext = hex::decode("e42a3c02c25b64869e146d7b233987bd\
 dfc240871d").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128GcmSiv::TAG_LEN, 0);
     let cipher = Aes128GcmSiv::new(&key);

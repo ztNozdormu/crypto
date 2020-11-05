@@ -1,6 +1,5 @@
 use crate::blockcipher::BlockCipher;
 use crate::streamcipher::StreamCipher;
-use crate::aeadcipher::AeadCipher;
 
 
 pub fn encrypt_block<C: BlockCipher>(key: &[u8], plaintext_in_and_ciphertext_out: &mut [u8]) {

@@ -290,7 +290,7 @@ fn test_aes128_gcm() {
     let key = hex::decode("00000000000000000000000000000000").unwrap();
     let iv = hex::decode("000000000000000000000000").unwrap();
     let aad = [0u8; 0];
-    let plaintext = [0u8; 0];
+    // let plaintext = [0u8; 0];
     let mut ciphertext_and_tag = [0u8; 0 + Aes128Gcm::TAG_LEN];
 
     let cipher = Aes128Gcm::new(&key);
@@ -304,7 +304,6 @@ fn test_aes128_gcm() {
     let aad = [0u8; 0];
     let plaintext = hex::decode("00000000000000000000000000000000").unwrap();
     let plen = plaintext.len();
-    let alen = aad.len();
     let mut plaintext_and_ciphertext = plaintext.clone();
     plaintext_and_ciphertext.resize(plen + Aes128Gcm::TAG_LEN, 0);
 
@@ -324,7 +323,6 @@ fn test_aes128_gcm() {
 1c3c0c95956809532fcf0e2449a6b525\
 b16aedf5aa0de657ba637b391aafd255").unwrap();
     let plen = plaintext.len();
-    let alen = aad.len();
     let mut plaintext_and_ciphertext = plaintext.clone();
     plaintext_and_ciphertext.resize(plen + Aes128Gcm::TAG_LEN, 0);
 
@@ -347,7 +345,6 @@ abaddad2").unwrap();
 1c3c0c95956809532fcf0e2449a6b525\
 b16aedf5aa0de657ba637b39").unwrap();
     let plen = plaintext.len();
-    let alen = aad.len();
     let mut plaintext_and_ciphertext = plaintext.clone();
     plaintext_and_ciphertext.resize(plen + Aes128Gcm::TAG_LEN, 0);
 

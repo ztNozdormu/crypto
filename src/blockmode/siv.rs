@@ -312,7 +312,7 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                 for i in 0..n {
                     let chunk = &mut plaintext_and_ciphertext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
                     xor_si128_inplace(chunk, &keystream_block);
@@ -324,14 +324,14 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     let rem = &mut plaintext_and_ciphertext[n * Self::BLOCK_LEN..];
                     let rlen = rem.len();
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
-                    for i in 0..rem.len() {
+                    for i in 0..rlen {
                         rem[i] ^= keystream_block[i];
                     }
 
-                    counter = counter.wrapping_add(1);
+                    // counter = counter.wrapping_add(1);
                 }
                 
                 tag_out.copy_from_slice(&v[..Self::TAG_LEN]);
@@ -357,7 +357,7 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                 for i in 0..n {
                     let chunk = &mut ciphertext_and_plaintext[i * Self::BLOCK_LEN..i * Self::BLOCK_LEN + Self::BLOCK_LEN];
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
                     xor_si128_inplace(chunk, &keystream_block);
@@ -369,14 +369,14 @@ macro_rules! impl_block_cipher_with_siv_cmac_mode {
                     let rem = &mut ciphertext_and_plaintext[n * Self::BLOCK_LEN..];
                     let rlen = rem.len();
 
-                    let mut keystream_block = counter.clone().to_be_bytes();
+                    let mut keystream_block = counter.to_be_bytes();
                     self.cipher.encrypt(&mut keystream_block);
 
-                    for i in 0..rem.len() {
+                    for i in 0..rlen {
                         rem[i] ^= keystream_block[i];
                     }
 
-                    counter = counter.wrapping_add(1);
+                    // counter = counter.wrapping_add(1);
                 }
 
                 // T = S2V(K1, AD1, ..., ADn, P)
@@ -456,7 +456,6 @@ f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff").unwrap();
 2021222324252627").unwrap();
     let plaintext = hex::decode("112233445566778899aabbccddee").unwrap();
 
-    let plen      = plaintext.len();
     // NOTE: Layout = IV || C
     let mut ciphertext_and_tag = plaintext.clone();
     for _ in 0..AesSivCmac256::TAG_LEN {
@@ -483,7 +482,6 @@ deaddadadeaddadaffeeddccbbaa9988\
     let plaintext = hex::decode("7468697320697320736f6d6520706c61\
 696e7465787420746f20656e63727970\
 74207573696e67205349562d414553").unwrap();
-    let plen      = plaintext.len();
     // NOTE: Layout = IV || C
     let mut ciphertext_and_tag = plaintext.clone();
     for _ in 0..AesSivCmac256::TAG_LEN {

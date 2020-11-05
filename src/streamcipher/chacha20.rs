@@ -9,6 +9,8 @@ use crate::mem::Zeroize;
 // c=constant k=key b=blockcount n=nonce
 
 /// ChaCha20 for IETF Protocols
+/// 
+/// https://tools.ietf.org/html/rfc8439
 #[derive(Clone)]
 pub struct Chacha20 {
     // constants | key | counter | nonce

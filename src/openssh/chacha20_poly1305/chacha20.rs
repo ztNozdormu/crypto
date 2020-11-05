@@ -136,9 +136,7 @@ impl Chacha20 {
         let counter = block_counter.to_le_bytes();
         self.state[12] = u32::from_le_bytes([counter[ 0], counter[ 1], counter[ 2], counter[ 3]]);
         self.state[13] = u32::from_le_bytes([counter[ 4], counter[ 5], counter[ 6], counter[ 7]]);
-
-        let plen = data.len();
-
+        
         let mut chunks = data.chunks_exact_mut(Self::BLOCK_LEN);
         for chunk in &mut chunks {
             let mut state = self.state.clone();

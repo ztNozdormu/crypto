@@ -56,7 +56,6 @@ impl TableCipher {
         // DK
         let mut dbox = [0u8; Self::TABLE_SIZE];
         for i in 0..Self::TABLE_SIZE {
-            let item = table[i] as usize;
             dbox[table[i] as usize] = i as u8;
         }
 

@@ -86,7 +86,6 @@ macro_rules! impl_block_cipher_with_ocb_mode {
                 assert!(nonce.len() >= Self::N_MIN && nonce.len() <= Self::N_MAX);
 
                 let nlen = nonce.len();
-                let nlen_bits = nlen * 8;
 
                 // Nonce = num2str(TAGLEN mod 128,7) || zeros(120-bitlen(N)) || 1 || N
                 let mut nonce_ = [0u8; Self::BLOCK_LEN];
@@ -397,7 +396,6 @@ fn test_aes128_ocb_tag128_dec() {
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -420,7 +418,6 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -432,7 +429,6 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("0001020304050607").unwrap();
     let plaintext = hex::decode("0001020304050607").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -444,7 +440,6 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("0001020304050607").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -456,7 +451,6 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("0001020304050607").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -468,7 +462,6 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -481,7 +474,6 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -493,7 +485,6 @@ fn test_aes128_ocb_tag128_enc() {
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -506,7 +497,6 @@ DF06D8FA1ECA343D").unwrap()[..]);
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -518,7 +508,6 @@ C92C62241051F57356D7F3C90BB0E07F").unwrap()[..]);
     let aad       = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -530,7 +519,6 @@ C92C62241051F57356D7F3C90BB0E07F").unwrap()[..]);
     let aad       = hex::decode("").unwrap();
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -545,7 +533,6 @@ E725F32494B9F914D85C0B1EB38357FF").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -559,7 +546,6 @@ AFFC40319AF5A48540FBBA186C5553C68AD9F592A79A4240").unwrap()[..]);
 18191A1B1C1D1E1F").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -572,7 +558,6 @@ AFFC40319AF5A48540FBBA186C5553C68AD9F592A79A4240").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -587,7 +572,6 @@ AFFC40319AF5A48540FBBA186C5553C68AD9F592A79A4240").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -602,7 +586,6 @@ A7035490C5769E60").unwrap()[..]);
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plaintext = hex::decode("").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);
@@ -615,7 +598,6 @@ A7035490C5769E60").unwrap()[..]);
     let plaintext = hex::decode("000102030405060708090A0B0C0D0E0F1011121314151617\
 18191A1B1C1D1E1F2021222324252627").unwrap();
     let plen      = plaintext.len();
-    let alen      = aad.len();
     let mut ciphertext_and_tag = plaintext.clone();
     ciphertext_and_tag.resize(plen + Aes128OcbTag128::TAG_LEN, 0);
     let cipher = Aes128OcbTag128::new(&key);

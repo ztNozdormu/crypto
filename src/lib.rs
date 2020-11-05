@@ -1,6 +1,7 @@
 #![cfg_attr(test, feature(test))]
 #![feature(stdsimd, llvm_asm)]
-#![allow(unused_macros, unused_variables, dead_code, unused_assignments, unused_imports)]
+// #![allow(unused_macros, unused_variables, dead_code, unused_assignments, unused_imports)]
+#![allow(unused_macros, unused_assignments)]
 
 // #![no_std]
 

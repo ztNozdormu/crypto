@@ -79,13 +79,11 @@ macro_rules! impl_block_cipher_with_cfb64_mode {
     ($name:tt, $cipher:tt) => {
         #[derive(Clone)]
         pub struct $name {
-            iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
         }
 
         impl Zeroize for $name {
             fn zeroize(&mut self) {
-                self.iv.zeroize();
                 self.cipher.zeroize();
             }
         }
@@ -99,31 +97,29 @@ macro_rules! impl_block_cipher_with_cfb64_mode {
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            pub const IV_LEN: usize    = $cipher::BLOCK_LEN;
             pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
             pub const S: usize = 64;                  // The number of bits in a data segment.
             const SEGMENTS_LEN: usize = Self::S / 8; // 8 bytes
 
 
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
                 assert!(Self::S <= Self::B);
 
                 let cipher = $cipher::new(key);
-                let mut iv = [0u8; Self::BLOCK_LEN];
-                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
                 
-                Self { cipher, iv }
+                Self { cipher }
             }
             
-            pub fn encrypt(&mut self, segments: &mut [u8]) {
+            pub fn encrypt(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 assert_eq!(segments.len() * 8 % Self::S, 0);
                 if segments.len() < Self::SEGMENTS_LEN {
                     return ();
                 }
 
-                let mut last_input_block = self.iv.clone();
+                let mut last_input_block = iv.clone();
                 let mut last_segment = [0u8; Self::SEGMENTS_LEN]; // 8 Bytes
 
                 // First segment data
@@ -150,13 +146,14 @@ macro_rules! impl_block_cipher_with_cfb64_mode {
                 }
             }
 
-            pub fn decrypt(&mut self, segments: &mut [u8]) {
+            pub fn decrypt(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 assert_eq!(segments.len() * 8 % Self::S, 0);
                 if segments.len() < Self::SEGMENTS_LEN {
                     return ();
                 }
 
-                let mut last_input_block = self.iv.clone();
+                let mut last_input_block = iv.clone();
                 let mut last_segment = [0u8; Self::S / 8];
 
                 // First segment data
@@ -190,13 +187,11 @@ macro_rules! impl_block_cipher_with_cfb1_mode {
     ($name:tt, $cipher:tt) => {
         #[derive(Clone)]
         pub struct $name {
-            iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
         }
 
         impl Zeroize for $name {
             fn zeroize(&mut self) {
-                self.iv.zeroize();
                 self.cipher.zeroize();
             }
         }
@@ -210,30 +205,28 @@ macro_rules! impl_block_cipher_with_cfb1_mode {
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            pub const IV_LEN: usize    = $cipher::BLOCK_LEN;
             pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
             pub const S: usize = 1;                   // The number of bits in a data segment.
 
 
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
                 assert!(Self::S <= Self::B);
                 assert!(Self::BLOCK_LEN <= 16);
 
                 let cipher = $cipher::new(key);
-                let mut iv = [0u8; Self::BLOCK_LEN];
-                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
                 
-                Self { cipher, iv }
+                Self { cipher }
             }
 
-            pub fn encrypt_slice(&mut self, segments: &mut [u8]) {
+            pub fn encrypt_slice(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 if segments.is_empty() {
                     return ();
                 }
 
-                let mut last_input_block = self.iv.clone();
+                let mut last_input_block = iv.clone();
                 let mut last_segment = false;
                 
                 // First 8 data segment ( 1 byte )
@@ -278,12 +271,13 @@ macro_rules! impl_block_cipher_with_cfb1_mode {
                 }
             }
 
-            pub fn decrypt_slice(&mut self, segments: &mut [u8]) {
+            pub fn decrypt_slice(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 if segments.is_empty() {
                     return ();
                 }
 
-                let mut last_input_block = self.iv.clone();
+                let mut last_input_block = iv.clone();
                 let mut last_segment = false;
                 
                 // First 8 data segment ( 1 byte )
@@ -336,13 +330,11 @@ macro_rules! impl_block_cipher_with_cfb8_mode {
     ($name:tt, $cipher:tt) => {
         #[derive(Clone)]
         pub struct $name {
-            iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
         }
 
         impl Zeroize for $name {
             fn zeroize(&mut self) {
-                self.iv.zeroize();
                 self.cipher.zeroize();
             }
         }
@@ -356,29 +348,27 @@ macro_rules! impl_block_cipher_with_cfb8_mode {
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            pub const IV_LEN: usize    = $cipher::BLOCK_LEN;
             pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
             pub const S: usize = 8;                   // The number of bits in a data segment.
             
 
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
                 assert!(Self::S <= Self::B);
 
                 let cipher = $cipher::new(key);
-                let mut iv = [0u8; Self::BLOCK_LEN];
-                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
-                
-                Self { cipher, iv }
+
+                Self { cipher }
             }
             
-            pub fn encrypt_slice(&mut self, segments: &mut [u8]) {
+            pub fn encrypt_slice(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 if segments.is_empty() {
                     return ();
                 }
 
-                let mut last_input_block = self.iv.clone();
+                let mut last_input_block = iv.clone();
                 let mut last_segment = 0u8;
 
                 // First data segment
@@ -404,12 +394,13 @@ macro_rules! impl_block_cipher_with_cfb8_mode {
                 }
             }
 
-            pub fn decrypt_slice(&mut self, segments: &mut [u8]) {
+            pub fn decrypt_slice(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
                 if segments.is_empty() {
                     return ();
                 }
 
-                let mut last_input_block = self.iv.clone();
+                let mut last_input_block = iv.clone();
                 let mut last_segment = 0u8;
 
                 // First data segment
@@ -442,13 +433,11 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
     ($name:tt, $cipher:tt) => {
         #[derive(Clone)]
         pub struct $name {
-            iv: [u8; Self::BLOCK_LEN],
             cipher: $cipher,
         }
 
         impl Zeroize for $name {
             fn zeroize(&mut self) {
-                self.iv.zeroize();
                 self.cipher.zeroize();
             }
         }
@@ -462,25 +451,24 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
         impl $name {
             pub const KEY_LEN: usize   = $cipher::KEY_LEN;
             pub const BLOCK_LEN: usize = $cipher::BLOCK_LEN;
-            pub const NONCE_LEN: usize = $cipher::BLOCK_LEN;
+            pub const IV_LEN: usize    = $cipher::BLOCK_LEN;
             pub const B: usize = Self::BLOCK_LEN * 8; // The block size, in bits.
             pub const S: usize = 128;                 // The number of bits in a data segment.
 
 
-            pub fn new(key: &[u8], nonce: &[u8]) -> Self {
+            pub fn new(key: &[u8]) -> Self {
                 assert_eq!(key.len(), Self::KEY_LEN);
-                assert_eq!(nonce.len(), Self::NONCE_LEN);
                 assert!(Self::S <= Self::B);
 
                 let cipher = $cipher::new(key);
-                let mut iv = [0u8; Self::BLOCK_LEN];
-                iv[..Self::BLOCK_LEN].copy_from_slice(nonce);
                 
-                Self { cipher, iv }
+                Self { cipher }
             }
             
-            pub fn encrypt_slice(&mut self, segments: &mut [u8]) {
-                let mut last_input_block = self.iv.clone();
+            pub fn encrypt_slice(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
+
+                let mut last_input_block = iv.clone();
 
                 for segment in segments.chunks_mut(Self::BLOCK_LEN) {
                     let mut output_block = last_input_block.clone();
@@ -493,8 +481,10 @@ macro_rules! impl_block_cipher_with_cfb128_mode {
                 }
             }
 
-            pub fn decrypt_slice(&mut self, segments: &mut [u8]) {
-                let mut last_input_block = self.iv.clone();
+            pub fn decrypt_slice(&self, iv: &[u8; Self::IV_LEN], segments: &mut [u8]) {
+                debug_assert_eq!(iv.len(), Self::IV_LEN);
+
+                let mut last_input_block = iv.clone();
 
                 for segment in segments.chunks_mut(Self::BLOCK_LEN) {
                     let mut output_block = last_input_block.clone();
@@ -562,15 +552,17 @@ impl_block_cipher_with_cfb1_mode!(Aria256Cfb128, Aria256);
 #[cfg(test)]
 #[bench]
 fn bench_aes128_cfb128_enc(b: &mut test::Bencher) {
-    let key = hex::decode("00000000000000000000000000000000").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-    
-    let mut cipher = Aes128Cfb128::new(&key, &nonce);
+    let key  = hex::decode("00000000000000000000000000000000").unwrap();
+    let ivec = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cfb128::IV_LEN];
+    iv.copy_from_slice(&ivec);
+
+    let cipher = Aes128Cfb128::new(&key);
     
     b.bytes = Aes128Cfb128::BLOCK_LEN as u64;
     b.iter(|| {
         let mut ciphertext = test::black_box([0u8; Aes128Cfb128::BLOCK_LEN]);
-        cipher.encrypt_slice(&mut ciphertext);
+        cipher.encrypt_slice(&iv, &mut ciphertext);
         ciphertext
     })
 }
@@ -578,18 +570,20 @@ fn bench_aes128_cfb128_enc(b: &mut test::Bencher) {
 #[test]
 fn test_aes128_cfb8() {
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a").unwrap();
+    let mut iv = [0u8; Aes128Cfb8::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb8::new(&key, &nonce);
+    let cipher = Aes128Cfb8::new(&key);
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt_slice(&mut ciphertext);
+    cipher.encrypt_slice(&iv, &mut ciphertext);
 
-    let mut cipher = Aes128Cfb8::new(&key, &nonce);
+    let cipher = Aes128Cfb8::new(&key);
     let mut cleartext = ciphertext.clone();
-    cipher.decrypt_slice(&mut cleartext);
+    cipher.decrypt_slice(&iv, &mut cleartext);
 
     assert_eq!(&cleartext[..], &plaintext[..]);
 }
@@ -597,18 +591,20 @@ ae2d8a").unwrap();
 #[test]
 fn test_aes128_cfb64() {
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a8aae2d8a8a").unwrap();
+    let mut iv = [0u8; Aes128Cfb64::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb64::new(&key, &nonce);
+    let cipher = Aes128Cfb64::new(&key);
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt(&mut ciphertext);
+    cipher.encrypt(&iv, &mut ciphertext);
 
-    let mut cipher = Aes128Cfb64::new(&key, &nonce);
+    let cipher = Aes128Cfb64::new(&key);
     let mut cleartext = ciphertext.clone();
-    cipher.decrypt(&mut cleartext);
+    cipher.decrypt(&iv, &mut cleartext);
 
     assert_eq!(&cleartext[..], &plaintext[..]);
 }
@@ -618,14 +614,16 @@ fn test_aes128_cfb1_enc() {
     // F.3.1  CFB1-AES128.Encrypt, (Page-36)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cfb1::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb1::new(&key, &nonce);
+    let cipher = Aes128Cfb1::new(&key);
 // 0110_1011_1100_0001
 // 0110_1000_1011_0011
     let plaintext = [0x6b, 0xc1];
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt_slice(&mut ciphertext);
+    cipher.encrypt_slice(&iv, &mut ciphertext);
     assert_eq!(&ciphertext[..], &[ 0x68, 0xb3 ]);
 }
 
@@ -634,13 +632,15 @@ fn test_aes128_cfb1_dec() {
     // F.3.2  CFB1-AES128.Decrypt, (Page-37)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cfb1::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb1::new(&key, &nonce);
+    let cipher = Aes128Cfb1::new(&key);
 
     let ciphertext = [0x68, 0xb3];
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt_slice(&mut plaintext);
+    cipher.decrypt_slice(&iv, &mut plaintext);
     assert_eq!(&plaintext[..], &[ 0x6b, 0xc1 ]);
 }
 
@@ -649,13 +649,15 @@ fn test_aes128_cfb8_enc() {
     // F.3.7  CFB8-AES128.Encrypt, (Page-46)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cfb8::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb8::new(&key, &nonce);
+    let cipher = Aes128Cfb8::new(&key);
 
     let plaintext = [0x6b, 0xc1, 0xbe, 0xe2, 0x2e];
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt_slice(&mut ciphertext);
+    cipher.encrypt_slice(&iv, &mut ciphertext);
     assert_eq!(&ciphertext[..], &[
         0x3b, 0x79, 0x42, 0x4c, 0x9c,
     ]);
@@ -666,13 +668,15 @@ fn test_aes128_cfb8_dec() {
     // F.3.7  CFB8-AES128.Decrypt, (Page-48)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cfb8::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb8::new(&key, &nonce);
+    let cipher = Aes128Cfb8::new(&key);
 
     let ciphertext = [0x3b, 0x79, 0x42, 0x4c, 0x9c];
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt_slice(&mut plaintext);
+    cipher.decrypt_slice(&iv, &mut plaintext);
     assert_eq!(&plaintext[..], &[
         0x6b, 0xc1, 0xbe, 0xe2, 0x2e
     ]);
@@ -683,9 +687,11 @@ fn test_aes128_cfb128_enc() {
     // F.3.13  CFB128-AES128.Encrypt, (Page-57)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cfb128::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb128::new(&key, &nonce);
+    let cipher = Aes128Cfb128::new(&key);
 
     let plaintext = hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
@@ -695,7 +701,7 @@ f69f24\
 ").unwrap();
 
     let mut ciphertext = plaintext.clone();
-    cipher.encrypt_slice(&mut ciphertext);
+    cipher.encrypt_slice(&iv, &mut ciphertext);
     assert_eq!(&ciphertext[..], &hex::decode("\
 3b3fd92eb72dad20333449f8e83cfb4a\
 c8a64537a0b3a93fcde3cdad9f1ce58b\
@@ -709,9 +715,11 @@ fn test_aes128_cfb128_dec() {
     // F.3.14  CFB128-AES128.Decrypt, (Page-57)
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf
     let key   = hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
-    let nonce = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let ivec  = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
+    let mut iv = [0u8; Aes128Cfb128::IV_LEN];
+    iv.copy_from_slice(&ivec);
 
-    let mut cipher = Aes128Cfb128::new(&key, &nonce);
+    let cipher = Aes128Cfb128::new(&key);
 
     let ciphertext = hex::decode("\
 3b3fd92eb72dad20333449f8e83cfb4a\
@@ -721,7 +729,7 @@ c04b05\
 ").unwrap();
 
     let mut plaintext = ciphertext.clone();
-    cipher.decrypt_slice(&mut plaintext);
+    cipher.decrypt_slice(&iv, &mut plaintext);
     assert_eq!(&plaintext[..], &hex::decode("\
 6bc1bee22e409f96e93d7e117393172a\
 ae2d8a571e03ac9c9eb76fac45af8e51\
