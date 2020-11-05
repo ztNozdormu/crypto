@@ -1,32 +1,18 @@
 use crate::mem::Zeroize;
+use crate::util::xor_si128_inplace;
 
-
-//    cccccccc  cccccccc  cccccccc  cccccccc
-//    kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
-//    kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
-//    bbbbbbbb  nnnnnnnn  nnnnnnnn  nnnnnnnn
-// 
-// c=constant k=key b=blockcount n=nonce
 
 /// ChaCha20 for IETF Protocols
 /// 
 /// https://tools.ietf.org/html/rfc8439
 #[derive(Clone)]
 pub struct Chacha20 {
-    // constants | key | counter | nonce
     initial_state: [u32; 16],
-    state: [u32; 16],
-    keystream: [u8; Self::BLOCK_LEN],
-    // keystream bytes used
-    offset: usize,
 }
 
 impl Zeroize for Chacha20 {
     fn zeroize(&mut self) {
         self.initial_state.zeroize();
-        self.state.zeroize();
-        self.keystream.zeroize();
-        self.offset.zeroize();
     }
 }
 
@@ -43,93 +29,115 @@ impl core::fmt::Debug for Chacha20 {
 }
 
 impl Chacha20 {
-    pub const KEY_LEN: usize   = 32;
-    pub const BLOCK_LEN: usize = 64;
-    pub const NONCE_LEN: usize = 12;
+    pub const KEY_LEN: usize     = 32;
+    pub const BLOCK_LEN: usize   = 64;
+    pub const NONCE_LEN: usize   = 12;
+    pub const COUNTER_LEN: usize = 4;
+
+    const STATE_LEN: usize = 16; // len in doubleword (32-bits)
+
+    // NOTE: 16 bytes 长度的 Key 并没有被标准采纳。
+    // 
+    // sigma constant b"expand 16-byte k" in little-endian encoding
+    // const K16: [u32; 4] = [0x61707865, 0x3120646e, 0x79622d36, 0x6b206574];
+
+    // sigma constant b"expand 32-byte k" in little-endian encoding
+    const K32: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
     
-    const INITIAL_STATE: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574]; // b"expand 32-byte k";
-
-    pub fn new(key: &[u8], nonce: &[u8]) -> Self {
-        // o  A 256-bit key
-        // o  A 32-bit initial counter.
-        // o  A 96-bit nonce. 
-        // o  An arbitrary-length plaintext
+    
+    pub fn new(key: &[u8]) -> Self {
         assert_eq!(key.len(), Self::KEY_LEN);
-        assert_eq!(nonce.len(), Self::NONCE_LEN);
 
-        let mut state = [0u32; 16];
+        let mut initial_state = [0u32; Self::STATE_LEN];
 
         // The ChaCha20 state is initialized as follows:
-        state[0] = Self::INITIAL_STATE[0];
-        state[1] = Self::INITIAL_STATE[1];
-        state[2] = Self::INITIAL_STATE[2];
-        state[3] = Self::INITIAL_STATE[3];
-        
+        initial_state[0] = Self::K32[0];
+        initial_state[1] = Self::K32[1];
+        initial_state[2] = Self::K32[2];
+        initial_state[3] = Self::K32[3];
+
         // A 256-bit key (32 Bytes)
-        state[ 4] = u32::from_le_bytes([key[ 0], key[ 1], key[ 2], key[ 3]]);
-        state[ 5] = u32::from_le_bytes([key[ 4], key[ 5], key[ 6], key[ 7]]);
-        state[ 6] = u32::from_le_bytes([key[ 8], key[ 9], key[10], key[11]]);
-        state[ 7] = u32::from_le_bytes([key[12], key[13], key[14], key[15]]);
-        state[ 8] = u32::from_le_bytes([key[16], key[17], key[18], key[19]]);
-        state[ 9] = u32::from_le_bytes([key[20], key[21], key[22], key[23]]);
-        state[10] = u32::from_le_bytes([key[24], key[25], key[26], key[27]]);
-        state[11] = u32::from_le_bytes([key[28], key[29], key[30], key[31]]);
+        initial_state[ 4] = u32::from_le_bytes([key[ 0], key[ 1], key[ 2], key[ 3]]);
+        initial_state[ 5] = u32::from_le_bytes([key[ 4], key[ 5], key[ 6], key[ 7]]);
+        initial_state[ 6] = u32::from_le_bytes([key[ 8], key[ 9], key[10], key[11]]);
+        initial_state[ 7] = u32::from_le_bytes([key[12], key[13], key[14], key[15]]);
+        initial_state[ 8] = u32::from_le_bytes([key[16], key[17], key[18], key[19]]);
+        initial_state[ 9] = u32::from_le_bytes([key[20], key[21], key[22], key[23]]);
+        initial_state[10] = u32::from_le_bytes([key[24], key[25], key[26], key[27]]);
+        initial_state[11] = u32::from_le_bytes([key[28], key[29], key[30], key[31]]);
 
-        // Block counter (32 bits)
-        state[12] = 0;
-
-        // A 96-bit nonce. (12 Bytes)
-        state[13] = u32::from_le_bytes([nonce[ 0], nonce[ 1], nonce[ 2], nonce[ 3]]);
-        state[14] = u32::from_le_bytes([nonce[ 4], nonce[ 5], nonce[ 6], nonce[ 7]]);
-        state[15] = u32::from_le_bytes([nonce[ 8], nonce[ 9], nonce[10], nonce[11]]);
-
-        let mut keystream = [0u8; Self::BLOCK_LEN];
-        state_to_keystream(&state, &mut keystream);
-
-        Self { state, initial_state: state, keystream, offset: 0usize }
+        Self { initial_state }
     }
 
     #[inline]
-    fn incr(&mut self) {
-        let mut state = self.initial_state.clone();
-        
+    fn ctr32(initial_state: &mut [u32; Self::STATE_LEN]) {
+        // Update Block Counter
+        initial_state[12] = initial_state[12].wrapping_add(1);
+    }
+
+    #[inline]
+    fn core(&self, initial_state: &mut [u32; Self::STATE_LEN], state: &mut [u32; Self::STATE_LEN]) {
         // 20 rounds (diagonal rounds)
-        diagonal_rounds(&mut state);
-        
+        diagonal_rounds(state);
+
         for i in 0..16 {
-            state[i] = state[i].wrapping_add(self.initial_state[i]);
-        }
-
-        // Block counter
-        self.initial_state[12] = self.initial_state[12].wrapping_add(1);
-
-        self.state = state;
-        state_to_keystream(&self.state, &mut self.keystream);
-        self.offset = 0;
-    }
-
-    pub fn encrypt_slice(&mut self, plaintext_and_ciphertext: &mut [u8]) {
-        let plen = plaintext_and_ciphertext.len();
-        for i in 0..plen {
-            if self.offset == Self::BLOCK_LEN {
-                self.incr();
-            }
-
-            plaintext_and_ciphertext[i] ^= self.keystream[self.offset];
-            self.offset += 1;
+            state[i] = state[i].wrapping_add(initial_state[i]);
         }
     }
 
-    pub fn decrypt_slice(&mut self, ciphertext_and_plaintext: &mut [u8]) {
-        let clen = ciphertext_and_plaintext.len();
-        for i in 0..clen {
-            if self.offset == Self::BLOCK_LEN {
-                self.incr();
+    #[inline]
+    fn in_place(&self, init_block_counter: u32, nonce: &[u8; Self::NONCE_LEN], plaintext_or_ciphertext: &mut [u8]) {
+        debug_assert_eq!(nonce.len(), Self::NONCE_LEN);
+
+        let mut initial_state = self.initial_state.clone();
+
+        // Counter (32-bits, little-endian)
+        initial_state[12] = init_block_counter;
+        // Nonce (96-bits, little-endian)
+        initial_state[13] = u32::from_le_bytes([nonce[ 0], nonce[ 1], nonce[ 2], nonce[ 3]]);
+        initial_state[14] = u32::from_le_bytes([nonce[ 4], nonce[ 5], nonce[ 6], nonce[ 7]]);
+        initial_state[15] = u32::from_le_bytes([nonce[ 8], nonce[ 9], nonce[10], nonce[11]]);
+
+        let mut chunks = plaintext_or_ciphertext.chunks_exact_mut(Self::BLOCK_LEN);
+        for plaintext in &mut chunks {
+            let mut state = initial_state.clone();
+            self.core(&mut initial_state, &mut state);
+
+            let mut keystream = [0u8; Self::BLOCK_LEN];
+            state_to_keystream(&state, &mut keystream);
+            
+            xor_si128_inplace(plaintext, &keystream);
+            
+            Self::ctr32(&mut initial_state);
+        }
+
+        let rem = chunks.into_remainder();
+        let rlen = rem.len();
+
+        if rlen > 0 {
+            // Last Block
+            let mut state = initial_state.clone();
+            self.core(&mut initial_state, &mut state);
+
+            let mut keystream = [0u8; Self::BLOCK_LEN];
+            state_to_keystream(&state, &mut keystream);
+
+            for i in 0..rlen {
+                rem[i] ^= keystream[i];
             }
 
-            ciphertext_and_plaintext[i] ^= self.keystream[self.offset];
-            self.offset += 1;
+            Self::ctr32(&mut initial_state);
         }
+    }
+
+    /// Nonce (96-bits, little-endian)
+    pub fn encrypt_slice(&self, init_block_counter: u32, nonce: &[u8; Self::NONCE_LEN], plaintext_in_ciphertext_out: &mut [u8]) {
+        self.in_place(init_block_counter, nonce, plaintext_in_ciphertext_out)
+    }
+
+    /// Nonce (96-bits, little-endian)
+    pub fn decrypt_slice(&self, init_block_counter: u32, nonce: &[u8; Self::NONCE_LEN], ciphertext_in_plaintext_and: &mut [u8]) {
+        self.in_place(init_block_counter, nonce, ciphertext_in_plaintext_and)
     }
 }
 
@@ -161,7 +169,7 @@ fn quarter_round(state: &mut [u32], ai: usize, bi: usize, ci: usize, di: usize) 
 }
 
 #[inline]
-fn diagonal_rounds(state: &mut [u32]) {
+fn diagonal_rounds(state: &mut [u32; Chacha20::STATE_LEN]) {
     for _ in 0..10 {
         // column rounds
         quarter_round(state, 0, 4,  8, 12);
@@ -176,7 +184,7 @@ fn diagonal_rounds(state: &mut [u32]) {
 }
 
 #[inline]
-fn state_to_keystream(state: &[u32; 16], keystream: &mut [u8; Chacha20::BLOCK_LEN]) {
+fn state_to_keystream(state: &[u32; Chacha20::STATE_LEN], keystream: &mut [u8; Chacha20::BLOCK_LEN]) {
     keystream[ 0.. 4].copy_from_slice(&state[0].to_le_bytes());
     keystream[ 4.. 8].copy_from_slice(&state[1].to_le_bytes());
     keystream[ 8..12].copy_from_slice(&state[2].to_le_bytes());
@@ -221,15 +229,11 @@ fn test_chacha20_cipher() {
     ];
     let plaintext: &[u8] = b"Ladies and Gentlemen of the class of '99: \
 If I could offer you only one tip for the future, sunscreen would be it.";
-    
-    // encrypt
-    let mut chacha20 = Chacha20::new(&key, &nonce);
+    let mut ciphertext = plaintext.to_vec();
 
-    let mut zero_block = [0u8; Chacha20::BLOCK_LEN];
-    chacha20.encrypt_slice(&mut zero_block); // Block Index: 1
-    chacha20.encrypt_slice(&mut zero_block); // Block Index: 2
-    
-    let expected_ciphertext: [u8; 114] = [
+    let chacha20 = Chacha20::new(&key);
+    chacha20.encrypt_slice(1, &nonce, &mut ciphertext);
+    assert_eq!(&ciphertext[..], &[
         0x6e, 0x2e, 0x35, 0x9a, 0x25, 0x68, 0xf9, 0x80, 
         0x41, 0xba, 0x07, 0x28, 0xdd, 0x0d, 0x69, 0x81,
         0xe9, 0x7e, 0x7a, 0xec, 0x1d, 0x43, 0x60, 0xc2, 
@@ -245,8 +249,5 @@ If I could offer you only one tip for the future, sunscreen would be it.";
         0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6, 
         0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42,
         0x87, 0x4d,
-    ];
-    let mut ciphertext = plaintext.to_vec();
-    chacha20.encrypt_slice(&mut ciphertext);
-    assert_eq!(&ciphertext[..], &expected_ciphertext[..]);
+    ]);
 }

@@ -54,7 +54,7 @@ pub use crate::blockmode::{
     
     Aria128Ccm, Aria256Ccm, 
     Aria128Gcm, Aria256Gcm, 
-    Aria128GcmSiv, Aria256GcmSiv
+    Aria128GcmSiv, Aria256GcmSiv, 
 };
 
 
@@ -278,7 +278,7 @@ macro_rules! impl_aead_cipher_with_siv_cmac {
 // impl_aead_cipher!(Aes256OcbTag128, AEAD_AES_256_OCB_TAGLEN128);
 
 // Chacha20Poly1305
-impl_aead_cipher!(Chacha20Poly1305,  AEAD_CHACHA20_POLY1305);
+// impl_aead_cipher!(Chacha20Poly1305,  AEAD_CHACHA20_POLY1305);
 
 
 #[cfg(test)]
@@ -288,7 +288,7 @@ fn bench_chacha20_poly1305_enc(b: &mut test::Bencher) {
     let nonce = [2u8; Chacha20Poly1305::NONCE_LEN];
     let aad   = [0u8; 0];
     
-    let mut cipher = Chacha20Poly1305::new(&key, &nonce);
+    let cipher = Chacha20Poly1305::new(&key);
 
     b.bytes = Chacha20Poly1305::BLOCK_LEN as u64;
     b.iter(|| {
@@ -302,7 +302,7 @@ fn bench_chacha20_poly1305_enc(b: &mut test::Bencher) {
             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 
             0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
         ]);
-        cipher.encrypt_slice(&aad, &mut ciphertext);
+        cipher.encrypt_slice(&nonce, &aad, &mut ciphertext);
         ciphertext
     })
 }

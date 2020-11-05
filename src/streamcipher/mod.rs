@@ -32,9 +32,6 @@ mod chacha20;
 pub use self::rc4::*;
 pub use self::chacha20::*;
 
-// TODO: 
-//      实现 Salsa20 ？
-
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -242,14 +239,15 @@ fn bench_chacha20(b: &mut test::Bencher) {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4a, 
         0x00, 0x00, 0x00, 0x00
     ];
+
     let plaintext = [1u8; Chacha20::BLOCK_LEN];
     let mut plaintext_and_ciphertext = plaintext.clone();
     
-    let mut chacha20 = Chacha20::new(&key, &nonce);
+    let chacha20 = Chacha20::new(&key);
     
     b.bytes = Chacha20::BLOCK_LEN as u64;
     b.iter(|| {
-        chacha20.encrypt_slice(&mut plaintext_and_ciphertext);
+        chacha20.encrypt_slice(1, &nonce, &mut plaintext_and_ciphertext);
 
         plaintext_and_ciphertext
     })
